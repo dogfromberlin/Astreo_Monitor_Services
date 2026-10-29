@@ -16,8 +16,10 @@
                  │   astreo-speedtest    ogni 4 ore (:05)            │
                  │   astreo-publicip     ogni 15 min                 │
                  │   astreo-maintenance  ogni notte alle 03:40       │
+                 │   astreo-backup       ogni notte alle 02:30       │
                  │        │                                          │
-                 │        └──▶ SMTP (Gmail) solo a cambio di stato   │
+                 │        ├──▶ SMTP (Gmail) solo a cambio di stato   │
+                 │        └──▶ GitHub Releases (backup database)     │
                  └───────────────────────────────────────────────────┘
 ```
 

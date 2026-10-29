@@ -13,7 +13,7 @@ Il browser chiede le credenziali una volta e le riusa per le chiamate della pagi
 
 | Area | Contenuto | Aggiornamento |
 |---|---|---|
-| Testata | Hostname, uptime, IP pubblico, ultimo speedtest, LED dei servizi | 10 s / 5 min |
+| Testata | Hostname, uptime, IP pubblico, ultimo speedtest, ultimo backup, LED dei servizi | 10 s / 5 min |
 | Indicatori | CPU, memoria, disco `/`, temperatura massima, colorati per soglia | 10 s (temperatura 60 s) |
 | Servizi | Stato di ogni servizio; clic per l'output di `systemctl status` | 60 s o pulsante *Aggiorna* |
 | Processi | I 15 processi con più CPU | 10 s |
@@ -40,7 +40,7 @@ codice 400 (parametri), 401 (credenziali), 404, 500 o 503 (database non raggiung
 | `GET /api/v1/history/metrics` | Storico CPU (media e picco), load, RAM, disco |
 | `GET /api/v1/history/temperatures` | Storico temperature per sensore |
 | `GET /api/v1/history/speedtest` | Risultati speedtest |
-| `GET /api/v1/network` | Ultimo speedtest, IP pubblico, variazioni IP, soglie |
+| `GET /api/v1/network` | Ultimo speedtest, IP pubblico, variazioni IP, soglie, ultimo backup |
 
 Parametri di periodo per `/history/*`: `range=24h|7d|30d|90d|365d` (default 24h)
 oppure `from=AAAA-MM-GGTHH:MM&to=AAAA-MM-GGTHH:MM`. Periodo massimo 400 giorni.

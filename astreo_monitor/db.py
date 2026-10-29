@@ -40,7 +40,8 @@ def as_datetime(value: Any) -> dt.datetime | None:
 
 
 @contextmanager
-def connect(cfg: DatabaseConfig) -> Iterator[pymssql.Connection]:
+def connect(cfg: DatabaseConfig, autocommit: bool = False, timeout: int | None = None) -> Iterator[pymssql.Connection]:
+    """autocommit=True serve per i comandi che non possono stare in una transazione (BACKUP)."""
     conn = pymssql.connect(
         server=cfg.host,
         port=str(cfg.port),
@@ -48,14 +49,16 @@ def connect(cfg: DatabaseConfig) -> Iterator[pymssql.Connection]:
         password=cfg.password,
         database=cfg.database,
         login_timeout=cfg.login_timeout,
-        timeout=cfg.timeout,
+        timeout=timeout or cfg.timeout,
         as_dict=True,
+        autocommit=autocommit,
         tds_version="7.3",
         appname="astreo-monitor",
     )
     try:
         yield conn
-        conn.commit()
+        if not autocommit:
+            conn.commit()
     except Exception:
         try:
             conn.rollback()
@@ -81,6 +84,39 @@ def execute(conn, sql: str, params: tuple = ()) -> int:
     with conn.cursor() as cur:
         cur.execute(sql, params)
         return cur.rowcount
+
+
+class SqlCommandError(Exception):
+    """Errore di un comando SQL con tutti i messaggi restituiti dal server."""
+
+
+def run_command(conn, sql: str, params: tuple = ()) -> None:
+    """Esegue un comando consumando tutti i result set (BACKUP/RESTORE ne producono più d'uno).
+
+    In caso di errore riporta TUTTI i messaggi di SQL Server: per BACKUP/RESTORE
+    l'ultimo (3013 "terminating abnormally") non spiega la causa, che sta nei precedenti.
+    """
+    messages: list[tuple[int, str]] = []
+    raw = getattr(conn, "_conn", None)
+
+    def handler(state, severity, server, proc, line, text):
+        if isinstance(text, bytes):
+            text = text.decode("utf-8", errors="replace")
+        messages.append((severity, str(text).strip()))
+
+    if raw is not None:
+        raw.set_msghandler(handler)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            while cur.nextset():
+                pass
+    except pymssql.Error as exc:
+        errors = [text for severity, text in messages if severity > 10]
+        raise SqlCommandError(" | ".join(errors) if errors else str(exc)) from exc
+    finally:
+        if raw is not None:
+            raw.set_msghandler(None)
 
 
 def execute_many(conn, sql: str, rows: list[tuple]) -> None:

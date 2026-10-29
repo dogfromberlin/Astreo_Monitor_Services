@@ -4,7 +4,7 @@ Tutte le email passano da `astreo_monitor/notifier.py`, configurato in `[email]`
 
 ## Regola: solo al cambio di stato
 
-Ogni controllo (speedtest, temperatura, disco) ha uno stato salvato in
+Ogni controllo (speedtest, temperatura, disco, backup) ha uno stato salvato in
 `monitor_state` (chiave `alert:<nome>`). Si invia un'email quando:
 
 1. lo stato cambia (es. OK → WARNING, ALERT → OK);
@@ -20,6 +20,7 @@ L'IP pubblico invia un'email a ogni variazione verificata.
 | Temperatura | `Temperatura: WARNING/ALERT`, `Allarme temperatura rientrato` | `[metrics] notify` |
 | Disco | `Disco: WARNING/ALERT`, `Allarme disco rientrato` | `[metrics] notify` |
 | IP pubblico | `IP pubblico cambiato in x.x.x.x` | `[publicip] notify` |
+| Backup database | `Backup database FALLITO`, `Backup database tornato OK` | `[backup] notify` |
 | Prova | `Email di prova` | comando manuale |
 
 `[email] enabled = false` blocca tutto. Con `notify = false` gli stati vengono

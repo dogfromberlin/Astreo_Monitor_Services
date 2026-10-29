@@ -105,6 +105,20 @@ class RetentionConfig:
 
 
 @dataclass
+class BackupConfig:
+    databases: list[str]
+    sql_dir: str          # cartella vista da SQL Server, dove scrive il .bak
+    local_dir: str        # copie compresse conservate su astreo
+    local_keep: int
+    github_repo: str      # owner/nome; vuoto = nessun upload
+    github_keep: int
+    zstd_level: int
+    timeout: int
+    notify: bool
+    reminder_hours: float
+
+
+@dataclass
 class Config:
     path: str
     database: DatabaseConfig
@@ -114,6 +128,7 @@ class Config:
     speedtest: SpeedtestConfig
     publicip: PublicIpConfig
     retention: RetentionConfig
+    backup: BackupConfig | None = None
 
 
 def load(path: str | None = None) -> Config:
@@ -211,10 +226,25 @@ def load(path: str | None = None) -> Config:
             speedtest_days=r.getint("speedtest_days", 0),
             publicip_days=r.getint("publicip_days", 0),
         )
+        backup = None
+        if cp.has_section("backup"):
+            b = cp["backup"]
+            backup = BackupConfig(
+                databases=_list(b.get("databases", "astreo_monitor")),
+                sql_dir=b.get("sql_dir", "/srv/sqlbackup"),
+                local_dir=b.get("local_dir", "/home/<utente>/backups/sql"),
+                local_keep=b.getint("local_keep", 7),
+                github_repo=b.get("github_repo", "").strip(),
+                github_keep=b.getint("github_keep", 30),
+                zstd_level=b.getint("zstd_level", 19),
+                timeout=b.getint("timeout", 900),
+                notify=b.getboolean("notify", True),
+                reminder_hours=b.getfloat("reminder_hours", 24),
+            )
     except (ValueError, KeyError) as exc:
         raise ConfigError(f"Valore non valido in {path}: {exc}") from exc
 
     if email.security not in ("ssl", "starttls", "none"):
         raise ConfigError("[email] security deve essere ssl, starttls oppure none")
 
-    return Config(path, database, email, web, metrics, speedtest, publicip, retention)
+    return Config(path, database, email, web, metrics, speedtest, publicip, retention, backup)

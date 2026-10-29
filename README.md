@@ -1,7 +1,7 @@
 # Astreo Monitor
 
 Monitoraggio del server **astreo**: dashboard web, API REST e job periodici che
-salvano su SQL Server metriche di sistema, temperature, speedtest e IP pubblico,
+salvano su SQL Server metriche di sistema, temperature, speedtest IP pubblico e backup notturno dei database,
 con notifiche email solo al cambio di stato.
 
 Versione 2.0: riscrittura completa della 1.x (`pws/`), vedi
@@ -18,6 +18,7 @@ Versione 2.0: riscrittura completa della 1.x (`pws/`), vedi
 | IP pubblico | Controllo ogni 15 minuti, storico e avviso al cambio | [ip-pubblico.md](docs/ip-pubblico.md) |
 | Notifiche | Email a cambio di stato con promemoria | [notifiche.md](docs/notifiche.md) |
 | Database | Schema, script SQL, retention | [database.md](docs/database.md) |
+| Backup database | Backup notturno verificato, compresso e copiato su GitHub, ripristino | [backup-database.md](docs/backup-database.md) |
 
 Altri documenti:
 [installazione e migrazione dalla 1.x](docs/installazione-e-migrazione.md),
@@ -30,7 +31,7 @@ Altri documenti:
 astreo_monitor/
   config.py, db.py, notifier.py, logging_setup.py   moduli comuni
   collectors/   lettura dati locali (psutil, lm-sensors, systemctl)
-  jobs/         job periodici (metrics, speedtest, public_ip, maintenance, test_email)
+  jobs/         job periodici (metrics, speedtest, public_ip, maintenance, db_backup, test_email)
   web/          Flask + waitress: dashboard e /api/v1
 sql/            script di installazione, switch, pulizia, backup
 deploy/systemd/ unit .service e .timer
@@ -49,4 +50,4 @@ export ASTREO_MONITOR_CONFIG=/etc/astreo-monitor/config.ini
 .venv/bin/python -m astreo_monitor.web --port 5026
 ```
 
-Requisiti: Python 3.12, SQL Server raggiungibile, `lm-sensors` per le temperature.
+Requisiti: Python 3.12, SQL Server raggiungibile, `lm-sensors` per le temperature, `zstd` e la CLI `gh` autenticata per i backup.

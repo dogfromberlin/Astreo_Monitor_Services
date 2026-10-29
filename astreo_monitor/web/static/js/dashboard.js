@@ -142,6 +142,15 @@
         $("#speed-latest").textContent = `↓ ${fmtNum(st.download_mbps, 0)}  ↑ ${fmtNum(st.upload_mbps, 0)} Mbps`;
         $("#speed-latest-when").textContent = `${st.status} alle ${fmtDateTime(st.timestamp)}`;
       }
+      if (n.backup) {
+        const b = n.backup;
+        const total = (b.databases || []).reduce((a, d) => a + d.zst_bytes, 0);
+        const el = $("#backup-latest");
+        el.textContent = b.status === "OK" ? `${(b.databases || []).length} DB, ${fmtNum(total / 1048576, 1)} MB` : "Fallito";
+        el.style.color = b.status === "OK" ? "" : C("--alert");
+        $("#backup-latest-when").textContent = `${b.status} alle ${fmtDateTime(b.time)}`;
+        if (b.errors && b.errors.length) el.title = b.errors.join("\n");
+      }
       $("#ip-history tbody").replaceChildren(...(n.public_ip_history || []).map((h) => row([
         { text: fmtDateTime(h.timestamp) }, { text: h.ip }, { text: h.previous_ip || "–" },
       ])));

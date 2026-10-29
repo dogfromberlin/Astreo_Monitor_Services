@@ -62,5 +62,9 @@ Soglie in Mbps, parametri di misura, `notify`. Vedi [speedtest.md](speedtest.md)
 ### [publicip]
 Elenco provider, timeout, `notify`. Vedi [ip-pubblico.md](ip-pubblico.md).
 
+### [backup]
+Database da salvare, cartelle, repository GitHub, retention, compressione e `notify`.
+Vedi [backup-database.md](backup-database.md).
+
 ### [retention]
 Giorni di conservazione per tabella (`0` = per sempre). Vedi [database.md](database.md).

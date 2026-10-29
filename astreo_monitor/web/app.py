@@ -172,6 +172,7 @@ def create_app(cfg: Config) -> Flask:
                 "speedtest_alert": db.state_get(conn, "alert:speedtest"),
                 "public_ip": db.state_get(conn, "publicip:current"),
                 "public_ip_history": history.public_ip_history(conn),
+                "backup": db.state_get(conn, "backup:last"),
                 "thresholds": {
                     "download_warning": cfg.speedtest.download_warning, "download_alert": cfg.speedtest.download_alert,
                     "upload_warning": cfg.speedtest.upload_warning, "upload_alert": cfg.speedtest.upload_alert,

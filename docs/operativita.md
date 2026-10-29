@@ -30,6 +30,7 @@ sudo systemctl start astreo-metrics.service
 sudo systemctl start astreo-speedtest.service
 sudo systemctl start astreo-publicip.service
 sudo systemctl start astreo-maintenance.service
+sudo systemctl start astreo-backup.service
 ```
 
 Oppure a mano, con log dettagliato e senza scrivere nulla:
@@ -55,6 +56,7 @@ sudo systemctl enable --now astreo-speedtest.timer   # riattivare
 | Job in errore `Login failed` | password in `[database]` diversa da quella del login SQL | client SQL: `ALTER LOGIN astreo_monitor_app WITH PASSWORD = '...'` |
 | Nessuna email | `notify = false`, credenziali Gmail, nessun cambio di stato | `jobs.test_email`, journal con `-p warning` |
 | Temperature vuote | `lm-sensors` mancante | `sensors -j`; `sudo apt install lm-sensors` |
+| Backup in ALERT | permessi su `/srv/sqlbackup`, token `gh`, database offline | `jobs.db_backup --dry-run`, `journalctl -u astreo-backup` |
 | Web non parte | porta occupata o config errata | `journalctl -u astreo-monitor-web -n 30`, `sudo ss -tlnp | grep 5025` |
 
 ## Aggiornare il codice
@@ -72,7 +74,7 @@ I job usano il nuovo codice dalla loro esecuzione successiva.
 ## Disinstallare
 
 ```bash
-sudo systemctl disable --now astreo-monitor-web.service astreo-metrics.timer astreo-speedtest.timer astreo-publicip.timer astreo-maintenance.timer
+sudo systemctl disable --now astreo-monitor-web.service astreo-metrics.timer astreo-speedtest.timer astreo-publicip.timer astreo-maintenance.timer astreo-backup.timer
 sudo rm /etc/systemd/system/astreo-*
 sudo systemctl daemon-reload
 ```

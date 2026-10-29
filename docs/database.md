@@ -27,8 +27,15 @@ convertite con `CONVERT(..., 126)`: il risultato non dipende dalla lingua del lo
 | `001_install.sql` | installazione | login/utente dedicati e nuove tabelle; non tocca le esistenti |
 | `002_switch.sql` | test e switch | rinomina `timstamp` → `timestamp`, indici, import storico; rieseguibile |
 | `003_drop_legacy.sql` | dopo 30 giorni, facoltativo | elimina `cpu_percentage` e `fiber_optic_measurements` |
+| `004_backup.sql` | attivazione backup (2.1) | permessi di backup, recovery model SIMPLE per `astreo_monitor`, riduzione del log |
 
 Tutti gli script sono idempotenti.
+
+## Recovery model
+
+`astreo_monitor` è in **SIMPLE** (da `004_backup.sql`): il log transazionale si svuota da
+solo e non cresce. Il ripristino è al momento dell'ultimo backup notturno
+([backup-database.md](backup-database.md)), adeguato per dati di monitoraggio.
 
 ## Retention
 
