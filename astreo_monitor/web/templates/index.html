@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Astreo Monitor</title>
+  <link rel="icon" href="{{ url_for('favicon') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ version }}">
+</head>
+<body>
+<header class="masthead">
+  <div class="host">
+    <h1 id="hostname">astreo</h1>
+    <p class="host-meta">
+      <span>Acceso da <strong id="uptime">–</strong></span>
+      <span>Aggiornato alle <strong id="last-update">–</strong></span>
+    </p>
+  </div>
+  <div class="net">
+    <div class="net-item">
+      <span class="net-label">IP pubblico</span>
+      <strong id="public-ip">–</strong>
+      <small id="public-ip-since"></small>
+    </div>
+    <div class="net-item">
+      <span class="net-label">Ultimo speedtest</span>
+      <strong id="speed-latest">–</strong>
+      <small id="speed-latest-when"></small>
+    </div>
+  </div>
+  <ul class="leds" id="leds" aria-label="Stato servizi"></ul>
+</header>
+
+<main>
+  <section class="gauges" aria-label="Risorse in tempo reale">
+    <article class="gauge" id="g-cpu">
+      <h2>CPU</h2><p class="value"><span>–</span>%</p>
+      <div class="bar"><i></i></div><p class="sub" id="g-cpu-sub">load –</p>
+    </article>
+    <article class="gauge" id="g-mem">
+      <h2>Memoria</h2><p class="value"><span>–</span>%</p>
+      <div class="bar"><i></i></div><p class="sub" id="g-mem-sub">–</p>
+    </article>
+    <article class="gauge" id="g-disk">
+      <h2>Disco /</h2><p class="value"><span>–</span>%</p>
+      <div class="bar"><i></i></div><p class="sub" id="g-disk-sub">–</p>
+    </article>
+    <article class="gauge" id="g-temp">
+      <h2>Temperatura max</h2><p class="value"><span>–</span>°C</p>
+      <div class="bar"><i></i></div><p class="sub" id="g-temp-sub">–</p>
+    </article>
+  </section>
+
+  <section class="panel services-panel">
+    <div class="panel-head">
+      <h2>Servizi</h2>
+      <button type="button" class="ghost" id="services-refresh">Aggiorna</button>
+    </div>
+    <ul class="services" id="services"></ul>
+  </section>
+
+  <div class="columns">
+    <section class="panel">
+      <div class="panel-head"><h2>Processi</h2><small>ordinati per CPU, ogni 10 s</small></div>
+      <div class="scroll">
+        <table class="data" id="processes">
+          <thead><tr><th>PID</th><th>Utente</th><th class="num">CPU %</th><th class="num">RAM %</th><th class="num">RSS MB</th><th>Comando</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+    <div class="stack">
+      <section class="panel">
+        <div class="panel-head"><h2>Sensori</h2></div>
+        <table class="data" id="temperatures">
+          <thead><tr><th>Sensore</th><th class="num">°C</th><th class="num">Max</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Partizioni</h2></div>
+        <div class="scroll">
+          <table class="data" id="disks">
+            <thead><tr><th>Mount</th><th class="num">Usato</th><th class="num">Libero</th><th class="num">%</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel history">
+    <div class="panel-head">
+      <h2>Storico</h2>
+      <div class="period" role="group" aria-label="Periodo">
+        <button type="button" data-range="24h" class="active">24 ore</button>
+        <button type="button" data-range="7d">7 giorni</button>
+        <button type="button" data-range="30d">30 giorni</button>
+        <button type="button" data-range="90d">90 giorni</button>
+        <button type="button" data-range="365d">1 anno</button>
+      </div>
+      <form class="custom-range" id="custom-range">
+        <label>Dal <input type="datetime-local" name="from" required></label>
+        <label>al <input type="datetime-local" name="to" required></label>
+        <button type="submit" class="ghost">Mostra</button>
+      </form>
+    </div>
+    <p class="history-error" id="history-error" hidden></p>
+    <div class="charts">
+      <figure><figcaption>CPU e load</figcaption><canvas id="chart-cpu"></canvas></figure>
+      <figure><figcaption>Memoria e disco</figcaption><canvas id="chart-mem"></canvas></figure>
+      <figure><figcaption>Temperature</figcaption><canvas id="chart-temp"></canvas></figure>
+      <figure><figcaption>Velocità connessione</figcaption><canvas id="chart-speed"></canvas></figure>
+    </div>
+    <details class="ip-history">
+      <summary>Variazioni dell'IP pubblico</summary>
+      <table class="data" id="ip-history">
+        <thead><tr><th>Quando</th><th>Nuovo IP</th><th>Precedente</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </details>
+  </section>
+</main>
+
+<footer><span>Astreo Monitor {{ version }}</span> <a href="{{ url_for('api_health') }}">stato API</a></footer>
+
+<dialog id="service-dialog">
+  <form method="dialog" class="dialog-head">
+    <h2 id="service-dialog-title">Servizio</h2>
+    <button type="submit" class="ghost" aria-label="Chiudi">Chiudi</button>
+  </form>
+  <pre id="service-dialog-body">Caricamento…</pre>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}?v={{ version }}"></script>
+</body>
+</html>

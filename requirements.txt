@@ -1,0 +1,7 @@
+# Versioni allineate a quelle già installate su astreo (Python 3.12)
+Flask==3.0.2
+Werkzeug==3.1.9
+waitress==2.1.2
+psutil==5.9.8
+pymssql==2.2.11
+requests==2.31.0
