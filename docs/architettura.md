@@ -45,6 +45,10 @@
 | `jobs/*.py` | Un file per job |
 | `web/app.py` | Route, autenticazione, gestione errori |
 | `web/history.py` | Query aggregate a bucket per i grafici |
+| `web/netpulse_compat.py` | API compatibili con il widget Windows NetPulse |
+| `settings.py` | Impostazioni modificabili dalla dashboard (validazione, segreti) |
+| `services_store.py` | Servizi monitorati salvati nel DB |
+| `collectors/units.py` | Avvio/arresto delle sole unit di Astreo Monitor (polkit) |
 
 ## Cosa cambia rispetto alla 1.x
 

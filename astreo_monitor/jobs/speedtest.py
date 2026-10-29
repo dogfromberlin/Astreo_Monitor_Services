@@ -21,8 +21,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
+from dataclasses import dataclass
+
 from .. import __version__, db, notifier
-from ..config import Config, SpeedtestConfig
+from .. import settings as settings_mod
+from ..config import Config
 from .base import run
 
 log = logging.getLogger("job.speedtest")
@@ -35,6 +38,37 @@ INSERT = """
 INSERT INTO speedtest_results ([timestamp], download_mbps, upload_mbps, latency_ms, status, provider, error)
 VALUES (CONVERT(datetime2(0), %s, 126), %s, %s, %s, %s, %s, %s)
 """
+
+
+@dataclass
+class Params:
+    """Parametri effettivi: config come base, impostazioni della dashboard sopra."""
+    download_alert: float
+    download_warning: float
+    upload_alert: float
+    upload_warning: float
+    streams: int
+    rounds: int
+    download_bytes: int
+    upload_bytes: int
+    timeout: int
+    reminder_hours: float
+    enabled: bool = True
+
+
+def effective_params(cfg: Config, values: dict | None) -> Params:
+    c = cfg.speedtest
+    if values is None:
+        return Params(c.download_alert, c.download_warning, c.upload_alert, c.upload_warning, c.streams,
+                      c.rounds, c.download_bytes, c.upload_bytes, c.timeout, c.reminder_hours)
+    v = values
+    return Params(
+        v["speedtest.download_alert"], v["speedtest.download_warning"],
+        v["speedtest.upload_alert"], v["speedtest.upload_warning"],
+        v["speedtest.streams"], v["speedtest.rounds"],
+        v["speedtest.download_mb"] * 1_000_000, v["speedtest.upload_mb"] * 1_000_000,
+        c.timeout, v["speedtest.reminder_hours"], v["speedtest.enabled"],
+    )
 
 
 def latency_ms(timeout: int, samples: int = 5) -> float | None:
@@ -79,7 +113,7 @@ def _round(fn, args, streams: int) -> float:
     return total * 8 / elapsed / 1_000_000
 
 
-def measure(fn, args, cfg: SpeedtestConfig, label: str) -> float | None:
+def measure(fn, args, cfg: Params, label: str) -> float | None:
     results = []
     for i in range(cfg.rounds):
         try:
@@ -91,7 +125,7 @@ def measure(fn, args, cfg: SpeedtestConfig, label: str) -> float | None:
     return round(statistics.median(results), 1) if results else None
 
 
-def classify(dl: float | None, ul: float | None, c: SpeedtestConfig) -> str:
+def classify(dl: float | None, ul: float | None, c: Params) -> str:
     if dl is None and ul is None:
         return "DOWN"
     if (dl is not None and dl < c.download_alert) or (ul is not None and ul < c.upload_alert) or dl is None or ul is None:
@@ -106,7 +140,22 @@ def fmt(v: float | None) -> str:
 
 
 def main(cfg: Config, dry_run: bool) -> int:
-    c = cfg.speedtest
+    try:
+        with db.connect(cfg.database) as conn:
+            values = settings_mod.load(conn, cfg)
+    except db.DatabaseError as exc:
+        if not dry_run:
+            raise
+        log.warning("Impostazioni non leggibili dal DB, uso il config: %s", exc)
+        values = None
+    c = effective_params(cfg, values)
+    if not c.enabled:
+        if dry_run:
+            log.info("Speedtest sospeso dalle Impostazioni: in dry-run misuro comunque")
+        else:
+            log.info("Speedtest sospeso dalle Impostazioni: nessuna misura")
+            return 0
+
     now = dt.datetime.now()
     error = None
 
@@ -133,21 +182,19 @@ def main(cfg: Config, dry_run: bool) -> int:
         db.execute(conn, INSERT, (db.ts(now), dl, ul, lat, status, PROVIDER, error))
         state = notifier.AlertState(conn, "speedtest")
         should_notify, previous = state.update(status, c.reminder_hours)
-        if should_notify and c.notify:
+        if should_notify:
             subject = "Connessione internet tornata OK" if status == "OK" else f"Connessione internet: {status}"
             body = (
                 f"Esito speedtest delle {now:%d/%m/%Y %H:%M}\n\n"
                 f"Stato:      {status} (precedente: {previous or 'n/d'})\n"
-                f"Download:   {fmt(dl)}  (warning < {c.download_warning}, alert < {c.download_alert})\n"
-                f"Upload:     {fmt(ul)}  (warning < {c.upload_warning}, alert < {c.upload_alert})\n"
+                f"Download:   {fmt(dl)}  (warning < {c.download_warning:g}, alert < {c.download_alert:g})\n"
+                f"Upload:     {fmt(ul)}  (warning < {c.upload_warning:g}, alert < {c.upload_alert:g})\n"
                 f"Latenza:    {lat if lat is not None else 'n/d'} ms\n"
             )
             if error:
                 body += f"\nDettaglio: {error}\n"
-            if notifier.send_email(cfg.email, subject, body):
+            if notifier.dispatch(conn, cfg, "speedtest", subject, body):
                 state.mark_notified()
-        elif should_notify:
-            log.info("Notifiche speedtest disabilitate ([speedtest] notify = false)")
         state.save()
     return 0
 

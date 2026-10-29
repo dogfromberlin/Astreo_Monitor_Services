@@ -13,8 +13,11 @@ come amministratore (`sa`) dal client SQL.
 | `speedtest_results` | job speedtest | download, upload, latenza, stato, provider | clustered su `timestamp` |
 | `public_ip_history` | job public_ip | variazioni dell'IP | clustered su `timestamp` |
 | `monitor_state` | tutti i job | stato chiave/valore JSON (IP corrente, allarmi, contatori CPU) | PK su `key` |
+| `app_settings` | dashboard | impostazioni modificate da Impostazioni (chiave/valore JSON) | PK su `key` |
+| `monitored_services` | dashboard | servizi monitorati, etichetta, avviso, ordine | PK su `unit` |
+| `notification_log` | tutti i job | registro degli invii (180 giorni) | clustered su `timestamp` |
 | `cpu_percentage` | 1.x (dismessa) | storico CPU, importato in `system_metrics` | eliminabile con 003 |
-| `fiber_optic_measurements` | 1.x (dismessa) | storico speedtest, importato in `speedtest_results` | eliminabile con 003 |
+| `fiber_optic_measurements` | 1.x (dismessa) | storico speedtest, importato in `speedtest_results` | eliminabile con 003 **solo dopo** aver dismesso il proxy NetPulse |
 
 Le date sono ora locale di astreo. Nel codice viaggiano in formato ISO e sono
 convertite con `CONVERT(..., 126)`: il risultato non dipende dalla lingua del login.
@@ -27,6 +30,7 @@ convertite con `CONVERT(..., 126)`: il risultato non dipende dalla lingua del lo
 | `001_install.sql` | installazione | login/utente dedicati e nuove tabelle; non tocca le esistenti |
 | `002_switch.sql` | test e switch | rinomina `timstamp` → `timestamp`, indici, import storico; rieseguibile |
 | `003_drop_legacy.sql` | dopo 30 giorni, facoltativo | elimina `cpu_percentage` e `fiber_optic_measurements` |
+| `005_impostazioni.sql` | aggiornamento 2.2 | tabelle `app_settings`, `monitored_services` (con elenco iniziale), `notification_log` |
 | `004_backup.sql` | attivazione backup (2.1) | permessi di backup, recovery model SIMPLE per `astreo_monitor`, riduzione del log |
 
 Tutti gli script sono idempotenti.

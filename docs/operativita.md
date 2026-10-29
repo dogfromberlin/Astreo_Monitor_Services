@@ -57,6 +57,8 @@ sudo systemctl enable --now astreo-speedtest.timer   # riattivare
 | Nessuna email | `notify = false`, credenziali Gmail, nessun cambio di stato | `jobs.test_email`, journal con `-p warning` |
 | Temperature vuote | `lm-sensors` mancante | `sensors -j`; `sudo apt install lm-sensors` |
 | Backup in ALERT | permessi su `/srv/sqlbackup`, token `gh`, database offline | `jobs.db_backup --dry-run`, `journalctl -u astreo-backup` |
+| *Esegui ora* / *Sospendi* rispondono "manca la regola polkit" | regola non installata | [impostazioni.md](impostazioni.md), sezione permesso |
+| Widget Windows senza dati | nginx 8081 non aggiornato o token errato | [connessione.md](connessione.md), verifica |
 | Web non parte | porta occupata o config errata | `journalctl -u astreo-monitor-web -n 30`, `sudo ss -tlnp | grep 5025` |
 
 ## Aggiornare il codice

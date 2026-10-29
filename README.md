@@ -11,30 +11,34 @@ Versione 2.0: riscrittura completa della 1.x (`pws/`), vedi
 
 | Funzionalità | Cosa fa | Documentazione |
 |---|---|---|
-| Dashboard e API | Pagina web con risorse in tempo reale, servizi, processi, storico | [dashboard-e-api.md](docs/dashboard-e-api.md) |
-| Servizi | Stato dei servizi systemd in whitelist | [servizi.md](docs/servizi.md) |
+| Dashboard e API | Pagina web a tre viste (Server, Connessione, Impostazioni), API REST | [dashboard-e-api.md](docs/dashboard-e-api.md) |
+| Connessione (ex NetPulse) | Andamento, qualità e confronto della connessione; API per il widget Windows | [connessione.md](docs/connessione.md) |
+| Impostazioni | Speedtest, notifiche e servizi modificabili dalla dashboard | [impostazioni.md](docs/impostazioni.md) |
+| Servizi | Servizi systemd monitorati, scelti dalla dashboard, con avviso se si fermano | [servizi.md](docs/servizi.md) |
 | Metriche e temperature | CPU (media esatta), load, RAM, disco, sensori ogni 5 minuti | [metriche-e-temperature.md](docs/metriche-e-temperature.md) |
 | Speedtest | Download, upload, latenza ogni 4 ore con soglie | [speedtest.md](docs/speedtest.md) |
 | IP pubblico | Controllo ogni 15 minuti, storico e avviso al cambio | [ip-pubblico.md](docs/ip-pubblico.md) |
-| Notifiche | Email a cambio di stato con promemoria | [notifiche.md](docs/notifiche.md) |
+| Notifiche | Email, Telegram e WhatsApp a cambio di stato, instradabili per evento | [notifiche.md](docs/notifiche.md) |
 | Database | Schema, script SQL, retention | [database.md](docs/database.md) |
 | Backup database | Backup notturno verificato, compresso e copiato su GitHub, ripristino | [backup-database.md](docs/backup-database.md) |
 
 Altri documenti:
 [installazione e migrazione dalla 1.x](docs/installazione-e-migrazione.md),
 [configurazione](docs/configurazione.md),
-[operatività e diagnosi](docs/operativita.md).
+[operatività e diagnosi](docs/operativita.md),
+[aggiornamento alla 2.2](docs/aggiornamento-2.2.md).
 
 ## Struttura
 
 ```
 astreo_monitor/
   config.py, db.py, notifier.py, logging_setup.py   moduli comuni
+  settings.py, services_store.py                     impostazioni e servizi salvati nel DB
   collectors/   lettura dati locali (psutil, lm-sensors, systemctl)
   jobs/         job periodici (metrics, speedtest, public_ip, maintenance, db_backup, test_email)
   web/          Flask + waitress: dashboard e /api/v1
 sql/            script di installazione, switch, pulizia, backup
-deploy/systemd/ unit .service e .timer
+deploy/         unit systemd, regola polkit, nginx per il widget NetPulse
 docs/           documentazione per funzionalità
 config.example.ini   modello di configurazione (quella reale è in /etc/astreo-monitor/)
 ```

@@ -20,13 +20,15 @@ TABLES = [
     ("system_temperature", "temperature_days"),
     ("speedtest_results", "speedtest_days"),
     ("public_ip_history", "publicip_days"),
+    ("notification_log", None),  # registro invii: 180 giorni fissi
 ]
+NOTIFICATION_LOG_DAYS = 180
 
 
 def main(cfg: Config, dry_run: bool) -> int:
     with db.connect(cfg.database) as conn:
         for table, attr in TABLES:
-            days = getattr(cfg.retention, attr)
+            days = getattr(cfg.retention, attr) if attr else NOTIFICATION_LOG_DAYS
             if days <= 0:
                 log.info("%s: retention disattivata, nessuna pulizia", table)
                 continue

@@ -1,0 +1,123 @@
+<div class="view" data-view="impostazioni" hidden>
+  <section class="panel">
+    <div class="panel-head"><h2>Impostazioni</h2></div>
+    <div class="subtabs" role="tablist" data-subtabs="set">
+      <button type="button" role="tab" data-sub="speedtest" class="active">Speedtest</button>
+      <button type="button" role="tab" data-sub="notifiche">Notifiche</button>
+      <button type="button" role="tab" data-sub="servizi">Servizi</button>
+    </div>
+
+    <!-- ============================== SPEEDTEST -->
+    <div data-subpanel="set:speedtest">
+      <div class="status-strip" id="st-status">
+        <div><span class="net-label">Stato</span><strong id="st-state">–</strong></div>
+        <div><span class="net-label">Prossima misura</span><strong id="st-next">–</strong></div>
+        <div><span class="net-label">Ultima misura</span><strong id="st-last">–</strong><small id="st-last-when"></small></div>
+        <div class="actions">
+          <button type="button" id="st-run">Esegui ora</button>
+          <button type="button" class="ghost" id="st-pause">Sospendi</button>
+        </div>
+      </div>
+      <p class="hint" id="st-run-msg" hidden></p>
+
+      <form class="settings-form" id="form-speedtest">
+        <fieldset>
+          <legend>Soglie</legend>
+          <p class="hint">Sotto la soglia di warning lo stato è WARNING, sotto quella di alert è ALERT. Le stesse soglie valgono per la vista Connessione.</p>
+          <div class="grid-fields">
+            <label>Download warning (Mbps)<input type="number" step="1" data-key="speedtest.download_warning"></label>
+            <label>Download alert (Mbps)<input type="number" step="1" data-key="speedtest.download_alert"></label>
+            <label>Upload warning (Mbps)<input type="number" step="1" data-key="speedtest.upload_warning"></label>
+            <label>Upload alert (Mbps)<input type="number" step="1" data-key="speedtest.upload_alert"></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Misura</legend>
+          <div class="grid-fields">
+            <label>Connessioni parallele<input type="number" step="1" data-key="speedtest.streams"></label>
+            <label>Giri di misura<input type="number" step="1" data-key="speedtest.rounds"></label>
+            <label>MB scaricati per connessione<input type="number" step="1" data-key="speedtest.download_mb"></label>
+            <label>MB inviati per connessione<input type="number" step="1" data-key="speedtest.upload_mb"></label>
+          </div>
+          <p class="hint" id="st-traffic"></p>
+        </fieldset>
+        <fieldset>
+          <legend>Avvisi</legend>
+          <div class="toggles">
+            <label class="switch"><input type="checkbox" data-key="route.speedtest.email"><span>Email</span></label>
+            <label class="switch"><input type="checkbox" data-key="route.speedtest.telegram"><span>Telegram</span></label>
+            <label class="switch"><input type="checkbox" data-key="route.speedtest.whatsapp"><span>WhatsApp</span></label>
+          </div>
+          <label class="inline">Promemoria se lo stato resta anomalo, ogni<input type="number" step="1" data-key="speedtest.reminder_hours"> ore (0 = mai)</label>
+          <p class="hint">I canali si configurano nella scheda Notifiche: qui scegli su quali ricevere gli avvisi dello speedtest.</p>
+        </fieldset>
+        <div class="form-actions"><button type="submit">Salva impostazioni speedtest</button></div>
+      </form>
+    </div>
+
+    <!-- ============================== NOTIFICHE -->
+    <div data-subpanel="set:notifiche" hidden>
+      <form class="settings-form" id="form-notify">
+        <div class="channels">
+          <fieldset class="channel">
+            <legend>Email</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.email.enabled"><span>Attiva</span></label>
+            <p class="hint" id="email-info"></p>
+            <p class="hint">Server e destinatari si modificano in /etc/astreo-monitor/config.ini.</p>
+            <button type="button" class="ghost" data-test="email">Invia prova</button>
+          </fieldset>
+          <fieldset class="channel">
+            <legend>Telegram</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.telegram.enabled"><span>Attiva</span></label>
+            <label>Token del bot<input type="password" autocomplete="off" data-key="notify.telegram.bot_token" placeholder="123456789:AA…"></label>
+            <label>Chat ID<input type="text" data-key="notify.telegram.chat_id" placeholder="es. 123456789"></label>
+            <button type="button" class="ghost" data-test="telegram">Invia prova</button>
+          </fieldset>
+          <fieldset class="channel">
+            <legend>WhatsApp</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.whatsapp.enabled"><span>Attiva</span></label>
+            <label>Numero (prefisso internazionale, senza +)<input type="text" data-key="notify.whatsapp.phone" placeholder="39333…"></label>
+            <label>API key CallMeBot<input type="password" autocomplete="off" data-key="notify.whatsapp.apikey"></label>
+            <button type="button" class="ghost" data-test="whatsapp">Invia prova</button>
+          </fieldset>
+        </div>
+        <p class="hint">Il valore dei campi segreti non viene mai mostrato: lascia il campo com'è per mantenerlo, scrivi un nuovo valore per sostituirlo. La procedura per ottenere token e API key è in docs/notifiche.md.</p>
+
+        <fieldset>
+          <legend>Quali avvisi su quali canali</legend>
+          <div class="scroll">
+            <table class="data routes" id="routes">
+              <thead><tr><th>Evento</th><th>Email</th><th>Telegram</th><th>WhatsApp</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </fieldset>
+        <div class="form-actions"><button type="submit">Salva notifiche</button></div>
+      </form>
+
+      <h3 class="sub-title">Ultimi invii</h3>
+      <div class="scroll table-tall">
+        <table class="data" id="notify-log">
+          <thead><tr><th>Quando</th><th>Canale</th><th>Evento</th><th>Oggetto</th><th>Esito</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================== SERVIZI -->
+    <div data-subpanel="set:servizi" hidden>
+      <div class="services-toolbar">
+        <input type="search" id="svc-search" placeholder="Cerca un servizio" aria-label="Cerca un servizio">
+        <label class="switch"><input type="checkbox" id="svc-only"><span>Solo monitorati</span></label>
+        <small id="svc-count"></small>
+      </div>
+      <p class="hint">Le modifiche si salvano subito. <em>Avvisami</em> invia una notifica quando il servizio si ferma e quando riparte (controllo ogni 5 minuti, canali scelti nella scheda Notifiche).</p>
+      <div class="scroll table-tall">
+        <table class="data" id="svc-table">
+          <thead><tr><th>Stato</th><th>Servizio</th><th>Etichetta</th><th>Monitora</th><th>Avvisami</th><th>Ordine</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>

@@ -1,0 +1,73 @@
+<div class="view" data-view="connessione" hidden>
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Connessione internet</h2>
+      <div class="period" role="group" aria-label="Periodo" id="conn-period">
+        <button type="button" data-range="6h">6 ore</button>
+        <button type="button" data-range="24h">24 ore</button>
+        <button type="button" data-range="7d" class="active">7 giorni</button>
+        <button type="button" data-range="30d">30 giorni</button>
+        <button type="button" data-range="90d">90 giorni</button>
+        <button type="button" data-range="365d">1 anno</button>
+      </div>
+      <form class="custom-range" id="conn-custom">
+        <label>Dal <input type="datetime-local" name="from" required></label>
+        <label>al <input type="datetime-local" name="to" required></label>
+        <button type="submit" class="ghost">Mostra</button>
+      </form>
+      <button type="button" class="ghost" id="conn-csv">Esporta CSV</button>
+    </div>
+    <p class="period-label" id="conn-label"></p>
+    <p class="history-error" id="conn-error" hidden></p>
+
+    <div class="subtabs" role="tablist" data-subtabs="conn">
+      <button type="button" role="tab" data-sub="andamento" class="active">Andamento</button>
+      <button type="button" role="tab" data-sub="qualita">Qualità</button>
+      <button type="button" role="tab" data-sub="confronto">Confronto</button>
+    </div>
+
+    <div data-subpanel="conn:andamento">
+      <div class="stats" id="conn-stats"></div>
+      <div class="charts">
+        <figure><figcaption>Velocità (Mbps) e soglie di warning</figcaption><canvas id="chart-conn-speed"></canvas></figure>
+        <figure><figcaption>Latenza (ms)</figcaption><canvas id="chart-conn-latency"></canvas></figure>
+      </div>
+      <h3 class="sub-title">Misure</h3>
+      <div class="scroll table-tall">
+        <table class="data" id="conn-table">
+          <thead><tr><th>Quando</th><th class="num">Download</th><th class="num">Upload</th><th class="num">Latenza</th><th>Esito</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div data-subpanel="conn:qualita" hidden>
+      <p class="hint" id="quality-hint"></p>
+      <div class="quality" id="quality-download"></div>
+      <div class="quality" id="quality-upload"></div>
+    </div>
+
+    <div data-subpanel="conn:confronto" hidden>
+      <form class="compare-form" id="compare-form">
+        <label>Confronta il periodo selezionato con
+          <select name="shift">
+            <option value="prev">il periodo precedente di uguale durata</option>
+            <option value="7d">lo stesso periodo di 7 giorni prima</option>
+            <option value="30d">lo stesso periodo di 30 giorni prima</option>
+          </select>
+        </label>
+        <button type="submit">Confronta</button>
+      </form>
+      <div id="compare-result" hidden>
+        <table class="data compare-table" id="compare-table">
+          <thead><tr><th></th><th class="num">Periodo selezionato</th><th class="num">Periodo di confronto</th><th class="num">Differenza</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="charts">
+          <figure><figcaption>Download sovrapposto (Mbps)</figcaption><canvas id="chart-cmp-down"></canvas></figure>
+          <figure><figcaption>Upload sovrapposto (Mbps)</figcaption><canvas id="chart-cmp-up"></canvas></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

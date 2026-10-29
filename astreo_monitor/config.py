@@ -119,6 +119,11 @@ class BackupConfig:
 
 
 @dataclass
+class NetpulseConfig:
+    token: str            # stesso token del vecchio NetPulse: il widget Windows resta invariato
+
+
+@dataclass
 class Config:
     path: str
     database: DatabaseConfig
@@ -129,6 +134,7 @@ class Config:
     publicip: PublicIpConfig
     retention: RetentionConfig
     backup: BackupConfig | None = None
+    netpulse: NetpulseConfig | None = None
 
 
 def load(path: str | None = None) -> Config:
@@ -241,10 +247,19 @@ def load(path: str | None = None) -> Config:
                 notify=b.getboolean("notify", True),
                 reminder_hours=b.getfloat("reminder_hours", 24),
             )
+        netpulse = None
+        if cp.has_section("netpulse"):
+            token = cp["netpulse"].get("token", "").strip()
+            token_file = cp["netpulse"].get("token_file", "").strip()
+            if not token and token_file and os.path.isfile(token_file):
+                with open(token_file, encoding="utf-8") as f:
+                    token = f.read().strip()
+            if token:
+                netpulse = NetpulseConfig(token=token)
     except (ValueError, KeyError) as exc:
         raise ConfigError(f"Valore non valido in {path}: {exc}") from exc
 
     if email.security not in ("ssl", "starttls", "none"):
         raise ConfigError("[email] security deve essere ssl, starttls oppure none")
 
-    return Config(path, database, email, web, metrics, speedtest, publicip, retention, backup)
+    return Config(path, database, email, web, metrics, speedtest, publicip, retention, backup, netpulse)

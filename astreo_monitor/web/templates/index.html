@@ -7,7 +7,7 @@
   <link rel="icon" href="{{ url_for('favicon') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&family=Chakra+Petch:wght@600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ version }}">
 </head>
 <body>
@@ -37,9 +37,15 @@
     </div>
   </div>
   <ul class="leds" id="leds" aria-label="Stato servizi"></ul>
+  <nav class="views" aria-label="Sezioni">
+    <a href="#server" data-view-link="server">Server</a>
+    <a href="#connessione" data-view-link="connessione">Connessione</a>
+    <a href="#impostazioni" data-view-link="impostazioni">Impostazioni</a>
+  </nav>
 </header>
 
 <main>
+<div class="view" data-view="server">
   <section class="gauges" aria-label="Risorse in tempo reale">
     <article class="gauge" id="g-cpu">
       <h2>CPU</h2><p class="value"><span>–</span>%</p>
@@ -128,6 +134,9 @@
       </table>
     </details>
   </section>
+</div>
+{% include "_connessione.html" %}
+{% include "_impostazioni.html" %}
 </main>
 
 <footer><span>Astreo Monitor {{ version }}</span> <a href="{{ url_for('api_health') }}">stato API</a></footer>
@@ -141,6 +150,10 @@
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="{{ url_for('static', filename='js/dashboard.js') }}?v={{ version }}"></script>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script src="{{ url_for('static', filename='js/core.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/server.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/connessione.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/impostazioni.js') }}?v={{ version }}"></script>
 </body>
 </html>

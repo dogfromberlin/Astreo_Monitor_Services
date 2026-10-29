@@ -11,8 +11,8 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from .. import db, notifier
-from ..collectors import sensors, system
+from .. import db, notifier, services_store
+from ..collectors import sensors, services, system
 from ..config import Config
 from .base import run
 
@@ -92,11 +92,26 @@ def main(cfg: Config, dry_run: bool) -> int:
         for key, status, text in checks:
             state = notifier.AlertState(conn, key)
             should_notify, previous = state.update(status, cfg.metrics.reminder_hours)
-            if should_notify and cfg.metrics.notify:
+            if should_notify:
                 name = {"temperature": "Temperatura", "disk": "Disco"}[key]
                 subject = f"Allarme {name.lower()} rientrato" if status == "OK" else f"{name}: {status}"
                 body = f"{text}\n\nStato precedente: {previous or 'n/d'}\nRilevato alle {now:%d/%m/%Y %H:%M}"
-                if notifier.send_email(cfg.email, subject, body):
+                if notifier.dispatch(conn, cfg, key, subject, body):
+                    state.mark_notified()
+            state.save()
+
+        # --- Servizi con avviso attivo -----------------------------------------
+        watched = [r for r in services_store.monitored(conn, cfg) if r["notify"]]
+        for s in services.statuses(watched):
+            state = notifier.AlertState(conn, f"service:{s['unit']}")
+            status = "OK" if s["up"] else "ALERT"
+            should_notify, previous = state.update(status, cfg.metrics.reminder_hours)
+            if should_notify:
+                subject = f"Servizio {s['label']} di nuovo attivo" if s["up"] else f"Servizio {s['label']} fermo ({s['state']})"
+                body = (f"Servizio: {s['label']} ({s['unit']})\nStato: {s['state']}\n"
+                        f"Stato precedente: {previous or 'n/d'}\nRilevato alle {now:%d/%m/%Y %H:%M}\n\n"
+                        f"Dettaglio: systemctl status {s['unit']}")
+                if notifier.dispatch(conn, cfg, "services", subject, body):
                     state.mark_notified()
             state.save()
     return 0

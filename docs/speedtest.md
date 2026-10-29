@@ -3,6 +3,12 @@
 Job: `astreo_monitor.jobs.speedtest` — timer `astreo-speedtest.timer`, alle 00:05,
 04:05, 08:05, 12:05, 16:05, 20:05.
 
+## Configurazione dalla dashboard
+
+Soglie, parametri di misura, canali degli avvisi, sospensione e misura immediata si
+gestiscono da **Impostazioni → Speedtest** ([impostazioni.md](impostazioni.md)).
+I valori di `[speedtest]` nel config sono solo quelli iniziali.
+
 ## Come misura
 
 Usa gli endpoint di test di Cloudflare (`speed.cloudflare.com`), pensati per questo scopo:
@@ -56,11 +62,7 @@ FROM speedtest_results
 WHERE provider = 'cloudflare' AND status <> 'DOWN';
 ```
 Regola pratica: `warning` circa il 70% della media, `alert` circa il 40%.
-Poi nella finestra SSH su astreo:
-```bash
-nano /etc/astreo-monitor/config.ini     # [speedtest] soglie e notify = true
-sudo systemctl restart astreo-monitor-web.service   # solo per aggiornare le soglie mostrate in dashboard
-```
+Poi imposta le soglie in **Impostazioni → Speedtest** e attiva i canali degli avvisi.
 
 ## Comandi (finestra SSH su astreo)
 

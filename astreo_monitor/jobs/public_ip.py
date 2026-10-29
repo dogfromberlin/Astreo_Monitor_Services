@@ -72,14 +72,13 @@ def main(cfg: Config, dry_run: bool) -> int:
                 log.info("Primo rilevamento IP pubblico: %s", ip)
             else:
                 log.warning("IP pubblico cambiato: %s -> %s", previous, ip)
-                if cfg.publicip.notify:
-                    notifier.send_email(
-                        cfg.email,
-                        f"IP pubblico cambiato in {ip}",
-                        f"L'IP pubblico di astreo è cambiato alle {now:%d/%m/%Y %H:%M}.\n\n"
-                        f"Precedente: {previous}\nAttuale:    {ip}\n\n"
-                        "Aggiorna eventuali DNS, client VPN o regole che usano l'indirizzo.",
-                    )
+                notifier.dispatch(
+                    conn, cfg, "publicip",
+                    f"IP pubblico cambiato in {ip}",
+                    f"L'IP pubblico di astreo è cambiato alle {now:%d/%m/%Y %H:%M}.\n\n"
+                    f"Precedente: {previous}\nAttuale:    {ip}\n\n"
+                    "Aggiorna eventuali DNS, client VPN o regole che usano l'indirizzo.",
+                )
         db.state_set(conn, STATE_KEY, current)
     return 0
 
