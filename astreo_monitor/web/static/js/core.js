@@ -52,7 +52,7 @@
   function row(cells) {
     const tr = document.createElement("tr");
     for (const c of cells) {
-      const td = el("td", c.cls ? { class: c.cls } : {});
+      const td = el("td", { class: c.cls || null, "data-label": c.label || null });
       if (c.node) td.appendChild(c.node); else td.textContent = c.text ?? "";
       if (c.title) td.title = c.title;
       tr.appendChild(td);
@@ -73,7 +73,7 @@
   // ---------------------------------------------------------------- grafici
   const css = getComputedStyle(document.documentElement);
   const C = (name) => css.getPropertyValue(name).trim();
-  const PALETTE = ["#8fd19e", "#e8b85c", "#7fb2e5", "#d48fd1", "#ef7a62", "#a6b488", "#6fd6c8", "#c9c27a"];
+  const PALETTE = ["#8ccba8", "#e8b85c", "#7382eb", "#d48fd1", "#ef7a62", "#b3c48e", "#6fd6c8", "#c9c27a"];
   const charts = {};
   if (window.Chart) {
     Chart.defaults.color = C("--text");
@@ -104,13 +104,15 @@
   // ------------------------------------------------------- viste e schede
   const viewHandlers = {};
   let currentView = null;
-  function onView(name, fn) { viewHandlers[name] = fn; }
+  // Se la pagina è già aperta su quella vista (link diretto, es. /#terminale), la carica subito
+  function onView(name, fn) { viewHandlers[name] = fn; if (currentView === name) fn(); }
   function showView() {
     const name = (location.hash || "#server").slice(1).split("/")[0] || "server";
     const valid = $$("[data-view]").map((v) => v.dataset.view);
     const view = valid.includes(name) ? name : "server";
     $$("[data-view]").forEach((v) => { v.hidden = v.dataset.view !== view; });
     $$("[data-view-link]").forEach((a) => a.classList.toggle("active", a.dataset.viewLink === view));
+    document.body.dataset.view = view;
     if (currentView !== view) {
       currentView = view;
       if (viewHandlers[view]) viewHandlers[view]();

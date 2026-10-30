@@ -59,6 +59,8 @@ sudo systemctl enable --now astreo-speedtest.timer   # riattivare
 | Backup in ALERT | permessi su `/srv/sqlbackup`, token `gh`, database offline | `jobs.db_backup --dry-run`, `journalctl -u astreo-backup` |
 | *Esegui ora* / *Sospendi* rispondono "manca la regola polkit" | regola non installata | [impostazioni.md](impostazioni.md), sezione permesso |
 | Widget Windows senza dati | nginx 8081 non aggiornato o token errato | [connessione.md](connessione.md), verifica |
+| Terminale non si apre | vedi tabella in [terminale.md](terminale.md) | `systemctl status astreo-terminal` |
+| Avvisi non arrivano di notte | fascia di silenzio attiva: arrivano all'orario di recapito | Impostazioni → Notifiche |
 | Web non parte | porta occupata o config errata | `journalctl -u astreo-monitor-web -n 30`, `sudo ss -tlnp | grep 5025` |
 
 ## Aggiornare il codice

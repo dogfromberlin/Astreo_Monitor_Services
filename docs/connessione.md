@@ -1,6 +1,6 @@
 # Connessione (ex NetPulse)
 
-Vista **Connessione** della dashboard: `http://<IP-LAN>:5025/#connessione`.
+Vista **Connessione** della dashboard: `https://<IP-LAN>:5443/#connessione`.
 Sostituisce la webapp NetPulse e usa le misure dello speedtest (tabella `speedtest_results`,
 che contiene anche lo storico della 1.x).
 

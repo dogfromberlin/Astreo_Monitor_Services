@@ -3,7 +3,7 @@
   "use strict";
   const { $, $$, api, el, row, fmtNum, fmtDateTime, fmtFull, fmtDuration, toLocalInput, C, drawChart, ds, constLine, toast } = window.AM;
   const state = { range: "7d", custom: null, data: null };
-  const DOWN = "#8fd19e", UP = "#7fb2e5";
+  const DOWN = C("--ok"), UP = C("--accent2");
 
   const query = () => (state.custom
     ? `from=${encodeURIComponent(state.custom.from)}&to=${encodeURIComponent(state.custom.to)}`
@@ -71,11 +71,11 @@
 
     const last = [...rows].reverse().slice(0, 200);
     $("#conn-table tbody").replaceChildren(...last.map((r) => row([
-      { text: fmtFull(r.iso) },
-      { text: fmtNum(r.download, 0), cls: `num ${r.download !== null && r.download < t.download_warning ? "warn" : ""}` },
-      { text: fmtNum(r.upload, 0), cls: `num ${r.upload !== null && r.upload < t.upload_warning ? "warn" : ""}` },
-      { text: fmtNum(r.latency, 0), cls: "num" },
-      { text: r.status || (r.provider === "legacy" ? "storico 1.x" : "–"),
+      { text: fmtFull(r.iso), label: "Quando" },
+      { text: fmtNum(r.download, 0), cls: `num ${r.download !== null && r.download < t.download_warning ? "warn" : ""}`, label: "Download" },
+      { text: fmtNum(r.upload, 0), cls: `num ${r.upload !== null && r.upload < t.upload_warning ? "warn" : ""}`, label: "Upload" },
+      { text: fmtNum(r.latency, 0), cls: "num", label: "Latenza" },
+      { label: "Esito", text: r.status || (r.provider === "legacy" ? "storico 1.x" : "–"),
         cls: r.status === "OK" ? "" : r.status === "WARNING" ? "warn" : r.status ? "alert" : "" },
     ])));
   }

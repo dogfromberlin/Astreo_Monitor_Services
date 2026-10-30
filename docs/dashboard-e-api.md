@@ -1,7 +1,7 @@
 # Dashboard e API
 
 Servizio: `astreo-monitor-web.service` (Flask su waitress).
-Indirizzo: `http://<IP-LAN>:5025/` (il vecchio `/astreomonitor` reindirizza qui).
+Indirizzo: `https://<IP-LAN>:5443/` (il vecchio `/astreomonitor` reindirizza qui).
 
 ## Autenticazione e modifiche
 
@@ -11,7 +11,7 @@ Il browser chiede le credenziali una volta e le riusa per le chiamate della pagi
 Le chiamate che modificano qualcosa (`PUT`, `POST`) devono avere `Content-Type: application/json`
 e, se presente, un `Origin` uguale all'host della dashboard. Esempio con curl:
 ```bash
-curl -s -u <utente> -X PUT -H "Content-Type: application/json" -d '{"speedtest.download_warning": 250}' http://<IP-LAN>:5025/api/v1/settings
+curl -s -u <utente> -X PUT -H "Content-Type: application/json" -d '{"speedtest.download_warning": 250}' https://<IP-LAN>:5443/api/v1/settings
 ```
 `/api/netpulse/*` non usa la Basic Auth ma il token del widget NetPulse.
 
@@ -22,6 +22,20 @@ curl -s -u <utente> -X PUT -H "Content-Type: application/json" -d '{"speedtest.d
 | Server | `/#server` | risorse in tempo reale, servizi, processi, sensori, storico (descritta qui sotto) |
 | Connessione | `/#connessione` | ex NetPulse: andamento, qualità, confronto — [connessione.md](connessione.md) |
 | Impostazioni | `/#impostazioni` | speedtest, notifiche, servizi — [impostazioni.md](impostazioni.md) |
+| Terminale | `/#terminale` | shell nel browser — [terminale.md](terminale.md) |
+
+## Accesso
+
+Dalla 2.3 la dashboard è servita da nginx in **HTTPS sulla porta 5443**
+(`deploy/nginx/astreo-monitor.conf`); waitress ascolta solo su `127.0.0.1:5025`.
+Il certificato è autofirmato: il browser chiede di confermarlo la prima volta.
+
+## Smartphone e tablet
+
+Sotto i 760 px di larghezza: testata compatta con logo e riepilogo *N/N servizi attivi*
+(toccalo per vedere i LED), barra di navigazione in basso, indicatori in griglia 2×2,
+tabelle mostrate come schede, periodi scorrevoli. Si può aggiungere alla schermata Home
+(manifest web): si apre a schermo intero con l'icona di Astreo Monitor.
 
 ## La vista Server
 
@@ -64,7 +78,11 @@ codice 400 (parametri), 401 (credenziali), 404, 500 o 503 (database non raggiung
 | `POST /api/v1/speedtest/run` | Avvia subito una misura |
 | `POST /api/v1/speedtest/pause` | `{"paused": true/false}` sospende o riattiva |
 | `POST /api/v1/notify/test` | `{"channel": "email"/"telegram"/"whatsapp"}` invio di prova |
-| `GET /api/v1/notify/log` | Ultimi 30 invii |
+| `GET /api/v1/notify/log` | Ultimi 30 invii (`items`) e avvisi in coda (`pending`) |
+| `GET /api/v1/terminal/status` | Stato del terminale per questo client |
+| `POST /api/v1/terminal/unlock` | `{"password": "..."}` sblocca il terminale (solo HTTPS) |
+| `POST /api/v1/terminal/lock` | Chiude la sessione del terminale |
+| `GET /api/v1/terminal/check` | Usato da nginx (`auth_request`): 204 se il terminale è sbloccato |
 | `GET /api/netpulse/latest`, `/query`, `/health` | Compatibili con il vecchio proxy NetPulse (token `Bearer`, vedi connessione.md) |
 
 Parametri di periodo per `/history/*`: `range=24h|7d|30d|90d|365d` (default 24h)
@@ -72,9 +90,9 @@ oppure `from=AAAA-MM-GGTHH:MM&to=AAAA-MM-GGTHH:MM`; per lo speedtest anche `rang
 
 Esempi (finestra SSH su astreo o qualsiasi PC della LAN):
 ```bash
-curl -s http://<IP-LAN>:5025/api/v1/health
-curl -s -u <utente> http://<IP-LAN>:5025/api/v1/system
-curl -s -u <utente> "http://<IP-LAN>:5025/api/v1/history/metrics?range=7d"
+curl -s https://<IP-LAN>:5443/api/v1/health
+curl -s -u <utente> https://<IP-LAN>:5443/api/v1/system
+curl -s -u <utente> "https://<IP-LAN>:5443/api/v1/history/metrics?range=7d"
 ```
 (`-u <utente>` senza password: curl la chiede a terminale.)
 

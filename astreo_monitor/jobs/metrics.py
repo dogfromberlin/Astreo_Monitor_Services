@@ -12,6 +12,7 @@ import datetime as dt
 import logging
 
 from .. import db, notifier, services_store
+from .. import settings as settings_mod
 from ..collectors import sensors, services, system
 from ..config import Config
 from .base import run
@@ -89,31 +90,43 @@ def main(cfg: Config, dry_run: bool) -> int:
             f"Soglie: warning {cfg.metrics.disk_warning}%, alert {cfg.metrics.disk_alert}%",
         ))
 
+        values = settings_mod.load(conn, cfg)
         for key, status, text in checks:
             state = notifier.AlertState(conn, key)
-            should_notify, previous = state.update(status, cfg.metrics.reminder_hours)
+            should_notify, reason, previous = state.evaluate(status, settings_mod.policy(values, key))
             if should_notify:
                 name = {"temperature": "Temperatura", "disk": "Disco"}[key]
                 subject = f"Allarme {name.lower()} rientrato" if status == "OK" else f"{name}: {status}"
-                body = f"{text}\n\nStato precedente: {previous or 'n/d'}\nRilevato alle {now:%d/%m/%Y %H:%M}"
-                if notifier.dispatch(conn, cfg, key, subject, body):
+                body = "\n".join(x for x in (notifier.reason_line(reason, state), text,
+                                              f"Stato precedente: {previous or 'n/d'}") if x)
+                if notifier.dispatch(conn, cfg, key, subject, body, detected_at=now):
                     state.mark_notified()
             state.save()
 
         # --- Servizi con avviso attivo -----------------------------------------
         watched = [r for r in services_store.monitored(conn, cfg) if r["notify"]]
+        rule = settings_mod.policy(values, "services")
         for s in services.statuses(watched):
             state = notifier.AlertState(conn, f"service:{s['unit']}")
             status = "OK" if s["up"] else "ALERT"
-            should_notify, previous = state.update(status, cfg.metrics.reminder_hours)
+            should_notify, reason, previous = state.evaluate(status, rule)
             if should_notify:
                 subject = f"Servizio {s['label']} di nuovo attivo" if s["up"] else f"Servizio {s['label']} fermo ({s['state']})"
-                body = (f"Servizio: {s['label']} ({s['unit']})\nStato: {s['state']}\n"
-                        f"Stato precedente: {previous or 'n/d'}\nRilevato alle {now:%d/%m/%Y %H:%M}\n\n"
-                        f"Dettaglio: systemctl status {s['unit']}")
-                if notifier.dispatch(conn, cfg, "services", subject, body):
+                body = "\n".join(x for x in (
+                    notifier.reason_line(reason, state),
+                    f"Servizio: {s['label']} ({s['unit']})", f"Stato: {s['state']}",
+                    f"Stato precedente: {previous or 'n/d'}", f"Dettaglio: systemctl status {s['unit']}") if x)
+                if notifier.dispatch(conn, cfg, "services", subject, body, detected_at=now):
                     state.mark_notified()
             state.save()
+
+        # --- Avvisi trattenuti dalla fascia di silenzio ----------------------
+        try:
+            n = notifier.flush_queue(conn, cfg)
+            if n:
+                log.info("Recapitati %d avvisi posticipati", n)
+        except Exception as exc:  # noqa: BLE001
+            log.error("Recapito degli avvisi posticipati non riuscito: %s", exc)
     return 0
 
 

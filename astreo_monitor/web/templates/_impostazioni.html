@@ -48,8 +48,19 @@
             <label class="switch"><input type="checkbox" data-key="route.speedtest.telegram"><span>Telegram</span></label>
             <label class="switch"><input type="checkbox" data-key="route.speedtest.whatsapp"><span>WhatsApp</span></label>
           </div>
-          <label class="inline">Promemoria se lo stato resta anomalo, ogni<input type="number" step="1" data-key="speedtest.reminder_hours"> ore (0 = mai)</label>
-          <p class="hint">I canali si configurano nella scheda Notifiche: qui scegli su quali ricevere gli avvisi dello speedtest.</p>
+          <div class="grid-fields">
+            <label>Quando avvisare
+              <select data-key="alert.speedtest.mode">
+                <option value="escalation">Solo se la situazione peggiora</option>
+                <option value="change">A ogni cambio di stato</option>
+              </select>
+            </label>
+            <label>Promemoria se resta anomalo (ore, 0 = mai)<input type="number" step="1" data-key="alert.speedtest.reminder_hours"></label>
+          </div>
+          <label class="switch"><input type="checkbox" data-key="alert.speedtest.recovery"><span>Avvisa anche quando torna OK</span></label>
+          <p class="hint">Solo se peggiora: avviso per OK→WARNING, WARNING→ALERT e connessione assente; nessun avviso se resta uguale o migliora.
+             Il promemoria parte se la situazione resta anomala (WARNING o ALERT, anche alternati) per il numero di ore indicato dall'ultimo avviso.
+             I canali si configurano nella scheda Notifiche.</p>
         </fieldset>
         <div class="form-actions"><button type="submit">Salva impostazioni speedtest</button></div>
       </form>
@@ -59,11 +70,26 @@
     <div data-subpanel="set:notifiche" hidden>
       <form class="settings-form" id="form-notify">
         <div class="channels">
-          <fieldset class="channel">
+          <fieldset class="channel channel-wide">
             <legend>Email</legend>
             <label class="switch"><input type="checkbox" data-key="notify.email.enabled"><span>Attiva</span></label>
-            <p class="hint" id="email-info"></p>
-            <p class="hint">Server e destinatari si modificano in /etc/astreo-monitor/config.ini.</p>
+            <div class="grid-fields">
+              <label>Server SMTP<input type="text" data-key="email.smtp_host" placeholder="smtp.gmail.com"></label>
+              <label>Porta<input type="number" step="1" data-key="email.smtp_port"></label>
+              <label>Sicurezza
+                <select data-key="email.security">
+                  <option value="ssl">SSL (porta 465)</option>
+                  <option value="starttls">STARTTLS (porta 587)</option>
+                  <option value="none">Nessuna</option>
+                </select>
+              </label>
+              <label>Utente<input type="text" autocomplete="off" data-key="email.username"></label>
+              <label>Password<input type="password" autocomplete="new-password" data-key="email.password"></label>
+              <label>Mittente<input type="text" data-key="email.sender"></label>
+              <label class="span-2">Destinatari (separati da virgola)<input type="text" data-key="email.recipients"></label>
+              <label>Prefisso dell'oggetto<input type="text" data-key="email.subject_prefix"></label>
+            </div>
+            <p class="hint">Per Gmail: utente = indirizzo completo, password = password per le app.</p>
             <button type="button" class="ghost" data-test="email">Invia prova</button>
           </fieldset>
           <fieldset class="channel">
@@ -82,6 +108,31 @@
           </fieldset>
         </div>
         <p class="hint">Il valore dei campi segreti non viene mai mostrato: lascia il campo com'è per mantenerlo, scrivi un nuovo valore per sostituirlo. La procedura per ottenere token e API key è in docs/notifiche.md.</p>
+
+        <fieldset>
+          <legend>Fascia di silenzio</legend>
+          <label class="switch"><input type="checkbox" data-key="quiet.enabled"><span>Attiva</span></label>
+          <div class="grid-fields quiet-fields">
+            <label>Dalle<input type="time" data-key="quiet.start"></label>
+            <label>alle<input type="time" data-key="quiet.end"></label>
+            <label>Recapita gli avvisi trattenuti alle<input type="time" data-key="quiet.deliver_at"></label>
+          </div>
+          <p class="hint">Gli avvisi nati nella fascia vengono trattenuti e recapitati all'orario indicato, in un unico messaggio per canale,
+             con l'ora in cui sono stati rilevati. Fuori dalla fascia gli avvisi partono subito. L'orario di recapito deve essere fuori dalla fascia
+             (può coincidere con la fine). <span id="queue-info"></span></p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Regole di avviso</legend>
+          <div class="scroll">
+            <table class="data rules" id="rules">
+              <thead><tr><th>Monitoraggio</th><th>Quando avvisare</th><th>Al rientro in OK</th><th>Promemoria (ore)</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="hint"><em>Solo se peggiora</em>: avviso quando lo stato si aggrava (OK→WARNING→ALERT), nessun avviso se resta uguale o migliora.
+             <em>A ogni cambio</em>: avviso a ogni variazione. Il promemoria parte se la situazione resta anomala per le ore indicate dall'ultimo avviso (0 = mai).</p>
+        </fieldset>
 
         <fieldset>
           <legend>Quali avvisi su quali canali</legend>

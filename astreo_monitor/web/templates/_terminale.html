@@ -1,0 +1,25 @@
+<div class="view" data-view="terminale" hidden>
+  <section class="panel terminal-panel">
+    <div class="panel-head">
+      <h2>Terminale</h2>
+      <small id="term-session"></small>
+      <button type="button" class="ghost" id="term-lock" hidden>Blocca terminale</button>
+    </div>
+
+    <div id="term-blocked" class="term-message" hidden></div>
+
+    <form id="term-unlock" class="term-unlock" hidden>
+      <p>Il terminale apre una shell sul server come utente <strong><utente></strong>, con gli stessi permessi di una sessione SSH.
+         Per aprirlo serve la <strong>password del terminale</strong>, diversa da quella della dashboard.</p>
+      <label>Password del terminale
+        <input type="password" name="password" autocomplete="off" required>
+      </label>
+      <button type="submit">Sblocca</button>
+      <p class="hint" id="term-unlock-info"></p>
+    </form>
+
+    <div id="term-frame-wrap" class="term-frame-wrap" hidden>
+      <iframe id="term-frame" title="Terminale del server" referrerpolicy="same-origin"></iframe>
+    </div>
+  </section>
+</div>

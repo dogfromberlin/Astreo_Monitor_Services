@@ -40,9 +40,9 @@
     try {
       const list = await api("/api/v1/processes?limit=15");
       $("#processes tbody").replaceChildren(...list.map((p) => row([
-        { text: p.pid, cls: "num" }, { text: p.user || "" },
-        { text: fmtNum(p.cpu_pct), cls: "num" }, { text: fmtNum(p.mem_pct), cls: "num" },
-        { text: p.rss_mb, cls: "num" }, { text: p.command, cls: "cmd", title: p.command },
+        { text: p.pid, cls: "num", label: "PID" }, { text: p.user || "", label: "Utente" },
+        { text: fmtNum(p.cpu_pct), cls: "num", label: "CPU %" }, { text: fmtNum(p.mem_pct), cls: "num", label: "RAM %" },
+        { text: p.rss_mb, cls: "num", label: "RSS MB" }, { text: p.command, cls: "cmd", title: p.command, label: "Comando" },
       ])));
     } catch (e) { console.error("processes", e); }
   }
@@ -69,15 +69,21 @@
       const list = await api("/api/v1/services");
       const leds = list.map((s) => {
         const li = el("li");
-        li.append(el("span", { class: `led ${s.up ? "up" : "down"}`, "aria-hidden": "true" }), el("span", {}, s.label));
-        li.title = `${s.unit}: ${s.state}`;
+        li.append(el("span", { class: `led ${s.up ? "up" : "down"}`, "aria-hidden": "true" }), el("span", { class: "svc-label" }, s.label));
+        li.title = `${s.label} — ${s.unit}: ${s.state}`;
         return li;
       });
       $("#leds").replaceChildren(...leds);
+      const down = list.filter((s) => !s.up);
+      $("#svc-summary-text").textContent = down.length
+        ? `${down.length} ${down.length === 1 ? "servizio fermo" : "servizi fermi"} su ${list.length}`
+        : `${list.length}/${list.length} servizi attivi`;
+      $("#svc-summary-led").className = `led ${down.length ? "down" : "up"}`;
       $("#services").replaceChildren(...list.map((s) => {
         const li = el("li", { class: s.up ? "up" : "down" });
-        const b = el("button", { type: "button" });
-        b.append(el("span", { class: `led ${s.up ? "up" : "down"}`, "aria-hidden": "true" }), el("span", {}, s.label), el("span", { class: "state" }, s.state));
+        const b = el("button", { type: "button", title: `${s.label} — ${s.unit}: ${s.state}` });
+        b.append(el("span", { class: `led ${s.up ? "up" : "down"}`, "aria-hidden": "true" }), el("span", { class: "svc-label" }, s.label));
+        if (!s.up) b.append(el("span", { class: "state" }, s.state));
         b.addEventListener("click", () => openService(s));
         li.appendChild(b);
         return li;
@@ -142,13 +148,13 @@
       drawChart("chart-cpu", L(m.labels), [
         ds("CPU % media", m.cpu, C("--ok")),
         ds("CPU % picco", m.cpu_max, C("--warn"), { borderDash: [4, 3] }),
-        ds("Load 1 min", m.load1, "#7fb2e5", { yAxisID: "y1" }),
+        ds("Load 1 min", m.load1, C("--accent2"), { yAxisID: "y1" }),
       ], { max: 100, extra: { y1: { position: "right", beginAtZero: true, grid: { drawOnChartArea: false } } } });
-      drawChart("chart-mem", L(m.labels), [ds("RAM %", m.mem, "#7fb2e5"), ds("Disco / %", m.disk, C("--sage"))], { max: 100 });
+      drawChart("chart-mem", L(m.labels), [ds("RAM %", m.mem, C("--accent2")), ds("Disco / %", m.disk, C("--sage"))], { max: 100 });
       drawChart("chart-temp", L(t.labels), Object.entries(t.series).map(([name, values], i) => ds(name, values, PALETTE[i % PALETTE.length])), { beginAtZero: false });
       drawChart("chart-speed", L(s.labels), [
         ds("Download Mbps", s.download, C("--ok"), { pointRadius: 2, tension: 0 }),
-        ds("Upload Mbps", s.upload, "#7fb2e5", { pointRadius: 2, tension: 0 }),
+        ds("Upload Mbps", s.upload, C("--accent2"), { pointRadius: 2, tension: 0 }),
       ]);
     } catch (e) {
       err.textContent = `Storico non disponibile: ${e.message}`;
@@ -187,6 +193,10 @@
     every(REFRESH.temps, loadTemperatures, "server");
     every(REFRESH.history, loadHistory, "server");
     document.addEventListener("services-changed", loadServices);
+    $("#svc-summary").addEventListener("click", () => {
+      const open = document.body.classList.toggle("leds-open");
+      $("#svc-summary").setAttribute("aria-expanded", String(open));
+    });
     window.AM.onView("server", () => { loadProcesses(); loadTemperatures(); loadHistory(); });
   });
 })();

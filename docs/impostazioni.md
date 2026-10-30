@@ -1,6 +1,6 @@
 # Impostazioni
 
-Vista **Impostazioni** della dashboard: `http://<IP-LAN>:5025/#impostazioni`.
+Vista **Impostazioni** della dashboard: `https://<IP-LAN>:5443/#impostazioni`.
 Tre schede: Speedtest, Notifiche, Servizi.
 
 I valori modificati qui sono salvati nel database (tabelle `app_settings` e
@@ -27,7 +27,7 @@ si ferma il timer `astreo-speedtest.timer`, così la *prossima misura* risulta v
 |---|---|---|
 | Soglie | download e upload, warning e alert (Mbps) | alert ≤ warning |
 | Misura | connessioni parallele (1–16), giri (1–10), MB per connessione in download (1–200) e upload (1–100) | il riquadro mostra il traffico generato |
-| Avvisi | canali per gli avvisi dello speedtest (Email, Telegram, WhatsApp), promemoria in ore (0 = mai) | |
+| Avvisi | canali, regola (*solo se peggiora* / *a ogni cambio*), avviso di rientro, promemoria in ore | vedi [notifiche.md](notifiche.md) |
 
 L'orario delle misure (ogni 4 ore alle :05) resta nel timer systemd: vedi
 [speedtest.md](speedtest.md).
@@ -52,8 +52,13 @@ comunque salvata.
 
 ## Notifiche
 
-Vedi [notifiche.md](notifiche.md): attivazione dei canali, credenziali, *Invia prova*,
+Vedi [notifiche.md](notifiche.md): canali (Email completa di server e credenziali, Telegram,
+WhatsApp), *Invia prova*, **fascia di silenzio**, **regole di avviso** per monitoraggio,
 tabella **Quali avvisi su quali canali** e registro degli ultimi invii.
+
+## Terminale
+
+Vista separata: vedi [terminale.md](terminale.md).
 
 ## Servizi
 

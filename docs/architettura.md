@@ -4,7 +4,8 @@
 
 ```
                  ┌───────────────────── astreo ─────────────────────┐
-  Browser ──────▶│ astreo-monitor-web.service  (waitress :5025)     │
+  Browser HTTPS ▶│ nginx :5443 ─▶ astreo-monitor-web (127.0.0.1:5025)│
+  (e /terminal/) │ nginx :5443 ─▶ astreo-terminal (ttyd 127.0.0.1)   │
   (Basic Auth)   │   Flask: /  e  /api/v1/*                          │
                  │        │ legge in tempo reale: psutil, sensors,   │
                  │        │ systemctl (solo servizi in whitelist)    │

@@ -61,6 +61,7 @@ class WebConfig:
     username: str
     password_hash: str
     services: list[ServiceDef] = field(default_factory=list)
+    trusted_proxy: str = ""     # es. 127.0.0.1 quando la dashboard è dietro nginx (HTTPS)
 
 
 @dataclass
@@ -124,6 +125,14 @@ class NetpulseConfig:
 
 
 @dataclass
+class TerminalConfig:
+    enabled: bool
+    password_hash: str          # password SEPARATA da quella della dashboard
+    session_minutes: int
+    allowed_networks: list[str]
+
+
+@dataclass
 class Config:
     path: str
     database: DatabaseConfig
@@ -135,6 +144,7 @@ class Config:
     retention: RetentionConfig
     backup: BackupConfig | None = None
     netpulse: NetpulseConfig | None = None
+    terminal: TerminalConfig | None = None
 
 
 def load(path: str | None = None) -> Config:
@@ -190,6 +200,7 @@ def load(path: str | None = None) -> Config:
             username=w.get("username", ""),
             password_hash=w.get("password_hash", ""),
             services=services,
+            trusted_proxy=w.get("trusted_proxy", "").strip(),
         )
 
         m = sec("metrics")
@@ -247,6 +258,16 @@ def load(path: str | None = None) -> Config:
                 notify=b.getboolean("notify", True),
                 reminder_hours=b.getfloat("reminder_hours", 24),
             )
+        terminal = None
+        if cp.has_section("terminal"):
+            t = cp["terminal"]
+            terminal = TerminalConfig(
+                enabled=t.getboolean("enabled", False),
+                password_hash=t.get("password_hash", "").strip(),
+                session_minutes=max(1, min(t.getint("session_minutes", 15), 240)),
+                allowed_networks=_list(t.get("allowed_networks", "<IP-LAN>/24")),
+            )
+
         netpulse = None
         if cp.has_section("netpulse"):
             token = cp["netpulse"].get("token", "").strip()
@@ -262,4 +283,4 @@ def load(path: str | None = None) -> Config:
     if email.security not in ("ssl", "starttls", "none"):
         raise ConfigError("[email] security deve essere ssl, starttls oppure none")
 
-    return Config(path, database, email, web, metrics, speedtest, publicip, retention, backup, netpulse)
+    return Config(path, database, email, web, metrics, speedtest, publicip, retention, backup, netpulse, terminal)

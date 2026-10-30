@@ -45,6 +45,10 @@ def main(cfg: Config, dry_run: bool) -> int:
                 if n < BATCH:
                     break
             log.info("%s: cancellate %d righe più vecchie di %d giorni", table, total, days)
+        if not dry_run:
+            n = db.execute(conn, "DELETE FROM notification_queue WHERE sent_at < DATEADD(DAY, -30, SYSDATETIME()) "
+                                 "OR (sent_at IS NULL AND created_at < DATEADD(DAY, -30, SYSDATETIME()))")
+            log.info("notification_queue: cancellati %d avvisi recapitati o scaduti da oltre 30 giorni", max(n, 0))
     return 0
 
 

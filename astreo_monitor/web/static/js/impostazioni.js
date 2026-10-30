@@ -3,8 +3,10 @@
   "use strict";
   const { $, $$, api, el, row, toast, fmtFull, fmtDateTime, fmtNum } = window.AM;
   const CHANNEL_LABEL = { email: "Email", telegram: "Telegram", whatsapp: "WhatsApp" };
-  let settings = null;      // { values, meta, sources, channels, email }
+  const MODE_LABEL = { escalation: "Solo se peggiora", change: "A ogni cambio" };
+  let settings = null;      // { values, meta, sources, channels, policy_sources }
   let catalog = [];
+  let viewOrder = null;     // ordine delle righe dei servizi, fisso finché non cambi filtro
 
   // ------------------------------------------------------ form <-> valori
   function fillForm(form) {
@@ -23,7 +25,7 @@
     const out = {};
     $$("[data-key]", form).forEach((input) => {
       const k = input.dataset.key;
-      const v = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.value;
+      const v = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.value.trim();
       if (settings.meta[k] && settings.meta[k].secret && (v === "" || String(v).includes("•"))) return;
       if (v !== settings.values[k]) out[k] = v;
     });
@@ -37,18 +39,17 @@
       $$("form.settings-form").forEach(fillForm);
       renderTraffic();
       toast(`${label} salvate`);
+      loadLog();
     } catch (e) { toast(e.message, "error"); }
   }
 
   async function loadSettings() {
     try {
       settings = await api("/api/v1/settings");
-      $$("form.settings-form").forEach(fillForm);
       renderRoutes();
+      renderRules();
+      $$("form.settings-form").forEach(fillForm);
       renderTraffic();
-      $("#email-info").textContent = settings.email.recipients.length
-        ? `Destinatari: ${settings.email.recipients.join(", ")} (server ${settings.email.smtp})`
-        : "Nessun destinatario configurato.";
     } catch (e) { toast(`Impostazioni non disponibili: ${e.message}`, "error"); }
   }
 
@@ -121,14 +122,35 @@
     }));
   }
 
+  function renderRules() {
+    $("#rules tbody").replaceChildren(...Object.entries(settings.policy_sources).map(([src, label]) => {
+      const tr = el("tr");
+      tr.append(el("td", { "data-label": "Monitoraggio" }, label));
+      const sel = el("select", { "data-key": `alert.${src}.mode`, "aria-label": `Quando avvisare per ${label}` });
+      Object.entries(MODE_LABEL).forEach(([v, t]) => sel.append(el("option", { value: v }, t)));
+      const td1 = el("td", { "data-label": "Quando avvisare" }); td1.append(sel);
+      const lab = el("label", { class: "switch compact" });
+      lab.append(el("input", { type: "checkbox", "data-key": `alert.${src}.recovery`, "aria-label": `Avviso di rientro per ${label}` }), el("span"));
+      const td2 = el("td", { "data-label": "Al rientro in OK" }); td2.append(lab);
+      const num = el("input", { type: "number", step: "1", min: "0", max: "720", "data-key": `alert.${src}.reminder_hours`, "aria-label": `Promemoria per ${label}` });
+      const td3 = el("td", { "data-label": "Promemoria (ore)" }); td3.append(num);
+      tr.append(td1, td2, td3);
+      return tr;
+    }));
+  }
+
   async function loadLog() {
     try {
-      const rows = await api("/api/v1/notify/log");
-      $("#notify-log tbody").replaceChildren(...rows.map((r) => row([
-        { text: fmtFull(r.timestamp) }, { text: CHANNEL_LABEL[r.channel] || r.channel },
-        { text: settings?.sources[r.source] || (r.source === "test" ? "Prova" : r.source) },
-        { text: r.subject }, { text: r.ok ? "Inviata" : `Non inviata: ${r.error || ""}`, cls: r.ok ? "" : "alert" },
+      const data = await api("/api/v1/notify/log");
+      const label = { inviata: "Inviata", fallita: "Non inviata", "in coda": "In coda" };
+      $("#notify-log tbody").replaceChildren(...data.items.map((r) => row([
+        { text: fmtFull(r.timestamp), label: "Quando" }, { text: CHANNEL_LABEL[r.channel] || r.channel, label: "Canale" },
+        { text: settings?.sources[r.source] || ({ test: "Prova", riepilogo: "Riepilogo" }[r.source] || r.source), label: "Evento" },
+        { text: r.subject, label: "Oggetto" },
+        { text: `${label[r.status] || r.status}${r.error ? `: ${r.error}` : ""}`, label: "Esito",
+          cls: r.status === "fallita" ? "alert" : r.status === "in coda" ? "warn" : "" },
       ])));
+      $("#queue-info").textContent = data.pending ? `Avvisi in coda ora: ${data.pending}.` : "";
     } catch (e) { /* tabella non ancora creata o DB assente: nessun registro */ }
   }
 
@@ -148,44 +170,61 @@
   async function loadCatalog() {
     try {
       catalog = await api("/api/v1/settings/services");
-      renderServices();
+      renderServices(true);
     } catch (e) { toast(`Elenco servizi non disponibile: ${e.message}`, "error"); }
   }
 
-  function renderServices() {
+  function monitoredSorted() {
+    return catalog.filter((s) => s.monitored).sort((a, b) => (a.sort_order ?? 9e9) - (b.sort_order ?? 9e9));
+  }
+
+  /* L'ordine delle righe si calcola solo all'apertura e quando cambi ricerca o filtro:
+     attivando o disattivando un servizio la riga resta dov'è e la pagina non si sposta. */
+  function computeOrder() {
     const q = $("#svc-search").value.trim().toLowerCase();
     const only = $("#svc-only").checked;
-    const monitored = catalog.filter((s) => s.monitored).sort((a, b) => (a.sort_order ?? 9e9) - (b.sort_order ?? 9e9));
-    const others = catalog.filter((s) => !s.monitored);
-    const list = [...monitored, ...(only ? [] : others)].filter((s) =>
+    const mon = monitoredSorted();
+    const list = [...mon, ...(only ? [] : catalog.filter((s) => !s.monitored))].filter((s) =>
       !q || s.unit.toLowerCase().includes(q) || (s.description || "").toLowerCase().includes(q) || (s.label || "").toLowerCase().includes(q));
-    $("#svc-count").textContent = `${monitored.length} monitorati su ${catalog.length} servizi`;
-    $("#svc-table tbody").replaceChildren(...list.map((s) => {
-      const tr = el("tr", { class: s.monitored ? "monitored" : "" });
-      const led = el("span", { class: `led ${s.active === "active" ? "up" : s.monitored ? "down" : ""}`, title: `${s.active} (${s.sub})` });
-      const name = el("div");
-      name.append(el("strong", {}, s.unit), el("small", { class: "block" }, s.description || s.load));
-      const label = el("input", { type: "text", value: s.label, maxlength: "100", "aria-label": `Etichetta di ${s.unit}` });
-      label.disabled = !s.monitored;
-      label.addEventListener("change", () => update(s, { label: label.value.trim() || s.unit }));
-      const mon = switchEl(s.monitored, `Monitora ${s.unit}`, (v) => update(s, { monitored: v }));
-      const ntf = switchEl(s.notify, `Avvisami per ${s.unit}`, (v) => update(s, { notify: v, monitored: v ? true : s.monitored }));
-      const order = el("div", { class: "order" });
-      if (s.monitored) {
-        const i = monitored.indexOf(s);
-        const upB = el("button", { type: "button", class: "ghost", "aria-label": "Sposta su" }, "↑");
-        const dnB = el("button", { type: "button", class: "ghost", "aria-label": "Sposta giù" }, "↓");
-        upB.disabled = i === 0; dnB.disabled = i === monitored.length - 1;
-        upB.addEventListener("click", () => move(monitored, i, -1));
-        dnB.addEventListener("click", () => move(monitored, i, 1));
-        order.append(upB, dnB);
-      }
-      [ { node: led }, { node: name }, { node: label }, { node: mon }, { node: ntf }, { node: order } ].forEach((c) => {
-        const td = el("td"); td.append(c.node); tr.append(td);
-      });
-      return tr;
-    }));
+    viewOrder = list.map((s) => s.unit);
   }
+
+  function serviceRow(s) {
+    const mon = monitoredSorted();
+    const tr = el("tr", { class: s.monitored ? "monitored" : "", "data-unit": s.unit });
+    const led = el("span", { class: `led ${s.active === "active" ? "up" : s.monitored ? "down" : ""}`, title: `${s.active} (${s.sub})` });
+    const name = el("div", { class: "svc-name" });
+    name.append(el("strong", { title: s.unit }, s.unit), el("small", { class: "block" }, s.description || s.load));
+    const label = el("input", { type: "text", value: s.label, maxlength: "100", "aria-label": `Etichetta di ${s.unit}` });
+    label.disabled = !s.monitored;
+    label.addEventListener("change", () => update(s, { label: label.value.trim() || s.unit }));
+    const monSw = switchEl(s.monitored, `Monitora ${s.unit}`, (v) => update(s, { monitored: v }));
+    const ntf = switchEl(s.notify, `Avvisami per ${s.unit}`, (v) => update(s, { notify: v, monitored: v ? true : s.monitored }));
+    const order = el("div", { class: "order" });
+    if (s.monitored) {
+      const i = mon.indexOf(s);
+      const upB = el("button", { type: "button", class: "ghost", "aria-label": "Sposta su" }, "↑");
+      const dnB = el("button", { type: "button", class: "ghost", "aria-label": "Sposta giù" }, "↓");
+      upB.disabled = i <= 0; dnB.disabled = i === mon.length - 1;
+      upB.addEventListener("click", () => move(i, -1));
+      dnB.addEventListener("click", () => move(i, 1));
+      order.append(upB, dnB);
+    }
+    [["Stato", led], ["Servizio", name], ["Etichetta", label], ["Monitora", monSw], ["Avvisami", ntf], ["Ordine", order]].forEach(([l, node]) => {
+      const td = el("td", { "data-label": l }); td.append(node); tr.append(td);
+    });
+    return tr;
+  }
+
+  function renderServices(resetOrder = false) {
+    if (resetOrder || !viewOrder) computeOrder();
+    const byUnit = Object.fromEntries(catalog.map((s) => [s.unit, s]));
+    const y = window.scrollY;
+    $("#svc-count").textContent = `${monitoredSorted().length} monitorati su ${catalog.length} servizi`;
+    $("#svc-table tbody").replaceChildren(...viewOrder.filter((u) => byUnit[u]).map((u) => serviceRow(byUnit[u])));
+    window.scrollTo({ top: y });
+  }
+
   function switchEl(checked, aria, onChange) {
     const lab = el("label", { class: "switch compact" });
     const cb = el("input", { type: "checkbox", "aria-label": aria });
@@ -198,18 +237,19 @@
     try {
       const r = await api(`/api/v1/settings/services/${encodeURIComponent(s.unit)}`, { method: "PUT", json: changes });
       Object.assign(s, { monitored: Boolean(r.enabled), notify: Boolean(r.notify), label: r.label, sort_order: r.sort_order });
-      renderServices();
+      renderServices(false);
       toast(`${r.label}: salvato`);
       document.dispatchEvent(new Event("services-changed"));
     } catch (e) { toast(e.message, "error"); loadCatalog(); }
   }
-  async function move(list, i, dir) {
-    const units = list.map((s) => s.unit);
+  async function move(i, dir) {
+    const units = monitoredSorted().map((s) => s.unit);
     [units[i], units[i + dir]] = [units[i + dir], units[i]];
     try {
       await api("/api/v1/settings/services-order", { method: "PUT", json: { units } });
       units.forEach((u, k) => { catalog.find((s) => s.unit === u).sort_order = (k + 1) * 10; });
-      renderServices();
+      document.dispatchEvent(new Event("services-changed"));
+      renderServices(true);
     } catch (e) { toast(e.message, "error"); }
   }
 
@@ -220,8 +260,8 @@
     $("#st-run").addEventListener("click", runNow);
     $("#st-pause").addEventListener("click", togglePause);
     $$("[data-test]").forEach((b) => b.addEventListener("click", () => testChannel(b.dataset.test)));
-    $("#svc-search").addEventListener("input", renderServices);
-    $("#svc-only").addEventListener("change", renderServices);
+    $("#svc-search").addEventListener("input", () => renderServices(true));
+    $("#svc-only").addEventListener("change", () => renderServices(true));
     document.addEventListener("subtab", (ev) => {
       if (ev.detail.group !== "set") return;
       if (ev.detail.sub === "notifiche") loadLog();

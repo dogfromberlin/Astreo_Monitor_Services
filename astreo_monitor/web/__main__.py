@@ -31,7 +31,14 @@ def main() -> None:
 
     port = args.port or cfg.web.port
     log.info("Astreo Monitor %s in ascolto su %s:%s (config %s)", __version__, cfg.web.host, port, cfg.path)
-    serve(create_app(cfg), host=cfg.web.host, port=port, threads=cfg.web.threads, ident="astreo-monitor")
+    proxy = {}
+    if cfg.web.trusted_proxy:
+        # dietro nginx: IP reale del client e schema https dagli header del proxy
+        proxy = {"trusted_proxy": cfg.web.trusted_proxy, "trusted_proxy_count": 1,
+                 "trusted_proxy_headers": {"x-forwarded-for", "x-forwarded-proto", "x-forwarded-host"},
+                 "clear_untrusted_proxy_headers": True}
+        log.info("Proxy fidato: %s", cfg.web.trusted_proxy)
+    serve(create_app(cfg), host=cfg.web.host, port=port, threads=cfg.web.threads, ident="astreo-monitor", **proxy)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ import socket
 import subprocess
 
 from .. import __version__, db, notifier
+from .. import settings as settings_mod
 from ..config import BackupConfig, Config
 from .base import run
 
@@ -246,16 +247,17 @@ def main(cfg: Config, dry_run: bool) -> int:
         db.state_set(conn, "backup:last", summary)
 
         state = notifier.AlertState(conn, "backup")
-        should_notify, previous = state.update(status, b.reminder_hours)
+        should_notify, reason, previous = state.evaluate(status, settings_mod.policy(settings_mod.load(conn, cfg), "backup"))
         if should_notify:
-            lines = [f"Backup del {now:%d/%m/%Y %H:%M}: {status} (precedente: {previous or 'n/d'})", ""]
+            intro = notifier.reason_line(reason, state)
+            lines = ([intro, ""] if intro else []) + [f"Backup del {now:%d/%m/%Y %H:%M}: {status} (precedente: {previous or 'n/d'})", ""]
             lines += [f"- {r['database']}: {human(r['bak_bytes'])} -> {human(r['zst_bytes'])}" for r in results]
             if release_url:
                 lines += ["", f"Release: {release_url}"]
             if errors:
                 lines += ["", "Errori:"] + [f"- {e}" for e in errors]
             subject = "Backup database tornato OK" if status == "OK" else "Backup database FALLITO"
-            if notifier.dispatch(conn, cfg, "backup", subject, "\n".join(lines) + "\n"):
+            if notifier.dispatch(conn, cfg, "backup", subject, "\n".join(lines) + "\n", detected_at=now):
                 state.mark_notified()
         state.save()
 

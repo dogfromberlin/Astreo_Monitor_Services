@@ -25,6 +25,8 @@ Il percorso si può cambiare con `--config FILE` oppure con la variabile
 | `login_timeout`, `timeout` | Secondi di attesa per connessione e query |
 
 ### [email]
+Dalla 2.3 sono solo valori iniziali: si modificano da Impostazioni → Notifiche.
+
 | Chiave | Descrizione |
 |---|---|
 | `enabled` | `false` disattiva tutte le email |
@@ -38,9 +40,12 @@ Verifica: `.venv/bin/python -m astreo_monitor.jobs.test_email`
 ### [web]
 | Chiave | Descrizione |
 |---|---|
-| `host`, `port`, `threads` | Indirizzo di ascolto (default `0.0.0.0:5025`) |
+| `host`, `port`, `threads` | Indirizzo di ascolto: dalla 2.3 `127.0.0.1:5025`, dietro nginx |
 | `username` | Utente Basic Auth |
 | `password_hash` | Hash della password (mai la password in chiaro) |
+| `trusted_proxy` | `127.0.0.1` quando la dashboard è dietro nginx (2.3): IP reale del client e HTTPS dagli header |
+
+Dalla 2.3 `host = 127.0.0.1`: la dashboard si raggiunge solo tramite nginx in HTTPS.
 
 Generare l'hash (finestra SSH su astreo):
 ```bash
@@ -65,6 +70,10 @@ Elenco provider, timeout, `notify`. Vedi [ip-pubblico.md](ip-pubblico.md).
 ### [backup]
 Database da salvare, cartelle, repository GitHub, retention, compressione e `notify`.
 Vedi [backup-database.md](backup-database.md).
+
+### [terminal]
+`enabled`, `password_hash` (password del terminale, diversa da quella della dashboard),
+`session_minutes`, `allowed_networks`. Vedi [terminale.md](terminale.md).
 
 ### [retention]
 Giorni di conservazione per tabella (`0` = per sempre). Vedi [database.md](database.md).

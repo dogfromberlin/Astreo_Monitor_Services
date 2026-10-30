@@ -4,6 +4,49 @@ Tre canali: **Email**, **Telegram**, **WhatsApp**. Si configurano in
 **Impostazioni → Notifiche**; ogni canale si attiva e disattiva con il suo interruttore
 e ha un pulsante **Invia prova**.
 
+## Regole di avviso
+
+Per ogni monitoraggio (Speedtest, Temperatura, Disco, Servizi, Backup database) la tabella
+**Regole di avviso** decide *quando* avvisare:
+
+| Impostazione | Effetto |
+|---|---|
+| **Solo se peggiora** | avviso quando lo stato si aggrava: OK→WARNING, WARNING→ALERT, →DOWN. Nessun avviso se resta uguale o migliora (ALERT→WARNING) |
+| **A ogni cambio** | avviso a ogni variazione di stato |
+| **Al rientro in OK** | avviso anche quando la situazione torna normale |
+| **Promemoria (ore)** | se la situazione resta anomala (WARNING, ALERT o alternati) per queste ore dall'ultimo avviso, parte un promemoria e il conteggio riparte (0 = mai) |
+
+Valori iniziali: Speedtest *solo se peggiora*, nessun avviso di rientro, promemoria a 36 ore;
+gli altri *a ogni cambio*, con rientro, promemoria a 24 ore.
+
+Esempio con lo speedtest (regola iniziale):
+
+| Misure | Avviso |
+|---|---|
+| OK → WARNING | sì |
+| WARNING → WARNING | no |
+| WARNING → ALERT | sì |
+| ALERT → WARNING | no |
+| ALERT → ALERT | no |
+| WARNING o ALERT ininterrotti per 36 ore dall'ultimo avviso | sì, promemoria; il conteggio riparte |
+| → OK | no |
+
+## Fascia di silenzio
+
+In **Impostazioni → Notifiche → Fascia di silenzio**: inizio, fine e orario di recapito
+(es. dalle 23:00 alle 07:00, recapito alle 08:00).
+
+- Un avviso nato nella fascia viene trattenuto (tabella `notification_queue`) e recapitato
+  all'orario indicato, **un solo messaggio per canale**: l'avviso originale con *(posticipato)*
+  nell'oggetto, oppure un riepilogo se sono più di uno.
+- Ogni avviso riporta l'orario di rilevamento; quelli posticipati anche l'orario di invio e la
+  fascia che li ha trattenuti, ad esempio *Rilevato alle 02:14 del 31/10/2026 — Inviato alle
+  08:00, posticipato per la fascia di silenzio 23:00–07:00*.
+- Tra la fine della fascia e l'orario di recapito (07:00–08:00) gli avvisi nuovi partono subito.
+- Il recapito lo esegue il job delle metriche, ogni 5 minuti.
+- Il registro degli invii mostra gli avvisi *In coda*; il numero in attesa compare sotto la fascia.
+- L'invio di prova non viene mai trattenuto.
+
 ## Quali avvisi su quali canali
 
 La tabella in fondo alla scheda decide, per ogni evento, su quali canali arriva l'avviso:
@@ -28,9 +71,9 @@ dall'ultimo invio, oppure al primo avvio se lo stato è già anomalo.
 
 ## Email
 
-Server SMTP, mittente e destinatari restano in `/etc/astreo-monitor/config.ini`,
-sezione `[email]` (vedi [configurazione.md](configurazione.md)). Dalla dashboard si attiva
-o disattiva il canale e si invia una prova.
+Server SMTP, porta, sicurezza (SSL, STARTTLS, nessuna), utente, password, mittente,
+destinatari e prefisso dell'oggetto si modificano da **Impostazioni → Notifiche → Email**.
+La sezione `[email]` del config fornisce solo i valori iniziali.
 
 Per Gmail serve una **password per le app**: https://myaccount.google.com/apppasswords
 

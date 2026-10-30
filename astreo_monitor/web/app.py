@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import secrets
 import time
 from urllib.parse import urlparse
 
@@ -16,13 +17,14 @@ from ..collectors import sensors, services, system, units
 from ..config import Config
 from . import history
 from .netpulse_compat import bp as netpulse_bp
+from .terminal import bp as terminal_bp
 
 log = logging.getLogger("web")
 
 RANGES = {"6h": dt.timedelta(hours=6), "24h": dt.timedelta(hours=24), "7d": dt.timedelta(days=7),
           "30d": dt.timedelta(days=30), "90d": dt.timedelta(days=90), "365d": dt.timedelta(days=365)}
 MAX_SPAN = dt.timedelta(days=400)
-PUBLIC_ENDPOINTS = {"api_health", "static", "favicon"}
+PUBLIC_ENDPOINTS = {"api_health", "static", "favicon", "manifest"}
 SPEEDTEST_TIMER = "astreo-speedtest.timer"
 SPEEDTEST_SERVICE = "astreo-speedtest.service"
 
@@ -62,6 +64,13 @@ def create_app(cfg: Config) -> Flask:
     app.json.ensure_ascii = False
     app.json.sort_keys = False
     app.register_blueprint(netpulse_bp)
+    app.register_blueprint(terminal_bp)
+    # Chiave di firma della sessione (sblocco del terminale): nuova a ogni avvio,
+    # quindi un riavvio della dashboard richiude il terminale.
+    app.secret_key = secrets.token_bytes(32)
+    app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Strict",
+                      SESSION_COOKIE_NAME="astreo_session",
+                      SESSION_COOKIE_SECURE=bool(cfg.web.trusted_proxy))
 
     # ------------------------------------------------------------ sicurezza
     @app.before_request
@@ -90,6 +99,8 @@ def create_app(cfg: Config) -> Flask:
         """
         if request.method in ("GET", "HEAD", "OPTIONS") or request.path.startswith("/api/netpulse/"):
             return None
+        if request.path == "/api/v1/terminal/lock" and not request.is_json:
+            return None  # chiusura dal browser con sendBeacon
         if not request.is_json:
             abort(415, description="Le modifiche devono essere inviate come JSON")
         origin = request.headers.get("Origin") or request.headers.get("Referer")
@@ -151,6 +162,12 @@ def create_app(cfg: Config) -> Flask:
     @app.get("/favicon.ico")
     def favicon():
         return app.send_static_file("favicon.ico")
+
+    @app.get("/manifest.webmanifest")
+    def manifest():
+        resp = app.send_static_file("manifest.webmanifest")
+        resp.headers["Content-Type"] = "application/manifest+json"
+        return resp
 
     # ------------------------------------------------------ API: tempo reale
     @app.get("/api/v1/health")
@@ -258,12 +275,14 @@ def create_app(cfg: Config) -> Flask:
     @app.get("/api/v1/notify/log")
     def api_notify_log():
         with db.connect(cfg.database) as conn:
-            rows = db.query(conn, "SELECT TOP 30 [timestamp], channel, source, subject, ok, error "
+            rows = db.query(conn, "SELECT TOP 30 [timestamp], channel, source, subject, ok, error, status "
                                   "FROM notification_log ORDER BY [timestamp] DESC")
+            pending = db.query_one(conn, "SELECT COUNT(*) AS n FROM notification_queue WHERE sent_at IS NULL")["n"]
         for r in rows:
             r["timestamp"] = db.as_datetime(r["timestamp"]).isoformat(timespec="seconds")
             r["ok"] = bool(r["ok"])
-        return jsonify(rows)
+            r["status"] = r["status"] or ("inviata" if r["ok"] else "fallita")
+        return jsonify({"items": rows, "pending": pending})
 
     # ---------------------------------------------------- API: speedtest
     @app.get("/api/v1/speedtest/status")

@@ -7,8 +7,9 @@ Per ogni giro si aprono `streams` connessioni in parallelo e si misura il
 throughput complessivo; il risultato è la MEDIANA dei giri riusciti.
 I giri falliti vengono scartati (non contano come 0).
 
-Stati: OK, WARNING, ALERT, DOWN (connessione assente). Email solo al cambio
-di stato, più un promemoria ogni `reminder_hours` se lo stato resta anomalo.
+Stati: OK, WARNING, ALERT, DOWN (connessione assente). Quando avvisare lo decide
+la regola configurata in Impostazioni (alert.speedtest.*): di default solo se lo
+stato peggiora, più un promemoria dopo 36 ore di situazione anomala.
 """
 from __future__ import annotations
 
@@ -52,7 +53,6 @@ class Params:
     download_bytes: int
     upload_bytes: int
     timeout: int
-    reminder_hours: float
     enabled: bool = True
 
 
@@ -60,14 +60,14 @@ def effective_params(cfg: Config, values: dict | None) -> Params:
     c = cfg.speedtest
     if values is None:
         return Params(c.download_alert, c.download_warning, c.upload_alert, c.upload_warning, c.streams,
-                      c.rounds, c.download_bytes, c.upload_bytes, c.timeout, c.reminder_hours)
+                      c.rounds, c.download_bytes, c.upload_bytes, c.timeout)
     v = values
     return Params(
         v["speedtest.download_alert"], v["speedtest.download_warning"],
         v["speedtest.upload_alert"], v["speedtest.upload_warning"],
         v["speedtest.streams"], v["speedtest.rounds"],
         v["speedtest.download_mb"] * 1_000_000, v["speedtest.upload_mb"] * 1_000_000,
-        c.timeout, v["speedtest.reminder_hours"], v["speedtest.enabled"],
+        c.timeout, v["speedtest.enabled"],
     )
 
 
@@ -181,11 +181,13 @@ def main(cfg: Config, dry_run: bool) -> int:
     with db.connect(cfg.database) as conn:
         db.execute(conn, INSERT, (db.ts(now), dl, ul, lat, status, PROVIDER, error))
         state = notifier.AlertState(conn, "speedtest")
-        should_notify, previous = state.update(status, c.reminder_hours)
+        should_notify, reason, previous = state.evaluate(status, settings_mod.policy(settings_mod.load(conn, cfg), "speedtest"))
         if should_notify:
             subject = "Connessione internet tornata OK" if status == "OK" else f"Connessione internet: {status}"
+            intro = notifier.reason_line(reason, state)
             body = (
-                f"Esito speedtest delle {now:%d/%m/%Y %H:%M}\n\n"
+                (f"{intro}\n\n" if intro else "")
+                + f"Esito speedtest delle {now:%d/%m/%Y %H:%M}\n\n"
                 f"Stato:      {status} (precedente: {previous or 'n/d'})\n"
                 f"Download:   {fmt(dl)}  (warning < {c.download_warning:g}, alert < {c.download_alert:g})\n"
                 f"Upload:     {fmt(ul)}  (warning < {c.upload_warning:g}, alert < {c.upload_alert:g})\n"
@@ -193,7 +195,7 @@ def main(cfg: Config, dry_run: bool) -> int:
             )
             if error:
                 body += f"\nDettaglio: {error}\n"
-            if notifier.dispatch(conn, cfg, "speedtest", subject, body):
+            if notifier.dispatch(conn, cfg, "speedtest", subject, body, detected_at=now):
                 state.mark_notified()
         state.save()
     return 0

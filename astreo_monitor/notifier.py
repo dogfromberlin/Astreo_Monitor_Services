@@ -111,14 +111,15 @@ def send_whatsapp(phone: str, apikey: str, subject: str, body: str) -> tuple[boo
 # --------------------------------------------------------------------------
 # Invio su tutti i canali abilitati per una sorgente
 # --------------------------------------------------------------------------
-def _log(conn, channel: str, source: str, subject: str, ok: bool, error: str) -> None:
+def _log(conn, channel: str, source: str, subject: str, ok: bool, error: str, status: str | None = None) -> None:
+    status = status or ("inviata" if ok else "fallita")
     try:
         from . import db as _db
         _db.execute(
             conn,
-            "INSERT INTO notification_log ([timestamp], channel, source, subject, ok, error) "
-            "VALUES (SYSDATETIME(), %s, %s, %s, %s, %s)",
-            (channel, source, subject[:200], 1 if ok else 0, (error or None) and error[:400]),
+            "INSERT INTO notification_log ([timestamp], channel, source, subject, ok, error, status) "
+            "VALUES (SYSDATETIME(), %s, %s, %s, %s, %s, %s)",
+            (channel, source, subject[:200], 1 if ok else 0, (error or None) and error[:400], status),
         )
     except Exception as exc:  # noqa: BLE001
         log.warning("Registro notifiche non aggiornato: %s", exc)
@@ -126,7 +127,8 @@ def _log(conn, channel: str, source: str, subject: str, ok: bool, error: str) ->
 
 def send_channel(conn, cfg, values: dict, channel: str, source: str, subject: str, body: str) -> tuple[bool, str]:
     if channel == "email":
-        ok = send_email(cfg.email, subject, body)
+        from . import settings as settings_mod
+        ok = send_email(settings_mod.email_config(cfg, values), subject, body)
         err = "" if ok else "invio fallito (vedi journal)"
     elif channel == "telegram":
         ok, err = send_telegram(values["notify.telegram.bot_token"], values["notify.telegram.chat_id"], subject, body)
@@ -142,25 +144,109 @@ def send_channel(conn, cfg, values: dict, channel: str, source: str, subject: st
     return ok, err
 
 
-def dispatch(conn, cfg, source: str, subject: str, body: str) -> bool:
-    """Invia la notifica su ogni canale abilitato e instradato per `source`.
+def _fmt(when: dt.datetime) -> str:
+    return when.strftime("%H:%M del %d/%m/%Y")
 
-    Ritorna True se almeno un canale l'ha consegnata.
+
+def dispatch(conn, cfg, source: str, subject: str, body: str, detected_at: dt.datetime | None = None) -> bool:
+    """Invia l'avviso su ogni canale abilitato e instradato per `source`.
+
+    Nella fascia di silenzio l'avviso viene messo in coda (notification_queue) e
+    recapitato all'orario impostato da flush_queue(). Ritorna True se almeno un
+    canale l'ha consegnato o messo in coda.
     """
+    from . import db as _db
     from . import settings as settings_mod
 
     values = settings_mod.load(conn, cfg)
+    now = dt.datetime.now()
+    detected_at = detected_at or now
+    channels = [c for c in settings_mod.CHANNELS
+                if values.get(f"notify.{c}.enabled") and values.get(f"route.{source}.{c}")]
+    if not channels:
+        log.info("Nessun canale attivo per '%s': avviso non inviato (%s)", source, subject)
+        return False
+
+    if settings_mod.is_quiet(values, now):
+        due = settings_mod.deferred_until(values, now)
+        for channel in channels:
+            _db.execute(
+                conn,
+                "INSERT INTO notification_queue (created_at, due_at, source, channel, subject, body, attempts) "
+                "VALUES (CONVERT(datetime2(0), %s, 126), CONVERT(datetime2(0), %s, 126), %s, %s, %s, %s, 0)",
+                (_db.ts(detected_at), _db.ts(due), source, channel, subject[:200], body),
+            )
+            _log(conn, channel, source, subject, True, f"recapito alle {_fmt(due)}", status="in coda")
+        log.info("Fascia di silenzio: '%s' trattenuto fino alle %s", subject, _fmt(due))
+        return True
+
+    full = f"{body.rstrip()}\n\nRilevato e inviato alle {_fmt(detected_at)}."
     delivered = False
-    routed = False
-    for channel in settings_mod.CHANNELS:
-        if not values.get(f"notify.{channel}.enabled") or not values.get(f"route.{source}.{channel}"):
-            continue
-        routed = True
-        ok, _ = send_channel(conn, cfg, values, channel, source, subject, body)
+    for channel in channels:
+        ok, _ = send_channel(conn, cfg, values, channel, source, subject, full)
         delivered = delivered or ok
-    if not routed:
-        log.info("Nessun canale attivo per '%s': notifica non inviata (%s)", source, subject)
     return delivered
+
+
+MAX_ATTEMPTS = 5
+
+
+def flush_queue(conn, cfg) -> int:
+    """Recapita gli avvisi trattenuti dalla fascia di silenzio ormai scaduti.
+
+    Un solo messaggio per canale: l'avviso originale se è uno solo, altrimenti un
+    riepilogo. Ogni avviso riporta l'orario in cui è stato rilevato e la fascia
+    che l'ha trattenuto. Ritorna il numero di avvisi recapitati.
+    """
+    from . import db as _db
+    from . import settings as settings_mod
+
+    values = settings_mod.load(conn, cfg)
+    now = dt.datetime.now()
+    if settings_mod.is_quiet(values, now):
+        return 0  # siamo ancora nella fascia (es. fascia modificata dopo l'accodamento)
+    rows = _db.query(
+        conn,
+        "SELECT id, created_at, due_at, source, channel, subject, body, attempts FROM notification_queue "
+        "WHERE sent_at IS NULL AND attempts < %s AND (due_at <= SYSDATETIME() OR %s = 0) ORDER BY created_at",
+        (MAX_ATTEMPTS, 1 if values.get("quiet.enabled") else 0),
+    )
+    if not rows:
+        return 0
+    window = f"{values['quiet.start']}–{values['quiet.end']}"
+    sent = 0
+    by_channel: dict[str, list[dict]] = {}
+    for r in rows:
+        by_channel.setdefault(r["channel"], []).append(r)
+
+    for channel, items in by_channel.items():
+        if not values.get(f"notify.{channel}.enabled"):
+            continue  # canale disattivato nel frattempo: resta in coda finché non lo riattivi
+        nota = f"Inviato alle {_fmt(now)}, posticipato per la fascia di silenzio {window}."
+        if len(items) == 1:
+            r = items[0]
+            subject = f"{r['subject']} (posticipato)"
+            body = f"{r['body'].rstrip()}\n\nRilevato alle {_fmt(_db.as_datetime(r['created_at']))}.\n{nota}"
+            source = r["source"]
+        else:
+            subject = f"{len(items)} avvisi posticipati"
+            parts = [f"Avvisi trattenuti durante la fascia di silenzio {window}, in ordine di rilevamento.", ""]
+            for r in items:
+                label = settings_mod.SOURCES.get(r["source"], r["source"])
+                parts += [f"■ {r['subject']}  [{label}, rilevato alle {_fmt(_db.as_datetime(r['created_at']))}]",
+                          r["body"].rstrip(), ""]
+            parts.append(nota)
+            body = "\n".join(parts)
+            source = "riepilogo"
+        ok, err = send_channel(conn, cfg, values, channel, source, subject, body)
+        ids = ",".join(str(int(r["id"])) for r in items)
+        if ok:
+            _db.execute(conn, f"UPDATE notification_queue SET sent_at = SYSDATETIME() WHERE id IN ({ids})")
+            sent += len(items)
+        else:
+            _db.execute(conn, f"UPDATE notification_queue SET attempts = attempts + 1, error = %s WHERE id IN ({ids})",
+                        ((err or "")[:400],))
+    return sent
 
 
 class AlertState:
@@ -175,33 +261,68 @@ class AlertState:
     def status(self) -> str:
         return self.data.get("status", OK)
 
-    def update(self, new_status: str, reminder_hours: float) -> tuple[bool, str | None]:
-        """Registra il nuovo stato. Ritorna (da_notificare, stato_precedente)."""
+    def evaluate(self, new_status: str, rule) -> tuple[bool, str | None, str | None]:
+        """Applica la regola (settings.Policy). Ritorna (avvisare, motivo, stato_precedente).
+
+        motivo: "primo", "peggioramento", "cambio", "rientro", "promemoria".
+        """
         now = dt.datetime.now()
         previous = self.data.get("status")
-        notify = False
+        notify, reason = False, None
 
         if previous is None:
-            # Primo avvio: si notifica solo se lo stato è già anomalo
-            notify = new_status != OK
-            self.data["since"] = now.isoformat(timespec="seconds")
+            notify, reason = new_status != OK, "primo"
         elif new_status != previous:
-            notify = True
-            self.data["since"] = now.isoformat(timespec="seconds")
-        elif new_status != OK and reminder_hours > 0:
-            last = self.data.get("last_notified")
-            if last is None or now - dt.datetime.fromisoformat(last) >= dt.timedelta(hours=reminder_hours):
-                notify = True
+            if new_status == OK:
+                notify, reason = bool(rule.recovery), "rientro"
+            elif rule.mode == "change":
+                notify, reason = True, "cambio"
+            elif SEVERITY.get(new_status, 0) > SEVERITY.get(previous, 0):
+                notify, reason = True, "peggioramento"
 
+        # inizio e fine della situazione anomala (WARNING/ALERT/... anche alternati)
+        if new_status == OK:
+            self.data.pop("anomaly_since", None)
+        elif previous in (None, OK) or "anomaly_since" not in self.data:
+            self.data["anomaly_since"] = now.isoformat(timespec="seconds")
+
+        if not notify and new_status != OK and rule.reminder_hours > 0:
+            anchor = self.data.get("last_notified")
+            since = self.data.get("anomaly_since")
+            # l'ultimo avviso deve appartenere alla situazione anomala in corso
+            if anchor is None or (since and anchor < since):
+                anchor = since
+            if anchor and now - dt.datetime.fromisoformat(anchor) >= dt.timedelta(hours=rule.reminder_hours):
+                notify, reason = True, "promemoria"
+
+        if new_status != previous:
+            self.data["since"] = now.isoformat(timespec="seconds")
         self.data["status"] = new_status
         self.data["checked_at"] = now.isoformat(timespec="seconds")
-        return notify, previous
+        return notify, reason, previous
+
+    @property
+    def anomaly_since(self) -> dt.datetime | None:
+        v = self.data.get("anomaly_since")
+        return dt.datetime.fromisoformat(v) if v else None
 
     def mark_notified(self) -> None:
         self.data["last_notified"] = dt.datetime.now().isoformat(timespec="seconds")
 
     def save(self) -> None:
         db.state_set(self.conn, self.key, self.data)
+
+
+def reason_line(reason: str | None, state: "AlertState") -> str:
+    """Riga che spiega perché parte l'avviso."""
+    since = state.anomaly_since
+    if reason == "promemoria" and since:
+        return f"Promemoria: situazione anomala ininterrotta dal {since:%d/%m/%Y %H:%M}."
+    if reason == "peggioramento":
+        return "Avviso: la situazione è peggiorata."
+    if reason == "rientro":
+        return "La situazione è tornata nella norma."
+    return ""
 
 
 def worst(statuses: list[str]) -> str:
