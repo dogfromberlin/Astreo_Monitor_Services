@@ -12,6 +12,7 @@ CONTROLLABLE = {
     "astreo-speedtest.service", "astreo-speedtest.timer",
     "astreo-metrics.service", "astreo-publicip.service",
     "astreo-backup.service", "astreo-maintenance.service",
+    "astreo-connectivity.service", "astreo-expiry.service",
 }
 VERBS = {"start", "stop", "restart"}
 

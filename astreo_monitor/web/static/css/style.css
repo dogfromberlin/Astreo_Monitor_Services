@@ -416,3 +416,17 @@ td.warn { color: var(--warn); }
   content: ""; position: absolute; top: .45rem; right: .55rem; width: .5rem; height: .5rem; border-radius: 50%;
   background: var(--ok); box-shadow: 0 0 .4rem var(--ok);
 }
+
+/* 2.4 - riquadro Controlli */
+.checks { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: .6rem; }
+.check { display: flex; gap: .7rem; align-items: flex-start; background: var(--raised); border-radius: 6px; padding: .65rem .8rem; border-left: 3px solid var(--line); min-width: 0; }
+.check .led { margin-top: .35rem; }
+.check > div { min-width: 0; }
+.check strong { display: block; color: var(--strong); font-weight: 500; }
+.check-value { font-family: var(--font-num); font-size: 1.15rem; color: var(--strong); }
+.check small { color: var(--off); font-size: .78rem; overflow-wrap: anywhere; }
+.check.up { border-left-color: var(--ok); }
+.check.warn { border-left-color: var(--warn); } .check.warn .check-value { color: var(--warn); }
+.check.down { border-left-color: var(--alert); } .check.down .check-value { color: var(--alert); }
+.led.warn:not(.up):not(.down) { background: var(--warn); box-shadow: 0 0 .5rem var(--warn); }
+@media (max-width: 760px) { .checks { grid-template-columns: 1fr; } }

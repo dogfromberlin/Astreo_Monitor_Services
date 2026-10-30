@@ -19,6 +19,29 @@ apribile direttamente con Excel).
 - Tabella delle ultime 200 misure con l'esito (OK, WARNING, ALERT, DOWN; `storico 1.x`
   per i dati importati, di cui non si mostra l'upload, non attendibile).
 
+## Disponibilità
+
+Dati del **controllo continuo** (job `astreo_monitor.jobs.connectivity`, timer
+`astreo-connectivity.timer`, ogni minuto): 5 ping a 0,2 s verso il router (`gateway`) e verso
+Internet (predefiniti 1.1.1.1 e 8.8.8.8).
+
+- Indicatori: disponibilità %, numero di interruzioni, durata totale e più lunga, latenza media
+  del router e di Internet.
+- Grafici di latenza e pacchetti persi per destinazione, con la soglia di perdita.
+- Elenco delle **interruzioni**: minuti consecutivi in cui nessuna destinazione Internet risponde.
+
+Stati e avvisi (evento *Connessione (ping)*):
+
+| Stato | Condizione |
+|---|---|
+| DOWN | nessuna destinazione Internet risponde; il messaggio distingue *router/rete locale* da *linea/provider* |
+| WARNING | perdita oltre la soglia (20%) o latenza media oltre la soglia (100 ms) |
+| OK | altrimenti |
+
+Durante un'interruzione gli avvisi non possono uscire: arriva **Connessione ripristinata dopo
+N min**, con inizio e durata. Soglie e destinazioni in **Impostazioni → Speedtest → Controllo
+continuo**. Dati conservati 90 giorni (`[retention] connectivity_days`).
+
 ## Qualità
 
 Raggruppa le misure consecutive sotto la soglia di warning in **episodi**, separatamente

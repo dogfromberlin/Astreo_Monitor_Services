@@ -31,6 +31,7 @@
       renderAndamento();
       renderQualita();
       $("#compare-result").hidden = true;
+      loadAvailability();
     } catch (e) {
       err.textContent = `Dati non disponibili: ${e.message}`;
       err.hidden = false;
@@ -78,6 +79,42 @@
       { label: "Esito", text: r.status || (r.provider === "legacy" ? "storico 1.x" : "–"),
         cls: r.status === "OK" ? "" : r.status === "WARNING" ? "warn" : r.status ? "alert" : "" },
     ])));
+  }
+
+  // ----------------------------------------------------------- disponibilità
+  async function loadAvailability() {
+    try {
+      const d = await api(`/api/v1/history/connectivity?${query()}`);
+      const series = Object.entries(d.series);
+      const avgOf = (role) => {
+        const v = series.filter(([, x]) => x.role === role).flatMap(([, x]) => x.rtt).filter((x) => x !== null);
+        return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+      };
+      const longest = d.outages.reduce((m, o) => (o.minutes > m ? o.minutes : m), 0);
+      $("#avail-stats").replaceChildren(
+        stat("Disponibilità", d.availability === null ? "–" : fmtNum(d.availability, 2), d.availability === null ? "" : "%",
+             d.samples ? `${d.samples} controlli` : "nessun dato nel periodo"),
+        stat("Interruzioni", String(d.outages.length), "", d.down_minutes ? `${fmtDuration(d.down_minutes * 60000)} in totale` : "nessuna"),
+        stat("Più lunga", longest ? fmtDuration(longest * 60000) : "–", ""),
+        stat("Latenza router", fmtNum(avgOf("gateway"), 1), "ms"),
+        stat("Latenza Internet", fmtNum(avgOf("internet"), 1), "ms", `soglia ${d.thresholds.rtt_warning} ms`),
+      );
+      const labels = d.labels.map(fmtDateTime);
+      const pal = window.AM.PALETTE;
+      drawChart("chart-avail-rtt", labels, series.map(([t, x], i) =>
+        ds(x.role === "gateway" ? `${t} (router)` : t, x.rtt, pal[i % pal.length])));
+      drawChart("chart-avail-loss", labels, [
+        ...series.map(([t, x], i) => ds(x.role === "gateway" ? `${t} (router)` : t, x.loss, pal[i % pal.length])),
+        constLine(`Soglia ${d.thresholds.loss_warning}%`, d.thresholds.loss_warning, labels.length, C("--warn")),
+      ], { max: 100 });
+      $("#avail-outages tbody").replaceChildren(...[...d.outages].reverse().map((o) => row([
+        { text: fmtFull(o.start), label: "Inizio" }, { text: fmtFull(o.end), label: "Fine" },
+        { text: fmtDuration(o.minutes * 60000), cls: "num alert", label: "Durata" },
+      ])));
+      $("#avail-empty").hidden = d.outages.length > 0;
+    } catch (e) {
+      $("#avail-stats").replaceChildren(stat("Disponibilità", "–", "", `dati non disponibili: ${e.message}`));
+    }
   }
 
   // ---------------------------------------------------------------- qualità

@@ -103,6 +103,7 @@ class RetentionConfig:
     temperature_days: int
     speedtest_days: int
     publicip_days: int
+    connectivity_days: int = 90
 
 
 @dataclass
@@ -242,6 +243,7 @@ def load(path: str | None = None) -> Config:
             temperature_days=r.getint("temperature_days", 365),
             speedtest_days=r.getint("speedtest_days", 0),
             publicip_days=r.getint("publicip_days", 0),
+            connectivity_days=r.getint("connectivity_days", 90),
         )
         backup = None
         if cp.has_section("backup"):

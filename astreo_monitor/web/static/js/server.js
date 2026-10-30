@@ -184,12 +184,43 @@
   });
   $("#services-refresh").addEventListener("click", loadServices);
 
+  // --------------------------------------------- controlli e scadenze
+  const STATUS_CLS = { OK: "up", WARNING: "warn", ALERT: "down", DOWN: "down", UNKNOWN: "" };
+  function check(label, status, value, sub) {
+    const li = el("li", { class: `check ${STATUS_CLS[status] ?? ""}` });
+    li.append(el("span", { class: `led ${STATUS_CLS[status] ?? ""}`, "aria-hidden": "true" }));
+    const box = el("div");
+    box.append(el("strong", {}, label), el("span", { class: "check-value" }, value));
+    if (sub) box.append(el("small", { class: "block" }, sub));
+    li.append(box);
+    return li;
+  }
+  async function loadChecks() {
+    const items = [];
+    try {
+      const [n, e, h] = await Promise.all([api("/api/v1/network"), api("/api/v1/expiry"), api("/api/v1/heartbeat")]);
+      const c = n.connectivity;
+      items.push(c ? check("Connessione (ping)", c.status, c.status === "OK" ? "regolare" : c.status === "DOWN" ? "assente" : "degradata",
+                           `${c.text} — ${fmtDateTime(c.time)}`)
+                   : check("Connessione (ping)", "UNKNOWN", "nessun dato", "il controllo continuo non ha ancora registrato misure"));
+      items.push(h && h.time ? check("Heartbeat esterno", h.ok ? "OK" : "ALERT", h.ok ? "inviato" : "non inviato",
+                                     `${h.ok ? "" : `${h.error} — `}ultimo alle ${fmtDateTime(h.time)}`)
+                             : check("Heartbeat esterno", "UNKNOWN", "non configurato", "Impostazioni → Notifiche → Heartbeat esterno"));
+      (e.items || []).forEach((it) => items.push(check(it.name, it.status,
+        it.note || (it.days === null ? "non verificabile" : `${Math.floor(it.days)} giorni`),
+        it.error || (it.expires ? `scade il ${new Date(it.expires).toLocaleDateString("it-IT")}` : ""))));
+      if (!(e.items || []).length) items.push(check("Scadenze", "UNKNOWN", "nessun dato", "il controllo gira ogni giorno alle 09:00"));
+      $("#checks").replaceChildren(...items);
+    } catch (err) { console.error("checks", err); }
+  }
+
   // -------------------------------------------------------------- avvio
   document.addEventListener("DOMContentLoaded", () => {
     every(REFRESH.system, loadSystem);                 // la testata usa hostname e uptime
     every(REFRESH.services, loadServices);             // LED nella testata, sempre aggiornati
     every(REFRESH.network, loadNetwork);
     every(REFRESH.processes, loadProcesses, "server");
+    every(60_000, loadChecks, "server");
     every(REFRESH.temps, loadTemperatures, "server");
     every(REFRESH.history, loadHistory, "server");
     document.addEventListener("services-changed", loadServices);
@@ -197,6 +228,6 @@
       const open = document.body.classList.toggle("leds-open");
       $("#svc-summary").setAttribute("aria-expanded", String(open));
     });
-    window.AM.onView("server", () => { loadProcesses(); loadTemperatures(); loadHistory(); });
+    window.AM.onView("server", () => { loadProcesses(); loadTemperatures(); loadHistory(); loadChecks(); });
   });
 })();

@@ -166,6 +166,24 @@
     } catch (e) { toast(e.message, "error"); }
   }
 
+  // ------------------------------------------------------------ heartbeat
+  async function loadHeartbeat() {
+    try {
+      const h = await api("/api/v1/heartbeat");
+      $("#hb-info").textContent = h.time ? `Ultimo ping alle ${fmtFull(h.time)}: ${h.ok ? "inviato" : `non inviato (${h.error})`}.` : "";
+    } catch (e) { /* */ }
+  }
+  async function testHeartbeat() {
+    const changes = readForm($("#form-notify"));
+    try {
+      if (Object.keys(changes).length) settings = await api("/api/v1/settings", { method: "PUT", json: changes });
+      const r = await api("/api/v1/heartbeat/test", { method: "POST", json: {} });
+      toast(r.ok ? "Ping di prova inviato" : `Ping non riuscito: ${r.error}`, r.ok ? "ok" : "error");
+      fillForm($("#form-notify"));
+      loadHeartbeat();
+    } catch (e) { toast(e.message, "error"); }
+  }
+
   // -------------------------------------------------------------- servizi
   async function loadCatalog() {
     try {
@@ -258,13 +276,14 @@
     $("#form-speedtest").addEventListener("submit", (ev) => { ev.preventDefault(); saveForm(ev.target, "Impostazioni speedtest"); });
     $("#form-notify").addEventListener("submit", (ev) => { ev.preventDefault(); saveForm(ev.target, "Impostazioni notifiche"); });
     $("#st-run").addEventListener("click", runNow);
+    $("#hb-test").addEventListener("click", testHeartbeat);
     $("#st-pause").addEventListener("click", togglePause);
     $$("[data-test]").forEach((b) => b.addEventListener("click", () => testChannel(b.dataset.test)));
     $("#svc-search").addEventListener("input", () => renderServices(true));
     $("#svc-only").addEventListener("change", () => renderServices(true));
     document.addEventListener("subtab", (ev) => {
       if (ev.detail.group !== "set") return;
-      if (ev.detail.sub === "notifiche") loadLog();
+      if (ev.detail.sub === "notifiche") { loadLog(); loadHeartbeat(); }
       if (ev.detail.sub === "servizi") loadCatalog();
       if (ev.detail.sub === "speedtest") loadSpeedtestStatus();
     });

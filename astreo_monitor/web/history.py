@@ -131,3 +131,57 @@ def public_ip_history(conn, limit: int = 20) -> list[dict]:
     for r in rows:
         r["timestamp"] = _iso(r["timestamp"])
     return rows
+
+
+def connectivity(conn, start: dt.datetime, end: dt.datetime) -> dict:
+    """Latenza e perdita per destinazione (a bucket) e interruzioni della connessione Internet."""
+    b = bucket_seconds(start, end)
+    if b < 300 and (end - start).total_seconds() <= 6 * 3600:
+        b = 60
+    params = (db.ts(start), db.ts(end))
+    rows = db.query(conn, f"""
+        WITH x AS (
+            SELECT {_bucket_expr('[timestamp]')} AS bucket, target, role, loss_pct, rtt_avg_ms
+            FROM connectivity_samples
+            WHERE [timestamp] >= CONVERT(datetime2(0), %s, 126) AND [timestamp] < CONVERT(datetime2(0), %s, 126)
+        )
+        SELECT bucket, target, MAX(role) AS role, AVG(rtt_avg_ms) AS rtt, AVG(loss_pct) AS loss, MAX(loss_pct) AS loss_max
+        FROM x GROUP BY bucket, target ORDER BY bucket""", (b, b) + params)
+    labels, index, series = [], {}, {}
+    for r in rows:
+        lbl = _iso(r["bucket"])
+        if lbl not in index:
+            index[lbl] = len(labels)
+            labels.append(lbl)
+        sr = series.setdefault(r["target"], {"role": r["role"], "rtt": {}, "loss": {}})
+        sr["rtt"][lbl] = None if r["rtt"] is None else round(float(r["rtt"]), 1)
+        sr["loss"][lbl] = round(float(r["loss"]), 1)
+    out_series = {t: {"role": v["role"], "rtt": [v["rtt"].get(l) for l in labels], "loss": [v["loss"].get(l) for l in labels]}
+                  for t, v in series.items()}
+
+    # minuti senza risposta da nessuna destinazione Internet = interruzione
+    minutes = db.query(conn, """
+        SELECT [timestamp] AS ts, MAX(received) AS best FROM connectivity_samples
+        WHERE role = 'internet' AND [timestamp] >= CONVERT(datetime2(0), %s, 126) AND [timestamp] < CONVERT(datetime2(0), %s, 126)
+        GROUP BY [timestamp] ORDER BY [timestamp]""", params)
+    outages, cur = [], None
+    for m in minutes:
+        t = db.as_datetime(m["ts"])
+        if m["best"] == 0:
+            if cur and (t - cur["end"]).total_seconds() <= 150:
+                cur["end"] = t
+                cur["samples"] += 1
+            else:
+                cur = {"start": t, "end": t, "samples": 1}
+                outages.append(cur)
+        else:
+            cur = None
+    down = sum(o["samples"] for o in outages)
+    total = len(minutes)
+    return {
+        "bucket_s": b, "labels": labels, "series": out_series,
+        "samples": total, "down_minutes": down,
+        "availability": round(100 - down / total * 100, 3) if total else None,
+        "outages": [{"start": o["start"].isoformat(timespec="minutes"), "end": o["end"].isoformat(timespec="minutes"),
+                     "minutes": o["samples"]} for o in outages],
+    }

@@ -62,7 +62,18 @@
              Il promemoria parte se la situazione resta anomala (WARNING o ALERT, anche alternati) per il numero di ore indicato dall'ultimo avviso.
              I canali si configurano nella scheda Notifiche.</p>
         </fieldset>
-        <div class="form-actions"><button type="submit">Salva impostazioni speedtest</button></div>
+        <fieldset>
+          <legend>Controllo continuo della connessione (ping ogni minuto)</legend>
+          <label class="switch"><input type="checkbox" data-key="connectivity.enabled"><span>Attivo</span></label>
+          <div class="grid-fields">
+            <label class="span-2">Destinazioni (separate da virgola; <em>gateway</em> = il router)<input type="text" data-key="connectivity.targets"></label>
+            <label>Perdita pacchetti per WARNING (%)<input type="number" step="1" data-key="connectivity.loss_warning"></label>
+            <label>Latenza per WARNING (ms)<input type="number" step="1" data-key="connectivity.rtt_warning"></label>
+          </div>
+          <p class="hint">Se nessuna destinazione Internet risponde lo stato è DOWN. Durante un'interruzione gli avvisi non possono partire:
+             arriva quello di <em>Connessione ripristinata</em> con la durata. Le regole di avviso sono nella scheda Notifiche (evento <em>Connessione (ping)</em>).</p>
+        </fieldset>
+        <div class="form-actions"><button type="submit">Salva impostazioni</button></div>
       </form>
     </div>
 
@@ -108,6 +119,28 @@
           </fieldset>
         </div>
         <p class="hint">Il valore dei campi segreti non viene mai mostrato: lascia il campo com'è per mantenerlo, scrivi un nuovo valore per sostituirlo. La procedura per ottenere token e API key è in docs/notifiche.md.</p>
+
+        <fieldset>
+          <legend>Heartbeat esterno (avviso se astreo si spegne)</legend>
+          <label class="switch"><input type="checkbox" data-key="heartbeat.enabled"><span>Attivo</span></label>
+          <div class="grid-fields">
+            <label class="span-2">URL di ping (es. https://hc-ping.com/…)<input type="password" autocomplete="off" data-key="heartbeat.url"></label>
+          </div>
+          <p class="hint">Ogni 5 minuti astreo avvisa un servizio esterno che è attivo; se i segnali smettono di arrivare (server spento, bloccato o senza rete)
+             è il servizio esterno ad avvisarti. Configurazione in docs/heartbeat.md. <span id="hb-info"></span></p>
+          <button type="button" class="ghost" id="hb-test">Invia ping di prova</button>
+        </fieldset>
+
+        <fieldset>
+          <legend>Scadenze</legend>
+          <div class="grid-fields">
+            <label>WARNING a (giorni)<input type="number" step="1" data-key="expiry.warning_days"></label>
+            <label>ALERT a (giorni)<input type="number" step="1" data-key="expiry.alert_days"></label>
+            <label class="span-2">Certificati da controllare (host:porta, separati da virgola)<input type="text" data-key="expiry.endpoints"></label>
+          </div>
+          <label class="switch"><input type="checkbox" data-key="expiry.github"><span>Controlla la scadenza del token GitHub usato da gh</span></label>
+          <p class="hint">Controllo ogni giorno alle 09:00. Lo stato attuale è nella vista Server, riquadro <em>Controlli</em>.</p>
+        </fieldset>
 
         <fieldset>
           <legend>Fascia di silenzio</legend>

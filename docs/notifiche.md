@@ -59,6 +59,8 @@ La tabella in fondo alla scheda decide, per ogni evento, su quali canali arriva 
 | Servizi | un servizio con *Avvisami* si ferma o riparte |
 | Backup database | backup fallito, ritorno a OK |
 | IP pubblico | variazione dell'IP |
+| Connessione (ping) | interruzione (DOWN), degrado (WARNING), ripristino con durata |
+| Scadenze | certificato o token GitHub in scadenza (15 / 3 giorni), rinnovo |
 
 Un avviso parte su un canale solo se il canale è **attivo** e l'evento è **instradato** su
 quel canale. Gli stessi interruttori per lo speedtest compaiono anche nella scheda Speedtest.

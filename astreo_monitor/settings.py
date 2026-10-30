@@ -18,17 +18,19 @@ from .config import Config, EmailConfig
 
 CHANNELS = ("email", "telegram", "whatsapp")
 SOURCES = {
+    "connectivity": "Connessione (ping)",
     "speedtest": "Speedtest",
     "temperature": "Temperatura",
     "disk": "Disco",
     "services": "Servizi",
     "backup": "Backup database",
     "publicip": "IP pubblico",
+    "expiry": "Scadenze",
 }
 
 
 # Monitoraggi con stato (OK/WARNING/ALERT...) a cui si applica una regola di avviso
-POLICY_SOURCES = ("speedtest", "temperature", "disk", "services", "backup")
+POLICY_SOURCES = ("connectivity", "speedtest", "temperature", "disk", "services", "backup", "expiry")
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -73,6 +75,19 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "speedtest.rounds": Spec(int, s.rounds, 1, 10, label="Giri di misura"),
         "speedtest.download_mb": Spec(int, max(1, s.download_bytes // 1_000_000), 1, 200, label="MB scaricati per connessione"),
         "speedtest.upload_mb": Spec(int, max(1, s.upload_bytes // 1_000_000), 1, 100, label="MB inviati per connessione"),
+        # --- controllo continuo della connessione (ping ogni minuto)
+        "connectivity.enabled": Spec(bool, True, label="Controllo continuo attivo"),
+        "connectivity.targets": Spec(str, "gateway, 1.1.1.1, 8.8.8.8", label="Destinazioni (gateway = router)"),
+        "connectivity.loss_warning": Spec(float, 20, 1, 100, label="Perdita pacchetti per WARNING (%)"),
+        "connectivity.rtt_warning": Spec(float, 100, 1, 5000, label="Latenza per WARNING (ms)"),
+        # --- heartbeat verso un servizio esterno (es. healthchecks.io)
+        "heartbeat.enabled": Spec(bool, False, label="Heartbeat attivo"),
+        "heartbeat.url": Spec(str, "", secret=True, label="URL di ping"),
+        # --- scadenze
+        "expiry.warning_days": Spec(int, 15, 1, 365, label="Avviso WARNING a (giorni)"),
+        "expiry.alert_days": Spec(int, 3, 0, 365, label="Avviso ALERT a (giorni)"),
+        "expiry.endpoints": Spec(str, "127.0.0.1:5443, 127.0.0.1:8081", label="Certificati da controllare (host:porta)"),
+        "expiry.github": Spec(bool, True, label="Controlla il token GitHub usato da gh"),
         # --- canali
         "notify.email.enabled": Spec(bool, cfg.email.enabled, label="Email"),
         "email.smtp_host": Spec(str, cfg.email.smtp_host, label="Server SMTP"),
@@ -99,10 +114,13 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
     email_default = {
         "speedtest": s.notify, "temperature": cfg.metrics.notify, "disk": cfg.metrics.notify,
         "services": True, "backup": cfg.backup.notify if cfg.backup else True, "publicip": cfg.publicip.notify,
+        "connectivity": True, "expiry": True,
     }
     # --- regole di avviso per monitoraggio
     backup_rem = cfg.backup.reminder_hours if cfg.backup else 24
     policy_default = {
+        "connectivity": ("change", True, 0.0),
+        "expiry": ("escalation", True, 24.0),
         "speedtest": ("escalation", False, 36.0),
         "temperature": ("change", True, cfg.metrics.reminder_hours),
         "disk": ("change", True, cfg.metrics.reminder_hours),
@@ -191,6 +209,10 @@ def save(conn, cfg: Config, changes: dict[str, Any]) -> dict[str, Any]:
         raise SettingsError("Fascia di silenzio: inizio e fine non possono coincidere")
     if in_window(_t(merged["quiet.deliver_at"]), _t(merged["quiet.start"]), _t(merged["quiet.end"])):
         raise SettingsError("L'orario di recapito deve essere fuori dalla fascia di silenzio (può coincidere con la fine)")
+    if merged["expiry.alert_days"] > merged["expiry.warning_days"]:
+        raise SettingsError("Scadenze: i giorni di ALERT devono essere minori o uguali a quelli di WARNING")
+    if clean.get("heartbeat.url") and not str(clean["heartbeat.url"]).startswith(("https://", "http://")):
+        raise SettingsError("Heartbeat: l'URL deve iniziare con https://")
     if clean.get("email.recipients") is not None:
         bad = [r for r in _split(clean["email.recipients"]) if "@" not in r]
         if bad:

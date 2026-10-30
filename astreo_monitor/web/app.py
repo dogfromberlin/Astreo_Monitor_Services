@@ -11,7 +11,7 @@ from flask import Flask, Response, abort, jsonify, redirect, render_template, re
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
-from .. import __version__, db, notifier, services_store
+from .. import __version__, db, heartbeat, notifier, services_store
 from .. import settings as settings_mod
 from ..collectors import sensors, services, system, units
 from ..config import Config
@@ -342,6 +342,35 @@ def create_app(cfg: Config) -> Flask:
                               ("download_warning", "download_alert", "upload_warning", "upload_alert")}
         return jsonify(data)
 
+    @app.get("/api/v1/history/connectivity")
+    def api_history_connectivity():
+        start, end = parse_period()
+        with db.connect(cfg.database) as conn:
+            data = history.connectivity(conn, start, end)
+            values = settings_mod.load(conn, cfg)
+        data["from"], data["to"] = start.isoformat(timespec="seconds"), end.isoformat(timespec="seconds")
+        data["thresholds"] = {"loss_warning": values["connectivity.loss_warning"], "rtt_warning": values["connectivity.rtt_warning"]}
+        return jsonify(data)
+
+    @app.get("/api/v1/expiry")
+    def api_expiry():
+        with db.connect(cfg.database) as conn:
+            return jsonify(db.state_get(conn, "expiry:last") or {"items": []})
+
+    @app.get("/api/v1/heartbeat")
+    def api_heartbeat():
+        with db.connect(cfg.database) as conn:
+            return jsonify(db.state_get(conn, "heartbeat:last") or {})
+
+    @app.post("/api/v1/heartbeat/test")
+    def api_heartbeat_test():
+        with db.connect(cfg.database) as conn:
+            values = settings_mod.load(conn, cfg)
+            if not values["heartbeat.url"]:
+                abort(400, description="URL di heartbeat non configurato")
+            ok, err = heartbeat.ping(conn, {**values, "heartbeat.enabled": True}, ok=True, message="ping di prova dalla dashboard")
+        return jsonify({"ok": ok, "error": err})
+
     @app.get("/api/v1/network")
     def api_network():
         with db.connect(cfg.database) as conn:
@@ -351,6 +380,7 @@ def create_app(cfg: Config) -> Flask:
                 "public_ip": db.state_get(conn, "publicip:current"),
                 "public_ip_history": history.public_ip_history(conn),
                 "backup": db.state_get(conn, "backup:last"),
+                "connectivity": db.state_get(conn, "connectivity:last"),
             })
 
     return app

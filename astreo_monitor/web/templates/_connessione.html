@@ -22,6 +22,7 @@
 
     <div class="subtabs" role="tablist" data-subtabs="conn">
       <button type="button" role="tab" data-sub="andamento" class="active">Andamento</button>
+      <button type="button" role="tab" data-sub="disponibilita">Disponibilità</button>
       <button type="button" role="tab" data-sub="qualita">Qualità</button>
       <button type="button" role="tab" data-sub="confronto">Confronto</button>
     </div>
@@ -39,6 +40,23 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
+
+    <div data-subpanel="conn:disponibilita" hidden>
+      <p class="hint">Ping ogni minuto verso il router e Internet. Un'<strong>interruzione</strong> è un minuto in cui nessuna destinazione Internet risponde.</p>
+      <div class="stats" id="avail-stats"></div>
+      <div class="charts">
+        <figure><figcaption>Latenza (ms)</figcaption><canvas id="chart-avail-rtt"></canvas></figure>
+        <figure><figcaption>Pacchetti persi (%)</figcaption><canvas id="chart-avail-loss"></canvas></figure>
+      </div>
+      <h3 class="sub-title">Interruzioni</h3>
+      <div class="scroll table-tall">
+        <table class="data" id="avail-outages">
+          <thead><tr><th>Inizio</th><th>Fine</th><th class="num">Durata</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint" id="avail-empty" hidden>Nessuna interruzione nel periodo.</p>
     </div>
 
     <div data-subpanel="conn:qualita" hidden>

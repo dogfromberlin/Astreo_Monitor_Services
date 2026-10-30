@@ -18,6 +18,9 @@ Versione 2.0: riscrittura completa della 1.x (`pws/`), vedi
 | Servizi | Servizi systemd monitorati, scelti dalla dashboard, con avviso se si fermano | [servizi.md](docs/servizi.md) |
 | Metriche e temperature | CPU (media esatta), load, RAM, disco, sensori ogni 5 minuti | [metriche-e-temperature.md](docs/metriche-e-temperature.md) |
 | Speedtest | Download, upload, latenza ogni 4 ore con soglie | [speedtest.md](docs/speedtest.md) |
+| Controllo continuo | Ping al minuto verso router e Internet, interruzioni e disponibilità | [connessione.md](docs/connessione.md) |
+| Heartbeat esterno | Avviso da un servizio esterno se astreo si spegne o resta isolato | [heartbeat.md](docs/heartbeat.md) |
+| Scadenze | Certificati HTTPS e token GitHub, con avviso a 15 e 3 giorni | [scadenze.md](docs/scadenze.md) |
 | IP pubblico | Controllo ogni 15 minuti, storico e avviso al cambio | [ip-pubblico.md](docs/ip-pubblico.md) |
 | Notifiche | Email, Telegram e WhatsApp a cambio di stato, instradabili per evento | [notifiche.md](docs/notifiche.md) |
 | Database | Schema, script SQL, retention | [database.md](docs/database.md) |
@@ -29,7 +32,8 @@ Altri documenti:
 [operatività e diagnosi](docs/operativita.md),
 [aggiornamento alla 2.2](docs/aggiornamento-2.2.md),
 [aggiornamento alla 2.3](docs/aggiornamento-2.3.md),
-[aggiornamento alla 2.3.1](docs/aggiornamento-2.3.1.md).
+[aggiornamento alla 2.3.1](docs/aggiornamento-2.3.1.md),
+[aggiornamento alla 2.4](docs/aggiornamento-2.4.md).
 
 ## Struttura
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from .. import db, notifier, services_store
+from .. import db, heartbeat, notifier, services_store
 from .. import settings as settings_mod
 from ..collectors import sensors, services, system
 from ..config import Config
@@ -121,12 +121,18 @@ def main(cfg: Config, dry_run: bool) -> int:
             state.save()
 
         # --- Avvisi trattenuti dalla fascia di silenzio ----------------------
+        problems = []
         try:
             n = notifier.flush_queue(conn, cfg)
             if n:
                 log.info("Recapitati %d avvisi posticipati", n)
         except Exception as exc:  # noqa: BLE001
             log.error("Recapito degli avvisi posticipati non riuscito: %s", exc)
+            problems.append(f"coda avvisi: {exc}")
+
+        # --- Heartbeat: "sono vivo" verso il servizio esterno ----------------
+        heartbeat.ping(conn, values, ok=not problems,
+                       message=f"CPU {cpu:.1f}% RAM {mem['used_pct']}% disco {disk_pct}%" + (f" | {'; '.join(problems)}" if problems else ""))
     return 0
 
 
