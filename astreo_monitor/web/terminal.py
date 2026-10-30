@@ -7,7 +7,8 @@ Architettura:
 Il terminale si apre solo se TUTTE queste condizioni sono vere:
   - connessione HTTPS (tramite nginx), mai HTTP in chiaro;
   - login della dashboard (Basic Auth) valido;
-  - sblocco con la password del terminale, separata, con sessione a scadenza;
+  - sblocco con la password del terminale, separata, con sessione che scade dopo
+    `session_minutes` di inattività (si rinnova finché scrivi nel terminale);
   - indirizzo del client in [terminal] allowed_networks (LAN/VPN).
 I tentativi di sblocco errati sono limitati (5 ogni 15 minuti per IP) e ogni
 sblocco, blocco o rifiuto è registrato nel journal.
@@ -28,6 +29,9 @@ bp = Blueprint("terminal", __name__, url_prefix="/api/v1/terminal")
 MAX_FAILURES = 5
 FAILURE_WINDOW = 15 * 60
 _failures: dict[str, list[float]] = {}
+# Sessioni attive lato server: chiuderle (Blocca, chiusura della scheda, scadenza)
+# le invalida subito, anche se il browser conservasse ancora il cookie.
+_sessions: dict[str, dict] = {}
 
 
 def _tcfg():
@@ -53,8 +57,14 @@ def _ip_allowed(nets: list[str]) -> bool:
 
 
 def _unlocked_until() -> float:
-    until = session.get("term_until", 0)
-    return until if until > time.time() and session.get("term_ip") == _client_ip() else 0
+    sid = session.get("term_id")
+    info = _sessions.get(sid) if sid else None
+    if not info:
+        return 0
+    if info["until"] <= time.time() or info["ip"] != _client_ip():
+        _sessions.pop(sid, None)
+        return 0
+    return info["until"]
 
 
 def _status() -> dict:
@@ -106,18 +116,33 @@ def unlock():
         abort(401, description="Password del terminale errata")
 
     _failures.pop(ip, None)
+    old = session.get("term_id")
+    if old:
+        _sessions.pop(old, None)
     session.clear()
-    session["term_until"] = now + t.session_minutes * 60
-    session["term_ip"] = ip
-    session["term_id"] = secrets.token_hex(8)
-    log.warning("Terminale: SBLOCCATO da %s per %d minuti (sessione %s)", ip, t.session_minutes, session["term_id"])
+    sid = secrets.token_hex(12)
+    session["term_id"] = sid          # cookie di sessione del browser: sparisce alla chiusura del browser
+    _sessions[sid] = {"until": now + t.session_minutes * 60, "ip": ip}
+    log.warning("Terminale: SBLOCCATO da %s, scade dopo %d minuti di inattività (sessione %s)", ip, t.session_minutes, sid[:8])
+    return jsonify(_status())
+
+
+@bp.post("/touch")
+def touch():
+    """Rinnova la sessione: chiamato dalla pagina mentre stai usando il terminale."""
+    t = _tcfg()
+    st = _status()
+    if not st["unlocked_until"]:
+        abort(401, description="Sessione del terminale scaduta")
+    _sessions[session["term_id"]]["until"] = time.time() + t.session_minutes * 60
     return jsonify(_status())
 
 
 @bp.post("/lock")
 def lock():
-    if session.get("term_id"):
-        log.warning("Terminale: bloccato da %s (sessione %s)", _client_ip(), session.get("term_id"))
+    sid = session.get("term_id")
+    if sid and _sessions.pop(sid, None):
+        log.warning("Terminale: chiuso da %s (sessione %s)", _client_ip(), sid[:8])
     session.clear()
     return jsonify(_status())
 

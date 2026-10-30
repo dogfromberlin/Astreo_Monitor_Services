@@ -28,7 +28,8 @@ Altri documenti:
 [configurazione](docs/configurazione.md),
 [operatività e diagnosi](docs/operativita.md),
 [aggiornamento alla 2.2](docs/aggiornamento-2.2.md),
-[aggiornamento alla 2.3](docs/aggiornamento-2.3.md).
+[aggiornamento alla 2.3](docs/aggiornamento-2.3.md),
+[aggiornamento alla 2.3.1](docs/aggiornamento-2.3.1.md).
 
 ## Struttura
 

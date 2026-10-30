@@ -13,7 +13,7 @@ Per questo il terminale si apre solo se valgono **tutte** queste condizioni:
 | Connessione cifrata | solo tramite nginx in HTTPS (porta 5443); da HTTP la dashboard rifiuta lo sblocco |
 | Login della dashboard | Basic Auth, come il resto della pagina |
 | Seconda password | password del terminale **diversa** da quella della dashboard (`[terminal] password_hash`) |
-| Sessione a scadenza | `session_minutes` (default 15) dallo sblocco, legata all'IP; la shell si chiude anche dopo 15 minuti di inattività (`TMOUT=900`) |
+| Sessione a scadenza | si chiude dopo `session_minutes` (default 15) **senza attività** nel terminale, con *Chiudi terminale* o chiudendo la scheda/il browser; legata all'IP. La shell si chiude anche dopo 15 minuti fermi al prompt (`TMOUT=900`) |
 | Reti ammesse | `[terminal] allowed_networks` e le righe `allow` di nginx: solo LAN e VPN |
 | Tentativi limitati | 5 password errate ogni 15 minuti per IP, poi blocco temporaneo |
 | ttyd non esposto | ascolta solo su `127.0.0.1:7681` e richiede una credenziale interna che conosce solo nginx |
@@ -41,8 +41,11 @@ browser --HTTPS--> nginx :5443 ──/──────────> Astreo Mon
 ## Uso
 
 1. Apri la vista **Terminale** e inserisci la password del terminale.
-2. In alto vedi il tempo rimanente della sessione; **Blocca terminale** la chiude subito.
-3. Uscendo dalla vista la shell si chiude: rientrando si riapre una sessione nuova.
+2. Puoi passare a Server, Connessione o Impostazioni: la shell **resta aperta in background**
+   (puntino verde sulla voce *Terminale*) e tornando la ritrovi com'era, anche con un comando in corso.
+3. In alto vedi tra quanto si chiude se non la usi: ogni tasto premuto nel terminale rinnova la sessione.
+4. La shell si chiude con **Chiudi terminale**, dopo il tempo di inattività, chiudendo la scheda o il
+   browser, oppure ricaricando la pagina. In tutti i casi serve di nuovo la password.
 4. Su smartphone la testata si riduce per lasciare spazio alla shell; la tastiera del telefono
    funziona normalmente (per Ctrl+C usa una tastiera con tasto Ctrl, es. Hacker's Keyboard).
 
@@ -83,3 +86,5 @@ journalctl -u astreo-terminal.service -n 30 --no-pager
 | *indirizzo … non ammesso* | IP fuori da `allowed_networks` |
 | *Troppi tentativi errati* | 5 password errate: attendi 15 minuti |
 | riquadro nero senza prompt | `astreo-terminal.service` fermo, o rete non ammessa nelle righe `allow` di nginx |
+| *la pagina è in HTTPS, ma la dashboard non lo rileva* | mancano `trusted_proxy = 127.0.0.1` e `host = 127.0.0.1` in `[web]` |
+| `astreo-terminal` in `activating`, log con `ERROR on binding … 7681` | la porta è occupata dal servizio `ttyd.service` installato dal pacchetto: `sudo systemctl disable --now ttyd.service` |

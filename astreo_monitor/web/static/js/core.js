@@ -108,11 +108,11 @@
   function onView(name, fn) { viewHandlers[name] = fn; if (currentView === name) fn(); }
   function showView() {
     const name = (location.hash || "#server").slice(1).split("/")[0] || "server";
-    const valid = $$("[data-view]").map((v) => v.dataset.view);
+    const valid = $$(".view[data-view]").map((v) => v.dataset.view);
     const view = valid.includes(name) ? name : "server";
-    $$("[data-view]").forEach((v) => { v.hidden = v.dataset.view !== view; });
+    $$(".view[data-view]").forEach((v) => { v.hidden = v.dataset.view !== view; });
     $$("[data-view-link]").forEach((a) => a.classList.toggle("active", a.dataset.viewLink === view));
-    document.body.dataset.view = view;
+    document.body.dataset.currentView = view;   // NON data-view: verrebbe trattato come una vista
     if (currentView !== view) {
       currentView = view;
       if (viewHandlers[view]) viewHandlers[view]();

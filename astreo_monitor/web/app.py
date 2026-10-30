@@ -24,7 +24,8 @@ log = logging.getLogger("web")
 RANGES = {"6h": dt.timedelta(hours=6), "24h": dt.timedelta(hours=24), "7d": dt.timedelta(days=7),
           "30d": dt.timedelta(days=30), "90d": dt.timedelta(days=90), "365d": dt.timedelta(days=365)}
 MAX_SPAN = dt.timedelta(days=400)
-PUBLIC_ENDPOINTS = {"api_health", "static", "favicon", "manifest"}
+# terminal.lock è pubblico: chiude solo la sessione di chi lo chiama (serve alla chiusura della scheda)
+PUBLIC_ENDPOINTS = {"api_health", "static", "favicon", "manifest", "terminal.lock"}
 SPEEDTEST_TIMER = "astreo-speedtest.timer"
 SPEEDTEST_SERVICE = "astreo-speedtest.service"
 
