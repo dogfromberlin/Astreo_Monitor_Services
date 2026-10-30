@@ -198,7 +198,8 @@
   async function loadChecks() {
     const items = [];
     try {
-      const [n, e, h] = await Promise.all([api("/api/v1/network"), api("/api/v1/expiry"), api("/api/v1/heartbeat")]);
+      const [n, e, h, hc] = await Promise.all([api("/api/v1/network"), api("/api/v1/expiry"), api("/api/v1/heartbeat"),
+                                                api("/api/v1/health-checks")]);
       const c = n.connectivity;
       items.push(c ? check("Connessione (ping)", c.status, c.status === "OK" ? "regolare" : c.status === "DOWN" ? "assente" : "degradata",
                            `${c.text} — ${fmtDateTime(c.time)}`)
@@ -210,6 +211,19 @@
         it.note || (it.days === null ? "non verificabile" : `${Math.floor(it.days)} giorni`),
         it.error || (it.expires ? `scade il ${new Date(it.expires).toLocaleDateString("it-IT")}` : ""))));
       if (!(e.items || []).length) items.push(check("Scadenze", "UNKNOWN", "nessun dato", "il controllo gira ogni giorno alle 09:00"));
+      const health = hc.health || {};
+      (health.disks || []).forEach((d) => items.push(check(`Disco ${d.device}`, d.status,
+        d.status === "OK" ? "in salute" : d.status === "UNKNOWN" ? "non verificabile" : d.status.toLowerCase(),
+        [d.model, d.temperature != null ? `${d.temperature} °C` : null, d.wear_used_pct != null ? `usura ${d.wear_used_pct}%` : null,
+         ...(d.reasons || [])].filter(Boolean).join(" — "))));
+      if (!(health.disks || []).length) items.push(check("Dischi (SMART)", "UNKNOWN", "nessun dato", "astreo-smart-collect.timer attivo?"));
+      const u = health.updates;
+      if (u) items.push(check("Aggiornamenti", u.status, u.status === "OK" ? "nessuno urgente" : `${(u.security || []).length} di sicurezza`,
+        `${u.total} in sospeso${u.reboot && u.reboot.required ? " — riavvio richiesto" : ""}`));
+      const rt = hc.restoretest;
+      items.push(rt ? check("Verifica ripristino", rt.status, rt.status === "OK" ? "riuscita" : "fallita",
+                            `${(rt.results || []).map((r) => `${r.database}: ${r.status === "OK" ? `${r.rows} righe` : r.error}`).join(" — ")} — ${fmtDateTime(rt.time)}`)
+                    : check("Verifica ripristino", "UNKNOWN", "mai eseguita", "una volta al mese, la prima domenica"));
       $("#checks").replaceChildren(...items);
     } catch (err) { console.error("checks", err); }
   }

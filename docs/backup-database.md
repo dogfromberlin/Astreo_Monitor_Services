@@ -66,6 +66,29 @@ per quel database il blocco 2 di `sql/004_backup.sql` (con il suo nome al posto 
 
 ---
 
+## Verifica mensile del ripristino
+
+Job `astreo_monitor.jobs.restore_test`, timer `astreo-restoretest.timer` (prima domenica del mese
+alle 04:30). Per ogni database dell'ultimo backup locale:
+
+1. controlla l'hash con `SHA256SUMS`;
+2. ripristina il backup in un database temporaneo `astreo_restoretest_<nome>`, con `CHECKSUM`;
+3. esegue `DBCC CHECKDB`;
+4. conta tabelle e righe;
+5. elimina il database temporaneo e il file decompresso.
+
+I database in uso non vengono mai toccati. Per controllare ed eliminare i database temporanei
+senza dare all'utente applicativo permessi di amministratore, `sql/008_verifica_ripristino.sql`
+crea due procedure in `master`, firmate con un certificato, che accettano **solo** nomi
+`astreo_restoretest_*`.
+
+Esito nella vista **Server → Controlli** e avviso (evento *Verifica del ripristino*).
+Esecuzione immediata:
+```bash
+sudo systemctl start astreo-restoretest.service
+journalctl -u astreo-restoretest.service -n 20 --no-pager
+```
+
 ## Ripristino
 
 Il ripristino si fa con l'utente `sa` dal client SQL. Le finestre sono le stesse:

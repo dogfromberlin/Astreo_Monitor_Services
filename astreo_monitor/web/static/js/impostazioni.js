@@ -277,6 +277,13 @@
     $("#form-notify").addEventListener("submit", (ev) => { ev.preventDefault(); saveForm(ev.target, "Impostazioni notifiche"); });
     $("#st-run").addEventListener("click", runNow);
     $("#hb-test").addEventListener("click", testHeartbeat);
+    $("#summary-test").addEventListener("click", async () => {
+      try {
+        await api("/api/v1/summary/test", { method: "POST", json: {} });
+        toast("Riepilogo inviato sui canali scelti per il Riepilogo settimanale");
+        loadLog();
+      } catch (e) { toast(e.message, "error"); }
+    });
     $("#st-pause").addEventListener("click", togglePause);
     $$("[data-test]").forEach((b) => b.addEventListener("click", () => testChannel(b.dataset.test)));
     $("#svc-search").addEventListener("input", () => renderServices(true));

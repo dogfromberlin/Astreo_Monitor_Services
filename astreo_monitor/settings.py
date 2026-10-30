@@ -26,11 +26,16 @@ SOURCES = {
     "backup": "Backup database",
     "publicip": "IP pubblico",
     "expiry": "Scadenze",
+    "smart": "Salute dei dischi",
+    "updates": "Aggiornamenti di sistema",
+    "restoretest": "Verifica del ripristino",
+    "summary": "Riepilogo settimanale",
 }
 
 
 # Monitoraggi con stato (OK/WARNING/ALERT...) a cui si applica una regola di avviso
-POLICY_SOURCES = ("connectivity", "speedtest", "temperature", "disk", "services", "backup", "expiry")
+POLICY_SOURCES = ("connectivity", "speedtest", "temperature", "disk", "services", "backup", "expiry",
+                  "smart", "updates", "restoretest")
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -106,6 +111,10 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "notify.telegram.enabled": Spec(bool, False, label="Telegram"),
         "notify.telegram.bot_token": Spec(str, "", secret=True, label="Token del bot"),
         "notify.telegram.chat_id": Spec(str, "", label="Chat ID"),
+        "telegram.commands": Spec(bool, False, label="Rispondi ai comandi (/stato, /speedtest, ...)"),
+        # --- salute dei dischi e aggiornamenti
+        "smart.temp_warning": Spec(float, 60, 30, 90, label="Temperatura disco per WARNING (°C)"),
+        "smart.wear_warning": Spec(float, 80, 1, 100, label="Usura SSD per WARNING (%)"),
         "notify.whatsapp.enabled": Spec(bool, False, label="WhatsApp"),
         "notify.whatsapp.phone": Spec(str, "", label="Numero (con prefisso, senza +)"),
         "notify.whatsapp.apikey": Spec(str, "", secret=True, label="API key CallMeBot"),
@@ -114,12 +123,15 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
     email_default = {
         "speedtest": s.notify, "temperature": cfg.metrics.notify, "disk": cfg.metrics.notify,
         "services": True, "backup": cfg.backup.notify if cfg.backup else True, "publicip": cfg.publicip.notify,
-        "connectivity": True, "expiry": True,
+        "connectivity": True, "expiry": True, "smart": True, "updates": True, "restoretest": True, "summary": True,
     }
     # --- regole di avviso per monitoraggio
     backup_rem = cfg.backup.reminder_hours if cfg.backup else 24
     policy_default = {
         "connectivity": ("change", True, 0.0),
+        "smart": ("escalation", True, 24.0),
+        "updates": ("escalation", False, 168.0),
+        "restoretest": ("change", True, 0.0),
         "expiry": ("escalation", True, 24.0),
         "speedtest": ("escalation", False, 36.0),
         "temperature": ("change", True, cfg.metrics.reminder_hours),

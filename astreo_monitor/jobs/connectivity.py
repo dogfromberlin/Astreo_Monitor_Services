@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import os
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -43,8 +44,10 @@ def default_gateway() -> str | None:
 
 def ping(target: str, count: int = 5) -> dict:
     try:
+        # LC_ALL=C: ping è tradotto (es. "pacchetti trasmessi") e la lettura del risultato richiede l'inglese
         res = subprocess.run(["ping", "-n", "-q", "-c", str(count), "-i", "0.2", "-W", "1", target],
-                             capture_output=True, text=True, timeout=count + 5)
+                             capture_output=True, text=True, timeout=count + 5,
+                             env={**os.environ, "LC_ALL": "C", "LANG": "C"})
         out = res.stdout
     except (OSError, subprocess.TimeoutExpired) as exc:
         log.warning("ping %s non eseguito: %s", target, exc)

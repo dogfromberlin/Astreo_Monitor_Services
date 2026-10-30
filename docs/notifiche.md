@@ -111,6 +111,36 @@ ma non ha garanzie di servizio: tieni Telegram o l'email come canale principale.
 3. In **Impostazioni → Notifiche**: numero con prefisso internazionale **senza +**
    (es. `39333…`), API key, attiva WhatsApp, **Salva notifiche**, **Invia prova**.
 
+## Comandi dal bot Telegram
+
+Con **Rispondi ai comandi** attivo (riquadro Telegram), il servizio `astreo-telegram.service`
+risponde nella chat configurata:
+
+| Comando | Risposta |
+|---|---|
+| `/stato` | CPU, RAM, disco, temperatura, connessione, servizi fermi, allarmi attivi |
+| `/connessione` | ping per destinazione, disponibilità delle ultime 24 ore, ultimo speedtest |
+| `/speedtest` | avvia uno speedtest e, dopo circa un minuto, invia il risultato |
+| `/servizi` | stato di ogni servizio monitorato |
+| `/controlli` | dischi, aggiornamenti, scadenze, backup, verifica del ripristino, heartbeat |
+| `/aiuto` | elenco dei comandi |
+
+Il bot risponde **solo** ai messaggi della chat impostata come Chat ID; i comandi da altre chat
+vengono ignorati e registrati nel journal (`journalctl -u astreo-telegram`). Nei gruppi scrivi i
+comandi così come sono o nella forma `/stato@astreo_monitor_bot`. Telegram mostra il menu dei
+comandi toccando `/` nella chat.
+
+Nota: con il servizio attivo, i comandi manuali `getUpdates` (usati per ricavare il Chat ID)
+restituiscono un elenco vuoto, perché i messaggi li riceve il bot. Per ricavare un nuovo Chat ID
+ferma prima il servizio: `sudo systemctl stop astreo-telegram.service`.
+
+## Riepilogo settimanale
+
+Ogni lunedì alle 08:00 (`astreo-summary.timer`), sui canali scelti per l'evento **Riepilogo
+settimanale**: disponibilità e interruzioni, speedtest, CPU, RAM, disco e temperatura, avvisi
+inviati per tipo, backup e verifica del ripristino, dischi, aggiornamenti, scadenze.
+Il pulsante **Invia ora il riepilogo settimanale** lo manda subito, come prova.
+
 ## Segreti
 
 Token Telegram e API key WhatsApp sono salvati nel database (`app_settings`) e non vengono

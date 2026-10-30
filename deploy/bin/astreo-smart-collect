@@ -1,0 +1,27 @@
+#!/bin/bash
+# Astreo Monitor - raccolta SMART (eseguito come root da astreo-smart-collect.service).
+# smartctl richiede root: questo script fa SOLO la lettura e scrive un file JSON per disco
+# in /var/lib/astreo-monitor/smart/, leggibile da Astreo Monitor senza privilegi.
+set -u
+OUT=${ASTREO_SMART_DIR:-/var/lib/astreo-monitor/smart}
+SMARTCTL=${SMARTCTL:-/usr/sbin/smartctl}
+mkdir -p "$OUT"
+chmod 755 "$(dirname "$OUT")" "$OUT"
+found=0
+# righe del tipo: /dev/sda -d scsi # ... : il tipo indicato da --scan può essere generico (scsi),
+# quindi si lascia a smartctl il rilevamento automatico (SATA dietro libata = sat)
+while read -r dev _ type _; do
+    [ -n "$dev" ] || continue
+    name=$(basename "$dev")
+    tmp=$(mktemp "$OUT/.$name.XXXXXX")
+    # smartctl usa codici di uscita a bit anche quando legge correttamente: si conserva comunque il JSON
+    "$SMARTCTL" --json=c -a "$dev" > "$tmp" 2>/dev/null
+    if [ -s "$tmp" ]; then
+        chmod 644 "$tmp"
+        mv -f "$tmp" "$OUT/$name.json"
+        found=$((found + 1))
+    else
+        rm -f "$tmp"
+    fi
+done < <("$SMARTCTL" --scan)
+echo "Dischi letti: $found"

@@ -62,6 +62,7 @@ class WebConfig:
     password_hash: str
     services: list[ServiceDef] = field(default_factory=list)
     trusted_proxy: str = ""     # es. 127.0.0.1 quando la dashboard è dietro nginx (HTTPS)
+    ca_cert: str = "/etc/astreo-monitor/astreo-ca.crt"   # certificato pubblico della CA (mkcert) da scaricare
 
 
 @dataclass
@@ -202,6 +203,7 @@ def load(path: str | None = None) -> Config:
             password_hash=w.get("password_hash", ""),
             services=services,
             trusted_proxy=w.get("trusted_proxy", "").strip(),
+            ca_cert=w.get("ca_cert", "/etc/astreo-monitor/astreo-ca.crt").strip(),
         )
 
         m = sec("metrics")

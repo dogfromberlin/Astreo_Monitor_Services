@@ -25,7 +25,7 @@ RANGES = {"6h": dt.timedelta(hours=6), "24h": dt.timedelta(hours=24), "7d": dt.t
           "30d": dt.timedelta(days=30), "90d": dt.timedelta(days=90), "365d": dt.timedelta(days=365)}
 MAX_SPAN = dt.timedelta(days=400)
 # terminal.lock è pubblico: chiude solo la sessione di chi lo chiama (serve alla chiusura della scheda)
-PUBLIC_ENDPOINTS = {"api_health", "static", "favicon", "manifest", "terminal.lock"}
+PUBLIC_ENDPOINTS = {"api_health", "static", "favicon", "manifest", "terminal.lock", "ca_cert"}
 SPEEDTEST_TIMER = "astreo-speedtest.timer"
 SPEEDTEST_SERVICE = "astreo-speedtest.service"
 
@@ -163,6 +163,16 @@ def create_app(cfg: Config) -> Flask:
     @app.get("/favicon.ico")
     def favicon():
         return app.send_static_file("favicon.ico")
+
+    @app.get("/astreo-ca.crt")
+    def ca_cert():
+        """Certificato PUBBLICO della CA privata (mkcert), da installare su PC e telefoni."""
+        import os
+        from flask import send_file
+        if not os.path.isfile(cfg.web.ca_cert):
+            abort(404, description="Certificato della CA non presente (vedi docs/certificato.md)")
+        return send_file(cfg.web.ca_cert, mimetype="application/x-x509-ca-cert", as_attachment=True,
+                         download_name="astreo-ca.crt")
 
     @app.get("/manifest.webmanifest")
     def manifest():
@@ -356,6 +366,22 @@ def create_app(cfg: Config) -> Flask:
     def api_expiry():
         with db.connect(cfg.database) as conn:
             return jsonify(db.state_get(conn, "expiry:last") or {"items": []})
+
+    @app.get("/api/v1/health-checks")
+    def api_health_checks():
+        with db.connect(cfg.database) as conn:
+            return jsonify({"health": db.state_get(conn, "health:last"), "restoretest": db.state_get(conn, "restoretest:last")})
+
+    @app.post("/api/v1/summary/test")
+    def api_summary_test():
+        from ..jobs import weekly_summary
+        now = dt.datetime.now().replace(second=0, microsecond=0)
+        with db.connect(cfg.database) as conn:
+            subject, text = weekly_summary.build(conn, now)
+            ok = notifier.dispatch(conn, cfg, "summary", f"{subject} (prova)", text, detected_at=now)
+        if not ok:
+            abort(400, description="Nessun canale attivo per il Riepilogo settimanale (tabella Quali avvisi su quali canali)")
+        return jsonify({"ok": True})
 
     @app.get("/api/v1/heartbeat")
     def api_heartbeat():

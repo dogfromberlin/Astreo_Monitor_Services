@@ -95,7 +95,7 @@
   </section>
 
   <section class="panel">
-    <div class="panel-head"><h2>Controlli</h2><small>connessione, heartbeat e scadenze</small></div>
+    <div class="panel-head"><h2>Controlli</h2><small>connessione, dischi, aggiornamenti, backup e scadenze</small></div>
     <ul class="checks" id="checks"></ul>
   </section>
 
@@ -166,7 +166,7 @@
 {% include "_terminale.html" %}
 </main>
 
-<footer><span>Astreo Monitor {{ version }}</span> <a href="{{ url_for('api_health') }}">stato API</a></footer>
+<footer><span>Astreo Monitor {{ version }}</span> <a href="{{ url_for('ca_cert') }}">certificato CA</a> <a href="{{ url_for('api_health') }}">stato API</a></footer>
 
 <dialog id="service-dialog">
   <form method="dialog" class="dialog-head">

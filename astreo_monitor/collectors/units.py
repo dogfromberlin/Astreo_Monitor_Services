@@ -13,6 +13,8 @@ CONTROLLABLE = {
     "astreo-metrics.service", "astreo-publicip.service",
     "astreo-backup.service", "astreo-maintenance.service",
     "astreo-connectivity.service", "astreo-expiry.service",
+    "astreo-health.service", "astreo-smart-collect.service",
+    "astreo-restoretest.service", "astreo-summary.service",
 }
 VERBS = {"start", "stop", "restart"}
 

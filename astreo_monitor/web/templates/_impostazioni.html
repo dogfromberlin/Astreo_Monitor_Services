@@ -108,6 +108,7 @@
             <label class="switch"><input type="checkbox" data-key="notify.telegram.enabled"><span>Attiva</span></label>
             <label>Token del bot<input type="password" autocomplete="off" data-key="notify.telegram.bot_token" placeholder="123456789:AA…"></label>
             <label>Chat ID<input type="text" data-key="notify.telegram.chat_id" placeholder="es. 123456789"></label>
+            <label class="switch"><input type="checkbox" data-key="telegram.commands"><span>Rispondi ai comandi (/stato, /speedtest…)</span></label>
             <button type="button" class="ghost" data-test="telegram">Invia prova</button>
           </fieldset>
           <fieldset class="channel">
@@ -140,6 +141,15 @@
           </div>
           <label class="switch"><input type="checkbox" data-key="expiry.github"><span>Controlla la scadenza del token GitHub usato da gh</span></label>
           <p class="hint">Controllo ogni giorno alle 09:00. Lo stato attuale è nella vista Server, riquadro <em>Controlli</em>.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Dischi</legend>
+          <div class="grid-fields">
+            <label>Temperatura disco per WARNING (°C)<input type="number" step="1" data-key="smart.temp_warning"></label>
+            <label>Usura SSD per WARNING (%)<input type="number" step="1" data-key="smart.wear_warning"></label>
+          </div>
+          <p class="hint">Settori in attesa, non correggibili o autodiagnosi SMART fallita danno sempre ALERT. Controllo ogni 6 ore.</p>
         </fieldset>
 
         <fieldset>
@@ -176,7 +186,10 @@
             </table>
           </div>
         </fieldset>
-        <div class="form-actions"><button type="submit">Salva notifiche</button></div>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="summary-test">Invia ora il riepilogo settimanale</button>
+          <button type="submit">Salva notifiche</button>
+        </div>
       </form>
 
       <h3 class="sub-title">Ultimi invii</h3>
