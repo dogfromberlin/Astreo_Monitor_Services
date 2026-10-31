@@ -1,0 +1,16 @@
+[Unit]
+Description=Astreo Monitor - raccolta metriche e temperature
+Documentation=file://{{ project_dir }}/docs/metriche-e-temperature.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ user }}
+Group={{ group }}
+WorkingDirectory={{ project_dir }}
+Environment=ASTREO_MONITOR_CONFIG={{ config_dir }}/config.ini
+Environment=PYTHONUNBUFFERED=1
+ExecStart={{ project_dir }}/.venv/bin/python -m astreo_monitor.jobs.metrics
+TimeoutStartSec=120
+NoNewPrivileges=true

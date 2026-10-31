@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione raccolta metriche e temperature
+
+[Timer]
+OnCalendar=*:0/5
+AccuracySec=5s
+Persistent=false
+Unit=astreo-metrics.service
+
+[Install]
+WantedBy=timers.target

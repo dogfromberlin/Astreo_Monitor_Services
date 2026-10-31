@@ -1,0 +1,18 @@
+[Unit]
+Description=Astreo Monitor - controllo scadenze (certificati e token GitHub)
+Documentation=file://{{ project_dir }}/docs/scadenze.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ user }}
+Group={{ group }}
+WorkingDirectory={{ project_dir }}
+Environment=ASTREO_MONITOR_CONFIG={{ config_dir }}/config.ini
+Environment=PYTHONUNBUFFERED=1
+# gh legge le credenziali da ~/.config/gh
+Environment=HOME={{ home }}
+ExecStart={{ project_dir }}/.venv/bin/python -m astreo_monitor.jobs.expiry
+TimeoutStartSec=120
+NoNewPrivileges=true

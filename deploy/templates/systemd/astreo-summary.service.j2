@@ -1,0 +1,17 @@
+[Unit]
+Description=Astreo Monitor - riepilogo settimanale
+Documentation=file://{{ project_dir }}/docs/notifiche.md
+After=network-online.target mssql-server.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ user }}
+Group={{ group }}
+WorkingDirectory={{ project_dir }}
+Environment=ASTREO_MONITOR_CONFIG={{ config_dir }}/config.ini
+Environment=PYTHONUNBUFFERED=1
+Environment=HOME={{ home }}
+ExecStart={{ project_dir }}/.venv/bin/python -m astreo_monitor.jobs.weekly_summary
+TimeoutStartSec=300
+NoNewPrivileges=true

@@ -1,0 +1,12 @@
+[Unit]
+Description=Astreo Monitor - pianificazione lettura SMART (ogni 6 ore e all'avvio)
+
+[Timer]
+OnBootSec=3min
+OnCalendar=*-*-* 00/6:20:00
+AccuracySec=1min
+Persistent=true
+Unit=astreo-smart-collect.service
+
+[Install]
+WantedBy=timers.target

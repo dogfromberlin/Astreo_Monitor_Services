@@ -1,0 +1,12 @@
+[Unit]
+Description=Astreo Monitor - pianificazione backup database
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+AccuracySec=1min
+# Se astreo era spento alle 02:30, il backup parte al riavvio
+Persistent=true
+Unit=astreo-backup.service
+
+[Install]
+WantedBy=timers.target

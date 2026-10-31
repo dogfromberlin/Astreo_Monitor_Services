@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione dischi e aggiornamenti (ogni 6 ore)
+
+[Timer]
+OnCalendar=*-*-* 00/6:25:00
+AccuracySec=1min
+Persistent=true
+Unit=astreo-health.service
+
+[Install]
+WantedBy=timers.target

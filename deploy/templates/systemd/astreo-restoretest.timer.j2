@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione verifica del ripristino (prima domenica del mese, 04:30)
+
+[Timer]
+OnCalendar=Sun *-*-01..07 04:30:00
+AccuracySec=1min
+Persistent=true
+Unit=astreo-restoretest.service
+
+[Install]
+WantedBy=timers.target

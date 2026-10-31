@@ -1,0 +1,25 @@
+[Unit]
+Description=Astreo Monitor - terminale web (ttyd)
+Documentation=file://{{ project_dir }}/docs/terminale.md
+After=network.target
+
+[Service]
+Type=simple
+User={{ user }}
+Group={{ group }}
+WorkingDirectory={{ home }}
+# TTYD_CREDENTIAL=utente:segreto, condiviso solo con nginx (vedi docs/terminale.md)
+EnvironmentFile={{ config_dir }}/terminal.env
+# - ascolta solo in locale: raggiungibile esclusivamente tramite nginx
+# - --check-origin rifiuta connessioni websocket partite da altri siti
+# - TMOUT chiude la shell dopo 15 minuti di inattività al prompt
+ExecStart=/usr/bin/ttyd --port 7681 --interface 127.0.0.1 --base-path /terminal --writable \
+    --check-origin --max-clients 2 --credential ${TTYD_CREDENTIAL} \
+    -t fontSize=14 -t rendererType=dom -t disableLeaveAlert=true -t 'fontFamily="JetBrains Mono, DejaVu Sans Mono, monospace"' \
+    -t 'theme={"background":"#0d0822","foreground":"#dcefd9","cursor":"#8ccba8"}' \
+    env TMOUT=900 bash -l
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

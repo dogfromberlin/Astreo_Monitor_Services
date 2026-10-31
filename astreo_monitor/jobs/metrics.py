@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from .. import db, events, heartbeat, notifier, services_store
+from .. import db, events, heartbeat, models, notifier, services_store
 from ..integrations import docker as docker_mod
 from ..integrations import pihole as pihole_mod
 from .. import settings as settings_mod
@@ -21,15 +21,6 @@ from .base import run
 
 log = logging.getLogger("job.metrics")
 
-INSERT_METRICS = """
-INSERT INTO system_metrics ([timestamp], cpu_pct, load1, load5, load15,
-                            mem_used_pct, mem_used_mb, swap_used_pct, disk_used_pct, source)
-VALUES (CONVERT(datetime2(0), %s, 126), %s, %s, %s, %s, %s, %s, %s, %s, 'v2')
-"""
-INSERT_TEMP = """
-INSERT INTO system_temperature ([timestamp], adapter, device, temperature)
-VALUES (CONVERT(datetime, %s, 126), %s, %s, %s)
-"""
 
 
 def level(value: float, warning: float, alert: float) -> str:
@@ -64,12 +55,15 @@ def main(cfg: Config, dry_run: bool) -> int:
             cpu = system.cpu_percent(5)
             curr_times = system.cpu_times_snapshot()
 
-        stamp = db.ts(now)
-        db.execute(conn, INSERT_METRICS, (
-            stamp, cpu, ld["load1"], ld["load5"], ld["load15"],
-            mem["used_pct"], mem["used_mb"], mem["swap_used_pct"], disk_pct,
-        ))
-        db.execute_many(conn, INSERT_TEMP, [(stamp, t["adapter"], t["device"], t["value"]) for t in temps])
+        stamp = now.replace(microsecond=0)
+        conn.execute(models.system_metrics.insert().values(
+            timestamp=stamp, cpu_pct=cpu, load1=ld["load1"], load5=ld["load5"], load15=ld["load15"],
+            mem_used_pct=mem["used_pct"], mem_used_mb=mem["used_mb"], swap_used_pct=mem["swap_used_pct"],
+            disk_used_pct=disk_pct, source="v2"))
+        if temps:
+            conn.execute(models.system_temperature.insert(),
+                         [{"timestamp": stamp, "adapter": t["adapter"], "device": t["device"], "temperature": t["value"]}
+                          for t in temps])
         db.state_set(conn, "metrics:cpu_times", curr_times)
 
         log.info("Salvato: CPU %.2f%% | load %s | RAM %.1f%% | disco %s%% | %d temperature",

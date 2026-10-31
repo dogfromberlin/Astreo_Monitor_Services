@@ -32,7 +32,7 @@ I test in `tests/test_installazione.py` contengono una regola per ogni errore gi
 | `AmbientCapabilities=CAP_NET_RAW` per il ping | connessione sempre DOWN |
 | `data-view` solo sulle viste | schermata nera passando da una sezione all'altra |
 | niente `GO` dentro i commenti SQL | script interrotto a metà in SSMS |
-| ogni tabella attesa creata dallo script indicato | indicazioni sbagliate del controllo dello schema |
+| `models.py` coincide con le migrazioni | modifica allo schema senza migrazione |
 
 ## Diagnosi dell'installazione
 

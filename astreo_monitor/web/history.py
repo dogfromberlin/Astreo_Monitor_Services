@@ -1,15 +1,19 @@
-"""Query sullo storico, aggregate a intervalli (bucket) calcolati da SQL Server."""
+"""Query sullo storico per i grafici, portabili su SQL Server, PostgreSQL e SQLite.
+
+I dati sono aggregati per intervalli (bucket) dal database stesso: l'unica parte specifica
+per database è l'espressione che arrotonda la data (db.bucket_expr).
+"""
 from __future__ import annotations
 
 import datetime as dt
 
-from .. import db
+from sqlalchemy import and_, func, select
 
-# Ampiezze di bucket ammesse (secondi): si sceglie la più piccola che dà
-# al massimo ~TARGET_POINTS punti nel periodo richiesto.
+from .. import db, models
+
+# Ampiezze di bucket ammesse (secondi): la più piccola che dà al massimo ~TARGET_POINTS punti
 BUCKETS = [300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400]
 TARGET_POINTS = 300
-EPOCH = "20000101"
 
 
 def bucket_seconds(start: dt.datetime, end: dt.datetime) -> int:
@@ -20,58 +24,45 @@ def bucket_seconds(start: dt.datetime, end: dt.datetime) -> int:
     return BUCKETS[-1]
 
 
-def _bucket_expr(col: str) -> str:
-    # %s ripetuto: pymssql sostituisce lato client, i valori sono interi validati
-    return f"DATEADD(SECOND, (DATEDIFF(SECOND, '{EPOCH}', {col}) / %s) * %s, '{EPOCH}')"
-
-
 def _iso(value) -> str:
     return db.as_datetime(value).isoformat(timespec="seconds")
 
 
+def _r(v, n=2):
+    return None if v is None else round(float(v), n)
+
+
+def _bucketed(conn, table, start, end, b, columns: dict, group_extra=()):
+    """SELECT bucket, aggregati... raggruppati per bucket (e colonne extra), ordinati per bucket."""
+    expr, epoch = db.bucket_expr(conn, table.c.timestamp, b)
+    inner = select(expr.label("bucket"), *[table.c[c] for c in {*(col for col, _ in columns.values()), *group_extra}]) \
+        .where(and_(table.c.timestamp >= start, table.c.timestamp < end)).subquery()
+    aggs = [fn(inner.c[col]).label(name) for name, (col, fn) in columns.items()]
+    extra = [inner.c[g] for g in group_extra]
+    q = select(inner.c.bucket, *extra, *aggs).group_by(inner.c.bucket, *extra).order_by(inner.c.bucket)
+    out = db.rows(conn, q)
+    for r in out:
+        r["bucket"] = db.from_bucket(r["bucket"], epoch)
+    return out
+
+
 def metrics(conn, start: dt.datetime, end: dt.datetime) -> dict:
     b = bucket_seconds(start, end)
-    sql = f"""
-    WITH x AS (
-        SELECT {_bucket_expr('[timestamp]')} AS bucket,
-               cpu_pct, load1, mem_used_pct, disk_used_pct
-        FROM system_metrics
-        WHERE [timestamp] >= CONVERT(datetime2(0), %s, 126)
-          AND [timestamp] <  CONVERT(datetime2(0), %s, 126)
-    )
-    SELECT bucket, AVG(cpu_pct) AS cpu, MAX(cpu_pct) AS cpu_max, AVG(load1) AS load1,
-           AVG(mem_used_pct) AS mem, AVG(disk_used_pct) AS disk
-    FROM x GROUP BY bucket ORDER BY bucket
-    """
-    rows = db.query(conn, sql, (b, b, db.ts(start), db.ts(end)))
-
-    def r(v):
-        return None if v is None else round(float(v), 2)
-
+    rows = _bucketed(conn, models.system_metrics, start, end, b, {
+        "cpu": ("cpu_pct", func.avg), "cpu_max": ("cpu_pct", func.max), "load1": ("load1", func.avg),
+        "mem": ("mem_used_pct", func.avg), "disk": ("disk_used_pct", func.avg)})
     return {
         "bucket_s": b,
         "labels": [_iso(x["bucket"]) for x in rows],
-        "cpu": [r(x["cpu"]) for x in rows],
-        "cpu_max": [r(x["cpu_max"]) for x in rows],
-        "load1": [r(x["load1"]) for x in rows],
-        "mem": [r(x["mem"]) for x in rows],
-        "disk": [r(x["disk"]) for x in rows],
+        "cpu": [_r(x["cpu"]) for x in rows], "cpu_max": [_r(x["cpu_max"]) for x in rows],
+        "load1": [_r(x["load1"]) for x in rows], "mem": [_r(x["mem"]) for x in rows], "disk": [_r(x["disk"]) for x in rows],
     }
 
 
 def temperatures(conn, start: dt.datetime, end: dt.datetime) -> dict:
     b = bucket_seconds(start, end)
-    sql = f"""
-    WITH x AS (
-        SELECT {_bucket_expr('[timestamp]')} AS bucket, adapter, device, temperature
-        FROM system_temperature
-        WHERE [timestamp] >= CONVERT(datetime, %s, 126)
-          AND [timestamp] <  CONVERT(datetime, %s, 126)
-    )
-    SELECT bucket, adapter, device, AVG(temperature) AS t
-    FROM x GROUP BY bucket, adapter, device ORDER BY bucket
-    """
-    rows = db.query(conn, sql, (b, b, db.ts(start), db.ts(end)))
+    rows = _bucketed(conn, models.system_temperature, start, end, b,
+                     {"t": ("temperature", func.avg)}, group_extra=("adapter", "device"))
     labels: list[str] = []
     index: dict[str, int] = {}
     series: dict[str, dict[str, float]] = {}
@@ -80,25 +71,15 @@ def temperatures(conn, start: dt.datetime, end: dt.datetime) -> dict:
         if label not in index:
             index[label] = len(labels)
             labels.append(label)
-        name = f"{x['adapter']} - {x['device']}"
-        series.setdefault(name, {})[label] = round(float(x["t"]), 1)
-    # Serie allineate sulle stesse etichette (null dove manca il dato)
-    aligned = {name: [vals.get(lbl) for lbl in labels] for name, vals in sorted(series.items())}
-    return {"bucket_s": b, "labels": labels, "series": aligned}
+        series.setdefault(f"{x['adapter']} - {x['device']}", {})[label] = _r(x["t"], 1)
+    return {"bucket_s": b, "labels": labels,
+            "series": {n: [v.get(lbl) for lbl in labels] for n, v in sorted(series.items())}}
 
 
 def speedtests(conn, start: dt.datetime, end: dt.datetime) -> dict:
-    rows = db.query(
-        conn,
-        """
-        SELECT [timestamp], download_mbps, upload_mbps, latency_ms, status, provider
-        FROM speedtest_results
-        WHERE [timestamp] >= CONVERT(datetime2(0), %s, 126)
-          AND [timestamp] <  CONVERT(datetime2(0), %s, 126)
-        ORDER BY [timestamp]
-        """,
-        (db.ts(start), db.ts(end)),
-    )
+    S = models.speedtest_results
+    rows = db.rows(conn, select(S.c.timestamp, S.c.download_mbps, S.c.upload_mbps, S.c.latency_ms, S.c.status, S.c.provider)
+                   .where(S.c.timestamp >= start, S.c.timestamp < end).order_by(S.c.timestamp))
     return {
         "labels": [_iso(x["timestamp"]) for x in rows],
         "download": [x["download_mbps"] for x in rows],
@@ -111,23 +92,17 @@ def speedtests(conn, start: dt.datetime, end: dt.datetime) -> dict:
 
 
 def latest_speedtest(conn) -> dict | None:
-    row = db.query_one(
-        conn,
-        "SELECT TOP 1 [timestamp], download_mbps, upload_mbps, latency_ms, status, provider "
-        "FROM speedtest_results WHERE provider <> 'legacy' ORDER BY [timestamp] DESC",
-    )
-    if not row:
-        return None
-    row["timestamp"] = _iso(row["timestamp"])
+    S = models.speedtest_results
+    row = db.one(conn, select(S.c.timestamp, S.c.download_mbps, S.c.upload_mbps, S.c.latency_ms, S.c.status, S.c.provider)
+                 .where(S.c.provider != "legacy").order_by(S.c.timestamp.desc()).limit(1))
+    if row:
+        row["timestamp"] = _iso(row["timestamp"])
     return row
 
 
 def public_ip_history(conn, limit: int = 20) -> list[dict]:
-    rows = db.query(
-        conn,
-        "SELECT TOP (%s) [timestamp], ip, previous_ip FROM public_ip_history ORDER BY [timestamp] DESC",
-        (limit,),
-    )
+    P = models.public_ip_history
+    rows = db.rows(conn, select(P.c.timestamp, P.c.ip, P.c.previous_ip).order_by(P.c.timestamp.desc()).limit(limit))
     for r in rows:
         r["timestamp"] = _iso(r["timestamp"])
     return rows
@@ -135,18 +110,14 @@ def public_ip_history(conn, limit: int = 20) -> list[dict]:
 
 def connectivity(conn, start: dt.datetime, end: dt.datetime) -> dict:
     """Latenza e perdita per destinazione (a bucket) e interruzioni della connessione Internet."""
+    C = models.connectivity_samples
     b = bucket_seconds(start, end)
     if b < 300 and (end - start).total_seconds() <= 6 * 3600:
         b = 60
-    params = (db.ts(start), db.ts(end))
-    rows = db.query(conn, f"""
-        WITH x AS (
-            SELECT {_bucket_expr('[timestamp]')} AS bucket, target, role, loss_pct, rtt_avg_ms
-            FROM connectivity_samples
-            WHERE [timestamp] >= CONVERT(datetime2(0), %s, 126) AND [timestamp] < CONVERT(datetime2(0), %s, 126)
-        )
-        SELECT bucket, target, MAX(role) AS role, AVG(rtt_avg_ms) AS rtt, AVG(loss_pct) AS loss, MAX(loss_pct) AS loss_max
-        FROM x GROUP BY bucket, target ORDER BY bucket""", (b, b) + params)
+    if (end - start).total_seconds() <= 6 * 3600:
+        b = 60
+    rows = _bucketed(conn, C, start, end, b, {"rtt": ("rtt_avg_ms", func.avg), "loss": ("loss_pct", func.avg),
+                                              "role": ("role", func.max)}, group_extra=("target",))
     labels, index, series = [], {}, {}
     for r in rows:
         lbl = _iso(r["bucket"])
@@ -154,16 +125,15 @@ def connectivity(conn, start: dt.datetime, end: dt.datetime) -> dict:
             index[lbl] = len(labels)
             labels.append(lbl)
         sr = series.setdefault(r["target"], {"role": r["role"], "rtt": {}, "loss": {}})
-        sr["rtt"][lbl] = None if r["rtt"] is None else round(float(r["rtt"]), 1)
-        sr["loss"][lbl] = round(float(r["loss"]), 1)
-    out_series = {t: {"role": v["role"], "rtt": [v["rtt"].get(l) for l in labels], "loss": [v["loss"].get(l) for l in labels]}
+        sr["rtt"][lbl] = _r(r["rtt"], 1)
+        sr["loss"][lbl] = _r(r["loss"], 1)
+    out_series = {t: {"role": v["role"], "rtt": [v["rtt"].get(x) for x in labels], "loss": [v["loss"].get(x) for x in labels]}
                   for t, v in series.items()}
 
     # minuti senza risposta da nessuna destinazione Internet = interruzione
-    minutes = db.query(conn, """
-        SELECT [timestamp] AS ts, MAX(received) AS best FROM connectivity_samples
-        WHERE role = 'internet' AND [timestamp] >= CONVERT(datetime2(0), %s, 126) AND [timestamp] < CONVERT(datetime2(0), %s, 126)
-        GROUP BY [timestamp] ORDER BY [timestamp]""", params)
+    minutes = db.rows(conn, select(C.c.timestamp.label("ts"), func.max(C.c.received).label("best"))
+                      .where(C.c.role == "internet", C.c.timestamp >= start, C.c.timestamp < end)
+                      .group_by(C.c.timestamp).order_by(C.c.timestamp))
     outages, cur = [], None
     for m in minutes:
         t = db.as_datetime(m["ts"])
@@ -179,8 +149,7 @@ def connectivity(conn, start: dt.datetime, end: dt.datetime) -> dict:
     down = sum(o["samples"] for o in outages)
     total = len(minutes)
     return {
-        "bucket_s": b, "labels": labels, "series": out_series,
-        "samples": total, "down_minutes": down,
+        "bucket_s": b, "labels": labels, "series": out_series, "samples": total, "down_minutes": down,
         "availability": round(100 - down / total * 100, 3) if total else None,
         "outages": [{"start": o["start"].isoformat(timespec="minutes"), "end": o["end"].isoformat(timespec="minutes"),
                      "minutes": o["samples"]} for o in outages],

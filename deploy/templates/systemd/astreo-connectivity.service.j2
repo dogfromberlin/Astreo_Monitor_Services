@@ -1,0 +1,20 @@
+[Unit]
+Description=Astreo Monitor - controllo continuo della connessione (ping)
+Documentation=file://{{ project_dir }}/docs/connessione.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ user }}
+Group={{ group }}
+WorkingDirectory={{ project_dir }}
+Environment=ASTREO_MONITOR_CONFIG={{ config_dir }}/config.ini
+Environment=PYTHONUNBUFFERED=1
+ExecStart={{ project_dir }}/.venv/bin/python -m astreo_monitor.jobs.connectivity
+TimeoutStartSec=50
+NoNewPrivileges=true
+# ping usa il permesso CAP_NET_RAW (file capability su /usr/bin/ping), che NoNewPrivileges
+# non lascia acquisire: lo si concede al servizio stesso, ed è l'unico permesso in più
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW

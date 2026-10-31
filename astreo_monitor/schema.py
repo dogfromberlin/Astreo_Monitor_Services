@@ -1,9 +1,7 @@
-"""Controllo dello schema del database: tabelle, colonne, procedure e permessi attesi.
+"""Controllo dello schema del database: tabelle, colonne, versione delle migrazioni e permessi.
 
-Per ogni elemento mancante indica lo script SQL da eseguire. Usato:
-  - all'avvio della dashboard (avviso nel journal e banner nella pagina);
-  - da /api/v1/health;
-  - dal comando di diagnosi: python -m astreo_monitor.doctor
+Per ogni problema indica come correggerlo (di norma: python -m astreo_monitor.migrate).
+Usato all'avvio della dashboard, da /api/v1/health e dal comando di diagnosi.
 Uso diretto: python -m astreo_monitor.schema [--config FILE]
 """
 from __future__ import annotations
@@ -11,68 +9,48 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import db
+from sqlalchemy import inspect, text
 
-# tabella -> (colonne indispensabili, script che la crea)
-TABLES = {
-    "system_metrics": (["timestamp", "cpu_pct", "load1", "mem_used_pct", "disk_used_pct", "source"], "001_install.sql"),
-    "speedtest_results": (["timestamp", "download_mbps", "upload_mbps", "latency_ms", "status", "provider"], "001_install.sql"),
-    "public_ip_history": (["timestamp", "ip", "previous_ip"], "001_install.sql"),
-    "monitor_state": (["key", "value", "updated_at"], "001_install.sql"),
-    "system_temperature": (["timestamp", "adapter", "device", "temperature"], "002_switch.sql"),
-    "app_settings": (["key", "value", "updated_at"], "005_impostazioni.sql"),
-    "monitored_services": (["unit", "label", "enabled", "notify", "sort_order"], "005_impostazioni.sql"),
-    "notification_log": (["timestamp", "channel", "source", "subject", "ok", "error"], "005_impostazioni.sql"),
-    "notification_queue": (["created_at", "due_at", "source", "channel", "subject", "body", "attempts", "sent_at"], "006_avvisi.sql"),
-    "connectivity_samples": (["timestamp", "target", "role", "received", "loss_pct", "rtt_avg_ms"], "007_connessione.sql"),
-    "events": (["timestamp", "kind", "severity", "title", "detail"], "009_eventi.sql"),
-}
-# colonne aggiunte a tabelle esistenti da script successivi
-EXTRA_COLUMNS = {("notification_log", "status"): "006_avvisi.sql"}
-# procedure in master usate dalla verifica del ripristino
-PROCEDURES = {"master.dbo.astreo_restoretest_check": "008_verifica_ripristino.sql",
-              "master.dbo.astreo_restoretest_drop": "008_verifica_ripristino.sql"}
+from . import db, models
+
+MIGRATE = "python -m astreo_monitor.migrate"
 
 
 def check(conn, backup_databases: list[str] | None = None) -> list[dict]:
-    """Ritorna l'elenco dei problemi: [{"item", "problem", "script"}]. Vuoto = schema completo."""
+    """Ritorna l'elenco dei problemi: [{"item", "problem", "fix"}]. Vuoto = schema completo."""
+    from . import migrate
     problems = []
-    rows = db.query(conn, "SELECT t.name AS t, c.name AS c FROM sys.tables t JOIN sys.columns c ON c.object_id = t.object_id")
-    present: dict[str, set] = {}
-    for r in rows:
-        present.setdefault(r["t"].lower(), set()).add(r["c"].lower())
-
-    for table, (cols, script) in TABLES.items():
-        have = present.get(table)
-        if have is None:
-            problems.append({"item": table, "problem": "tabella mancante", "script": script})
+    insp = inspect(conn)
+    present = {t.lower() for t in insp.get_table_names()}
+    for name, table in models.metadata.tables.items():
+        if name not in present:
+            problems.append({"item": name, "problem": "tabella mancante", "fix": MIGRATE})
             continue
-        missing = [c for c in cols if c.lower() not in have]
+        cols = {c["name"].lower() for c in insp.get_columns(name)}
+        missing = [c.name for c in table.columns if c.name.lower() not in cols]
         if missing:
-            problems.append({"item": table, "problem": f"colonne mancanti: {', '.join(missing)}", "script": script})
-    for (table, col), script in EXTRA_COLUMNS.items():
-        if table in present and col not in present[table]:
-            problems.append({"item": f"{table}.{col}", "problem": "colonna mancante", "script": script})
+            problems.append({"item": name, "problem": f"colonne mancanti: {', '.join(missing)}", "fix": MIGRATE})
+    if "alembic_version" not in present:
+        problems.append({"item": "versione dello schema", "problem": "mai registrata (database 2.x?)", "fix": MIGRATE})
+    else:
+        current, head = migrate.current_revision(conn), migrate.head_revision()
+        if current != head:
+            problems.append({"item": "versione dello schema", "problem": f"{current} invece di {head}", "fix": MIGRATE})
 
-    for proc, script in PROCEDURES.items():
-        r = db.query_one(conn, "SELECT HAS_PERMS_BY_NAME(%s, 'OBJECT', 'EXECUTE') AS p", (proc,))
-        if r["p"] != 1:
-            problems.append({"item": proc, "problem": "procedura mancante o senza permesso di esecuzione", "script": script})
-
-    for name in backup_databases or []:
-        r = db.query_one(conn, "SELECT HAS_PERMS_BY_NAME(%s, 'DATABASE', 'BACKUP DATABASE') AS p", (name,))
-        if r["p"] != 1:
-            problems.append({"item": f"backup di {name}", "problem": "permesso BACKUP DATABASE mancante",
-                             "script": "004_backup.sql"})
-    r = db.query_one(conn, "SELECT HAS_PERMS_BY_NAME('master', 'DATABASE', 'CREATE DATABASE') AS p")
-    if r["p"] != 1:
-        problems.append({"item": "CREATE DATABASE in master", "problem": "permesso mancante (verifica dei backup)",
-                         "script": "004_backup.sql"})
+    if db.dialect(conn) == "mssql":                   # backup e verifica del ripristino di SQL Server
+        for proc in ("master.dbo.astreo_restoretest_check", "master.dbo.astreo_restoretest_drop"):
+            if db.scalar(conn, text("SELECT HAS_PERMS_BY_NAME(:p, 'OBJECT', 'EXECUTE')"), {"p": proc}) != 1:
+                problems.append({"item": proc, "problem": "procedura mancante o senza permesso di esecuzione",
+                                 "fix": "come sa: sql/008_verifica_ripristino.sql"})
+        for name in backup_databases or []:
+            if db.scalar(conn, text("SELECT HAS_PERMS_BY_NAME(:d, 'DATABASE', 'BACKUP DATABASE')"), {"d": name}) != 1:
+                problems.append({"item": f"backup di {name}", "problem": "permesso BACKUP DATABASE mancante",
+                                 "fix": "come sa: sql/004_backup.sql"})
     return problems
 
 
-def scripts_to_run(problems: list[dict]) -> list[str]:
-    return sorted({p["script"] for p in problems})
+def fixes(problems: list[dict]) -> list[str]:
+    return sorted({p["fix"] for p in problems})
 
 
 def main() -> None:
@@ -82,13 +60,12 @@ def main() -> None:
     args = parser.parse_args()
     cfg = config_mod.load(args.config)
     with db.connect(cfg.database) as conn:
-        problems = check(conn, cfg.backup.databases if cfg.backup else None)
+        problems = check(conn, cfg.backup.databases if cfg.backup and cfg.database.engine == "mssql" else None)
     if not problems:
-        print("Schema del database completo.")
+        print("Schema del database completo e aggiornato.")
         return
     for p in problems:
-        print(f"MANCA  {p['item']}: {p['problem']}  ->  sql/{p['script']}")
-    print("\nScript da eseguire come sa, in quest'ordine: " + ", ".join(scripts_to_run(problems)))
+        print(f"PROBLEMA  {p['item']}: {p['problem']}  ->  {p['fix']}")
     sys.exit(1)
 
 

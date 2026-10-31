@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione controllo IP pubblico
+
+[Timer]
+OnCalendar=*:0/15
+AccuracySec=5s
+Persistent=false
+Unit=astreo-publicip.service
+
+[Install]
+WantedBy=timers.target

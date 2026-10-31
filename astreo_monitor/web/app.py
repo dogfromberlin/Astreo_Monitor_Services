@@ -73,16 +73,19 @@ def create_app(cfg: Config) -> Flask:
     schema_state = {"checked": 0.0, "problems": None}
 
     def schema_problems(force: bool = False):
-        if force or time.time() - schema_state["checked"] > 600:
+        # con problemi aperti ricontrolla ogni 30 secondi: appena esegui lo script, il banner sparisce
+        ttl = 30 if schema_state["problems"] else 600
+        if force or time.time() - schema_state["checked"] > ttl:
             try:
                 with db.connect(cfg.database) as conn:
-                    schema_state["problems"] = schema.check(conn, cfg.backup.databases if cfg.backup else None)
+                    schema_state["problems"] = schema.check(
+                        conn, cfg.backup.databases if cfg.backup and cfg.database.engine == "mssql" else None)
             except Exception as exc:  # noqa: BLE001
                 log.warning("Controllo dello schema non eseguito: %s", exc)
                 schema_state["problems"] = None
             schema_state["checked"] = time.time()
             for p in schema_state["problems"] or []:
-                log.warning("Database incompleto: %s (%s) -> eseguire sql/%s", p["item"], p["problem"], p["script"])
+                log.warning("Database da sistemare: %s (%s) -> %s", p["item"], p["problem"], p["fix"])
         return schema_state["problems"]
 
     schema_problems(force=True)
@@ -207,7 +210,8 @@ def create_app(cfg: Config) -> Flask:
         problems = schema_problems() if ok else None
         return jsonify({"status": "ok", "version": __version__, "database": ok,
                         "schema_ok": problems == [] if problems is not None else None,
-                        "schema_scripts": schema.scripts_to_run(problems) if problems else [],
+                        "schema_fixes": schema.fixes(problems) if problems else [],
+                        "https_port": cfg.web.https_port,
                         "time": dt.datetime.now().isoformat(timespec="seconds")})
 
     @app.get("/api/v1/schema")
@@ -313,9 +317,12 @@ def create_app(cfg: Config) -> Flask:
     @app.get("/api/v1/notify/log")
     def api_notify_log():
         with db.connect(cfg.database) as conn:
-            rows = db.query(conn, "SELECT TOP 30 [timestamp], channel, source, subject, ok, error, status "
-                                  "FROM notification_log ORDER BY [timestamp] DESC")
-            pending = db.query_one(conn, "SELECT COUNT(*) AS n FROM notification_queue WHERE sent_at IS NULL")["n"]
+            from sqlalchemy import func, select
+            from .. import models
+            L, Q = models.notification_log, models.notification_queue
+            rows = db.rows(conn, select(L.c.timestamp, L.c.channel, L.c.source, L.c.subject, L.c.ok, L.c.error, L.c.status)
+                           .order_by(L.c.timestamp.desc()).limit(30))
+            pending = db.scalar(conn, select(func.count()).select_from(Q).where(Q.c.sent_at.is_(None)))
         for r in rows:
             r["timestamp"] = db.as_datetime(r["timestamp"]).isoformat(timespec="seconds")
             r["ok"] = bool(r["ok"])

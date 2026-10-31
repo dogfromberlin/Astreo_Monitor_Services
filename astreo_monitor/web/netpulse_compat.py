@@ -11,7 +11,9 @@ import hmac
 
 from flask import Blueprint, current_app, jsonify, request
 
-from .. import db
+from sqlalchemy import select
+
+from .. import db, models
 
 bp = Blueprint("netpulse", __name__, url_prefix="/api/netpulse")
 MAX_ROWS = 200000
@@ -36,13 +38,9 @@ def _iso(v) -> str | None:
 
 
 def _rows(conn, start: dt.datetime, end: dt.datetime) -> list[dict]:
-    rows = db.query(
-        conn,
-        f"SELECT TOP {MAX_ROWS} [timestamp], upload_mbps, download_mbps FROM speedtest_results "
-        "WHERE [timestamp] >= CONVERT(datetime2(0), %s, 126) AND [timestamp] <= CONVERT(datetime2(0), %s, 126) "
-        "ORDER BY [timestamp]",
-        (db.ts(start), db.ts(end)),
-    )
+    S = models.speedtest_results
+    rows = db.rows(conn, select(S.c.timestamp, S.c.upload_mbps, S.c.download_mbps)
+                   .where(S.c.timestamp >= start, S.c.timestamp <= end).order_by(S.c.timestamp).limit(MAX_ROWS))
     return [{"timestamp": _iso(r["timestamp"]), "upload": r["upload_mbps"], "download": r["download_mbps"]} for r in rows]
 
 
@@ -96,7 +94,8 @@ def latest():
         return _unauthorized()
     cfg = current_app.config["ASTREO_CFG"]
     with db.connect(cfg.database) as conn:
-        rows = db.query(conn, "SELECT TOP 2 [timestamp], upload_mbps, download_mbps FROM speedtest_results ORDER BY [timestamp] DESC")
+        S = models.speedtest_results
+        rows = db.rows(conn, select(S.c.timestamp, S.c.upload_mbps, S.c.download_mbps).order_by(S.c.timestamp.desc()).limit(2))
         if not rows:
             return jsonify({"error": "Nessuna misurazione presente nella tabella"}), 404
         conv = [{"timestamp": _iso(r["timestamp"]), "upload": r["upload_mbps"], "download": r["download_mbps"]} for r in rows]

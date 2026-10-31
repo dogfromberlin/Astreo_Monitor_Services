@@ -115,12 +115,10 @@ def _log(conn, channel: str, source: str, subject: str, ok: bool, error: str, st
     status = status or ("inviata" if ok else "fallita")
     try:
         from . import db as _db
-        _db.execute(
-            conn,
-            "INSERT INTO notification_log ([timestamp], channel, source, subject, ok, error, status) "
-            "VALUES (SYSDATETIME(), %s, %s, %s, %s, %s, %s)",
-            (channel, source, subject[:200], 1 if ok else 0, (error or None) and error[:400], status),
-        )
+        from . import models
+        conn.execute(models.notification_log.insert().values(
+            timestamp=_db.now(), channel=channel, source=source, subject=subject[:200], ok=bool(ok),
+            error=(error or None) and error[:400], status=status))
     except Exception as exc:  # noqa: BLE001
         log.warning("Registro notifiche non aggiornato: %s", exc)
 
@@ -155,7 +153,6 @@ def dispatch(conn, cfg, source: str, subject: str, body: str, detected_at: dt.da
     recapitato all'orario impostato da flush_queue(). Ritorna True se almeno un
     canale l'ha consegnato o messo in coda.
     """
-    from . import db as _db
     from . import settings as settings_mod
 
     values = settings_mod.load(conn, cfg)
@@ -169,13 +166,11 @@ def dispatch(conn, cfg, source: str, subject: str, body: str, detected_at: dt.da
 
     if settings_mod.is_quiet(values, now):
         due = settings_mod.deferred_until(values, now)
+        from . import models
         for channel in channels:
-            _db.execute(
-                conn,
-                "INSERT INTO notification_queue (created_at, due_at, source, channel, subject, body, attempts) "
-                "VALUES (CONVERT(datetime2(0), %s, 126), CONVERT(datetime2(0), %s, 126), %s, %s, %s, %s, 0)",
-                (_db.ts(detected_at), _db.ts(due), source, channel, subject[:200], body),
-            )
+            conn.execute(models.notification_queue.insert().values(
+                created_at=detected_at.replace(microsecond=0), due_at=due, source=source, channel=channel,
+                subject=subject[:200], body=body, attempts=0))
             _log(conn, channel, source, subject, True, f"recapito alle {_fmt(due)}", status="in coda")
         log.info("Fascia di silenzio: '%s' trattenuto fino alle %s", subject, _fmt(due))
         return True
@@ -205,12 +200,14 @@ def flush_queue(conn, cfg) -> int:
     now = dt.datetime.now()
     if settings_mod.is_quiet(values, now):
         return 0  # siamo ancora nella fascia (es. fascia modificata dopo l'accodamento)
-    rows = _db.query(
-        conn,
-        "SELECT id, created_at, due_at, source, channel, subject, body, attempts FROM notification_queue "
-        "WHERE sent_at IS NULL AND attempts < %s AND (due_at <= SYSDATETIME() OR %s = 0) ORDER BY created_at",
-        (MAX_ATTEMPTS, 1 if values.get("quiet.enabled") else 0),
-    )
+    from sqlalchemy import select, update
+    from . import models
+    Q = models.notification_queue
+    q = select(Q.c.id, Q.c.created_at, Q.c.due_at, Q.c.source, Q.c.channel, Q.c.subject, Q.c.body, Q.c.attempts) \
+        .where(Q.c.sent_at.is_(None), Q.c.attempts < MAX_ATTEMPTS).order_by(Q.c.created_at)
+    if values.get("quiet.enabled"):
+        q = q.where(Q.c.due_at <= now)
+    rows = _db.rows(conn, q)
     if not rows:
         return 0
     window = f"{values['quiet.start']}–{values['quiet.end']}"
@@ -239,13 +236,12 @@ def flush_queue(conn, cfg) -> int:
             body = "\n".join(parts)
             source = "riepilogo"
         ok, err = send_channel(conn, cfg, values, channel, source, subject, body)
-        ids = ",".join(str(int(r["id"])) for r in items)
+        ids = [r["id"] for r in items]
         if ok:
-            _db.execute(conn, f"UPDATE notification_queue SET sent_at = SYSDATETIME() WHERE id IN ({ids})")
+            conn.execute(update(Q).where(Q.c.id.in_(ids)).values(sent_at=_db.now()))
             sent += len(items)
         else:
-            _db.execute(conn, f"UPDATE notification_queue SET attempts = attempts + 1, error = %s WHERE id IN ({ids})",
-                        ((err or "")[:400],))
+            conn.execute(update(Q).where(Q.c.id.in_(ids)).values(attempts=Q.c.attempts + 1, error=(err or "")[:400]))
     return sent
 
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione pulizia dati (retention)
+
+[Timer]
+OnCalendar=*-*-* 03:40:00
+AccuracySec=5s
+Persistent=false
+Unit=astreo-maintenance.service
+
+[Install]
+WantedBy=timers.target

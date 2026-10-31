@@ -13,7 +13,9 @@ import re
 from dataclasses import dataclass, replace
 from typing import Any
 
-from . import db
+from sqlalchemy import select
+
+from . import db, models
 from .config import Config, EmailConfig
 
 CHANNELS = ("email", "telegram", "whatsapp")
@@ -93,7 +95,9 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         # --- scadenze
         "expiry.warning_days": Spec(int, 15, 1, 365, label="Avviso WARNING a (giorni)"),
         "expiry.alert_days": Spec(int, 3, 0, 365, label="Avviso ALERT a (giorni)"),
-        "expiry.endpoints": Spec(str, "127.0.0.1:5443, 127.0.0.1:8081", label="Certificati da controllare (host:porta)"),
+        "expiry.endpoints": Spec(str, ", ".join(
+            ([f"127.0.0.1:{cfg.web.https_port}"] if cfg.web.https_port else [])
+            + (["127.0.0.1:8081"] if cfg.netpulse else [])), label="Certificati da controllare (host:porta)"),
         "expiry.github": Spec(bool, True, label="Controlla il token GitHub usato da gh"),
         # --- canali
         "notify.email.enabled": Spec(bool, cfg.email.enabled, label="Email"),
@@ -201,7 +205,8 @@ def load(conn, cfg: Config) -> dict[str, Any]:
     """Valori effettivi: default dal config, sovrascritti da quelli nel DB."""
     spec = build_spec(cfg)
     values = {k: sp.default for k, sp in spec.items()}
-    for row in db.query(conn, "SELECT [key], [value] FROM app_settings"):
+    t = models.app_settings
+    for row in db.rows(conn, select(t.c.key, t.c.value)):
         key = row["key"]
         if key in spec and row["value"] is not None:
             try:
@@ -245,8 +250,7 @@ def save(conn, cfg: Config, changes: dict[str, Any]) -> dict[str, Any]:
 
     for key, value in clean.items():
         payload = json.dumps(value)
-        if not db.execute(conn, "UPDATE app_settings SET [value] = %s, updated_at = SYSDATETIME() WHERE [key] = %s", (payload, key)):
-            db.execute(conn, "INSERT INTO app_settings ([key], [value], updated_at) VALUES (%s, %s, SYSDATETIME())", (key, payload))
+        db.kv_set(conn, models.app_settings, key, payload)
     return load(conn, cfg)
 
 

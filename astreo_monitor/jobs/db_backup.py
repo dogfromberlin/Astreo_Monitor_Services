@@ -1,4 +1,6 @@
-"""Backup notturno dei database SQL Server con copia su GitHub.
+"""Backup notturno del database (SQL Server, PostgreSQL o SQLite) con copia su GitHub.
+
+Il backup vero e proprio è specifico per database (vedi astreo_monitor/backends.py).
 
 Per ogni database in [backup] databases:
   1. BACKUP DATABASE ... WITH COPY_ONLY, CHECKSUM  -> file .bak in sql_dir
@@ -12,7 +14,6 @@ su GitHub, stato in monitor_state ed email solo a cambio di stato.
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
 import json
 import logging
 import os
@@ -20,7 +21,8 @@ import shutil
 import socket
 import subprocess
 
-from .. import __version__, db, notifier
+from .. import __version__, backends, db, notifier
+from ..backends import BackupError
 from .. import settings as settings_mod
 from ..config import BackupConfig, Config
 from .base import run
@@ -31,19 +33,7 @@ PREFIX = "backup-"
 GH_ENV = {**os.environ, "GH_NO_UPDATE_NOTIFIER": "1", "GH_PROMPT_DISABLED": "1", "NO_COLOR": "1"}
 
 
-class BackupError(Exception):
-    pass
-
-
 # --------------------------------------------------------------- utilità
-def sha256(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
 def human(n: int) -> str:
     for unit in ("B", "KB", "MB", "GB"):
         if n < 1024 or unit == "GB":
@@ -59,59 +49,7 @@ def gh(args: list[str], timeout: int = 600) -> str:
     return res.stdout.strip()
 
 
-def quote_name(name: str) -> str:
-    return "[" + name.replace("]", "]]") + "]"
-
-
 # ---------------------------------------------------------------- passi
-def check_environment(b: BackupConfig) -> list[str]:
-    """Controlli preliminari: ritorna l'elenco dei problemi trovati."""
-    problems = []
-    if not shutil.which("zstd"):
-        problems.append("comando zstd non trovato (sudo apt install zstd)")
-    if b.github_repo and not shutil.which("gh"):
-        problems.append("comando gh non trovato")
-    if not os.path.isdir(b.sql_dir):
-        problems.append(f"cartella {b.sql_dir} inesistente")
-    elif not os.access(b.sql_dir, os.R_OK | os.W_OK | os.X_OK):
-        problems.append(f"l'utente corrente non può leggere/scrivere in {b.sql_dir}")
-    if not 1 <= b.zstd_level <= 19:
-        problems.append("zstd_level deve essere tra 1 e 19")
-    return problems
-
-
-def backup_one(conn, name: str, stamp: str, run_dir: str, b: BackupConfig) -> dict:
-    bak = os.path.join(b.sql_dir, f"{name}_{stamp}.bak")
-    dst = os.path.join(run_dir, f"{name}.bak.zst")
-    try:
-        log.info("%s: backup in corso", name)
-        db.run_command(
-            conn,
-            f"BACKUP DATABASE {quote_name(name)} TO DISK = %s WITH COPY_ONLY, CHECKSUM, INIT, NAME = %s",
-            (bak, f"astreo-monitor {stamp}"),
-        )
-        db.run_command(conn, "RESTORE VERIFYONLY FROM DISK = %s WITH CHECKSUM", (bak,))
-        size_bak = os.path.getsize(bak)
-        log.info("%s: backup verificato (%s), compressione", name, human(size_bak))
-        res = subprocess.run(
-            ["zstd", "-q", f"-{b.zstd_level}", "-T0", "--rm", bak, "-o", dst],
-            timeout=b.timeout, capture_output=True, text=True, check=False,
-        )
-        if res.returncode != 0:
-            raise BackupError(f"zstd: {(res.stderr or res.stdout).strip()}")
-        size_zst = os.path.getsize(dst)
-        digest = sha256(dst)
-        log.info("%s: %s -> %s", name, human(size_bak), human(size_zst))
-        return {"database": name, "file": os.path.basename(dst), "bak_bytes": size_bak,
-                "zst_bytes": size_zst, "sha256": digest}
-    finally:
-        if os.path.exists(bak):
-            try:
-                os.remove(bak)
-            except OSError as exc:
-                log.warning("Impossibile rimuovere %s: %s", bak, exc)
-
-
 def write_manifest(run_dir: str, stamp: str, results: list[dict], sql_version: str) -> list[str]:
     sums = os.path.join(run_dir, "SHA256SUMS")
     with open(sums, "w", encoding="utf-8") as f:
@@ -170,82 +108,66 @@ def main(cfg: Config, dry_run: bool) -> int:
     if b is None:
         log.error("Sezione [backup] mancante nella configurazione")
         return 2
+    be = backends.get(cfg.database)
     now = dt.datetime.now()
     stamp = now.strftime("%Y%m%d-%H%M%S")
+    names = be.databases(cfg.database, b)
+    try:
+        problems, version = be.check(cfg.database, b)
+    except Exception as exc:  # noqa: BLE001
+        problems, version = [f"controllo non riuscito: {exc}"], "?"
 
-    problems = check_environment(b)
-    with db.connect(cfg.database, autocommit=True, timeout=b.timeout) as conn:
-        online = {r["name"] for r in db.query(conn, "SELECT name FROM sys.databases WHERE state_desc = 'ONLINE'")}
-        sql_version = db.query_one(conn, "SELECT CAST(SERVERPROPERTY('ProductVersion') AS varchar(32)) AS v")["v"]
-        missing = [d for d in b.databases if d not in online]
+    if dry_run:
+        log.info("Database: %s — da salvare: %s", version, ", ".join(names))
+        for p in problems:
+            log.error("Problema: %s", p)
+        if b.github_repo and shutil.which("gh"):
+            try:
+                gh(["repo", "view", b.github_repo, "--json", "name"], timeout=30)
+                log.info("Repository GitHub %s raggiungibile", b.github_repo)
+            except BackupError as exc:
+                log.error("Repository GitHub non utilizzabile: %s", exc)
+                problems.append(str(exc))
+        log.info("Destinazione locale: %s (conservo %d copie), GitHub: %s (conservo %d)",
+                 b.local_dir, b.local_keep, b.github_repo or "disattivato", b.github_keep)
+        return 1 if problems else 0
 
-        if dry_run:
-            for p in problems:
-                log.error("Problema: %s", p)
-            for d in b.databases:
-                if d in missing:
-                    log.error("Database %s: NON trovato o non online", d)
-                    continue
-                perm = db.query_one(conn, "SELECT HAS_PERMS_BY_NAME(%s, 'DATABASE', 'BACKUP DATABASE') AS p", (d,))["p"]
-                if perm == 1:
-                    log.info("Database %s: ok, permesso di backup presente", d)
-                else:
-                    log.error("Database %s: manca il permesso BACKUP DATABASE (esegui sql/004_backup.sql)", d)
-                    problems.append(f"{d}: permesso di backup mancante")
-            verify = db.query_one(conn, "SELECT HAS_PERMS_BY_NAME('master', 'DATABASE', 'CREATE DATABASE') AS p")["p"]
-            if verify == 1:
-                log.info("Permesso CREATE DATABASE in master (per RESTORE VERIFYONLY): ok")
-            else:
-                log.error("Manca CREATE DATABASE in master, necessario per RESTORE VERIFYONLY (esegui sql/004_backup.sql)")
-                problems.append("permesso CREATE DATABASE mancante")
-            if b.github_repo and shutil.which("gh"):
+    # i problemi di permessi del solo test di ripristino (PostgreSQL senza CREATEDB) non bloccano il backup
+    blocking = [p for p in problems if "verifica mensile" not in p]
+    errors = list(blocking)
+    results: list[dict] = []
+    release_url = None
+    run_dir = os.path.join(b.local_dir, PREFIX + stamp)
+    if not blocking:
+        os.makedirs(run_dir)  # nome con i secondi: sempre nuovo
+        for name in names:
+            try:
+                log.info("%s: backup in corso", name)
+                r = be.backup(cfg.database, b, name, stamp, run_dir)
+                log.info("%s: %s -> %s", name, human(r["bak_bytes"]), human(r["zst_bytes"]))
+                results.append(r)
+            except Exception as exc:  # noqa: BLE001
+                log.error("%s: backup fallito: %s", name, exc)
+                errors.append(f"{name}: {exc}")
+        if results:
+            extra = write_manifest(run_dir, stamp, results, version)
+            if b.github_repo:
                 try:
-                    gh(["repo", "view", b.github_repo, "--json", "name"], timeout=30)
-                    log.info("Repository GitHub %s raggiungibile", b.github_repo)
-                except BackupError as exc:
-                    log.error("Repository GitHub non utilizzabile: %s", exc)
-                    problems.append(str(exc))
-            log.info("Destinazione locale: %s (conservo %d copie), GitHub: %s (conservo %d)",
-                     b.local_dir, b.local_keep, b.github_repo or "disattivato", b.github_keep)
-            return 1 if problems or missing else 0
+                    files = [os.path.join(run_dir, r["file"]) for r in results] + extra
+                    release_url = upload(b, stamp, now, files, results)
+                    prune_github(b)
+                except (BackupError, subprocess.TimeoutExpired) as exc:
+                    log.error("Upload su GitHub fallito (la copia locale resta): %s", exc)
+                    errors.append(f"upload GitHub: {exc}")
+        else:
+            shutil.rmtree(run_dir, ignore_errors=True)
+        prune_local(b)
 
-        errors = list(problems) + [f"{d}: database non trovato o non online" for d in missing]
-        results: list[dict] = []
-        release_url = None
-        run_dir = os.path.join(b.local_dir, PREFIX + stamp)
-
-        if not problems:
-            os.makedirs(run_dir)  # nome con i secondi: sempre nuovo
-            for name in b.databases:
-                if name in missing:
-                    continue
-                try:
-                    results.append(backup_one(conn, name, stamp, run_dir, b))
-                except Exception as exc:  # noqa: BLE001
-                    log.error("%s: backup fallito: %s", name, exc)
-                    errors.append(f"{name}: {exc}")
-
-            if results:
-                extra = write_manifest(run_dir, stamp, results, sql_version)
-                if b.github_repo:
-                    try:
-                        files = [os.path.join(run_dir, r["file"]) for r in results] + extra
-                        release_url = upload(b, stamp, now, files, results)
-                        prune_github(b)
-                    except (BackupError, subprocess.TimeoutExpired) as exc:
-                        log.error("Upload su GitHub fallito (la copia locale resta): %s", exc)
-                        errors.append(f"upload GitHub: {exc}")
-            else:
-                shutil.rmtree(run_dir, ignore_errors=True)
-            prune_local(b)
-
-        status = "OK" if not errors else "ALERT"
-        summary = {
+    status = "OK" if not errors else "ALERT"
+    with db.connect(cfg.database) as conn:
+        db.state_set(conn, "backup:last", {
             "time": now.isoformat(timespec="seconds"), "status": status, "release": release_url,
-            "local_dir": run_dir if results else None, "databases": results, "errors": errors,
-        }
-        db.state_set(conn, "backup:last", summary)
-
+            "engine": cfg.database.engine, "local_dir": run_dir if results else None, "databases": results, "errors": errors})
         state = notifier.AlertState(conn, "backup")
         should_notify, reason, previous = state.evaluate(status, settings_mod.policy(settings_mod.load(conn, cfg), "backup"))
         if should_notify:
@@ -260,13 +182,12 @@ def main(cfg: Config, dry_run: bool) -> int:
             if notifier.dispatch(conn, cfg, "backup", subject, "\n".join(lines) + "\n", detected_at=now):
                 state.mark_notified()
         state.save()
-
     log.info("Backup terminato: %s, %d database salvati, %d errori", status, len(results), len(errors))
     return 0 if status == "OK" else 1
 
 
 def entrypoint() -> None:
-    run("db_backup", "Backup dei database SQL Server con copia su GitHub", main)
+    run("db_backup", "Backup del database con copia su GitHub", main)
 
 
 if __name__ == "__main__":

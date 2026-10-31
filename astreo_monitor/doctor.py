@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import filecmp
 import glob
 import os
 import pwd
@@ -64,16 +63,6 @@ def sh(*args: str) -> str:
         return ""
 
 
-def same_file(installed: str, source: str) -> str | None:
-    """OK, 'diverso', 'mancante' o None se non leggibile."""
-    if not os.path.exists(installed):
-        return "mancante"
-    try:
-        return OK if filecmp.cmp(installed, source, shallow=False) else "diverso"
-    except PermissionError:
-        return None
-
-
 # --------------------------------------------------------------------- controlli
 def check_config(rep: Report, cfg, path: str) -> None:
     A = "Configurazione"
@@ -101,13 +90,14 @@ def check_database(rep: Report, cfg) -> None:
     A = "Database"
     try:
         with db.connect(cfg.database) as conn:
-            rep.add(A, f"connessione a {cfg.database.host} ({cfg.database.user})", OK)
-            problems = schema.check(conn, cfg.backup.databases if cfg.backup else None)
+            where = cfg.database.path if cfg.database.engine == "sqlite" else f"{cfg.database.host} ({cfg.database.user})"
+            rep.add(A, f"connessione {cfg.database.engine}: {where}", OK)
+            problems = schema.check(conn, cfg.backup.databases if cfg.backup and cfg.database.engine == "mssql" else None)
             if not problems:
                 rep.add(A, "schema (tabelle, colonne, procedure, permessi)", OK)
             for p in problems:
-                rep.add(A, p["item"], FAIL, p["problem"], f"nel client SQL, come sa: esegui sql/{p['script']}")
-            state = {r["key"]: r for r in db.query(conn, "SELECT [key], updated_at FROM monitor_state")}
+                rep.add(A, p["item"], FAIL, p["problem"], p["fix"])
+            state = {r["key"]: r for r in db.state_rows(conn)}
     except Exception as exc:  # noqa: BLE001
         rep.add(A, "connessione", FAIL, str(exc)[:200], "systemctl status mssql-server --no-pager\nverifica [database] nel config")
         return
@@ -133,7 +123,9 @@ def check_web(rep: Report, cfg) -> None:
     verify = cfg.web.ca_cert if os.path.exists(cfg.web.ca_cert) else False
     if verify is False:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    for url, v in (("https://127.0.0.1:5443/api/v1/health", verify), (f"http://127.0.0.1:{cfg.web.port}/api/v1/health", True)):
+    urls = ([(f"https://127.0.0.1:{cfg.web.https_port}/api/v1/health", verify)] if cfg.web.https_port else []) + \
+        [(f"http://127.0.0.1:{cfg.web.port}/api/v1/health", True)]
+    for url, v in urls:
         try:
             h = requests.get(url, timeout=10, verify=v).json()
         except requests.exceptions.SSLError as exc:
@@ -147,71 +139,55 @@ def check_web(rep: Report, cfg) -> None:
         else:
             rep.add(A, f"risponde su {url.rsplit('/api', 1)[0]}", OK, f"versione {__version__}")
         if h.get("schema_ok") is False:
-            rep.add(A, "schema visto dalla dashboard", FAIL, ", ".join(h.get("schema_scripts", [])), "vedi la sezione Database")
+            rep.add(A, "schema visto dalla dashboard", FAIL, ", ".join(h.get("schema_fixes", [])),
+                    "vedi la sezione Database (la dashboard ricontrolla ogni 30 secondi)")
         return
-    rep.add(A, "risposta", FAIL, "né https://127.0.0.1:5443 né la porta locale rispondono",
+    rep.add(A, "risposta", FAIL, "la dashboard non risponde",
             "systemctl status astreo-monitor-web.service nginx --no-pager")
 
 
 def check_systemd(rep: Report, cfg) -> None:
-    A = "Servizi systemd"
-    files = sorted(glob.glob(os.path.join(ROOT, "deploy", "systemd", "astreo-*")))
-    stale = []
-    for src in files:
-        name = os.path.basename(src)
-        if name == "astreo-terminal.service" and not (cfg.terminal and cfg.terminal.enabled):
+    """Unit e file di sistema confrontati con quelli generati dai modelli (installer)."""
+    from . import installer
+    A = "Servizi e file di sistema"
+    ini = installer.Answers.path(os.path.dirname(cfg.path))
+    if not os.path.exists(ini):
+        rep.add(A, "install.ini", WARN, "risposte dell'installatore assenti: i file non sono verificabili",
+                "sudo .venv/bin/python -m astreo_monitor.installer adopt")
+        return
+    ans = installer.Answers.load(ini)
+    for path, status, _ in installer.diff(ans):
+        name = os.path.basename(path)
+        if status == "non leggibile":
+            rep.add(A, path, SKIP, "non leggibile: rilancia la diagnosi con sudo")
             continue
-        res = same_file(f"/etc/systemd/system/{name}", src)
-        if res == "mancante":
-            rep.add(A, name, FAIL, "non installata", f"sudo cp deploy/systemd/{name} /etc/systemd/system/\nsudo systemctl daemon-reload")
+        if status != "uguale":
+            only_comments = False
+            if status == "diverso":
+                cur = [x for x in open(path, encoding="utf-8").read().splitlines() if x.strip() and not x.lstrip().startswith(("#", "//"))]
+                new = [x for x in installer.render(ans)[path].splitlines() if x.strip() and not x.lstrip().startswith(("#", "//"))]
+                only_comments = [x.replace(" ", "") for x in cur] == [x.replace(" ", "") for x in new]
+            rep.add(A, path, WARN if only_comments else FAIL,
+                    "differisce solo nei commenti" if only_comments else ("mancante" if status == "nuovo" else "diverso dal modello"),
+                    "sudo .venv/bin/python -m astreo_monitor.installer diff -v\nsudo .venv/bin/python -m astreo_monitor.installer apply")
             continue
-        if res == "diverso":
-            stale.append(name)
-            rep.add(A, name, FAIL, "diversa da quella del progetto (versione vecchia?)",
-                    f"sudo cp deploy/systemd/{name} /etc/systemd/system/\nsudo systemctl daemon-reload")
+        if not path.startswith("/etc/systemd/system/"):
+            rep.add(A, path, OK)
             continue
-        unit_state = sh("systemctl", "show", name, "-p", "NeedDaemonReload,UnitFileState,ActiveState")
-        props = dict(line.split("=", 1) for line in unit_state.splitlines() if "=" in line)
+        props = dict(line.split("=", 1) for line in sh("systemctl", "show", name, "-p",
+                     "NeedDaemonReload,UnitFileState,ActiveState").splitlines() if "=" in line)
         if props.get("NeedDaemonReload") == "yes":
             rep.add(A, name, WARN, "modificata ma systemd usa ancora la versione precedente", "sudo systemctl daemon-reload")
-            continue
-        long_running = name.endswith(".timer") or name in ("astreo-monitor-web.service", "astreo-telegram.service",
-                                                             "astreo-terminal.service")
-        if long_running and props.get("UnitFileState") != "enabled":
+        elif (name.endswith(".timer") or name in installer.LONG_RUNNING) and props.get("UnitFileState") != "enabled":
             rep.add(A, name, FAIL, f"non abilitata ({props.get('UnitFileState', '?')})", f"sudo systemctl enable --now {name}")
-        elif long_running and props.get("ActiveState") != "active":
+        elif (name.endswith(".timer") or name in installer.LONG_RUNNING) and props.get("ActiveState") != "active":
             rep.add(A, name, FAIL, f"non attiva ({props.get('ActiveState', '?')})",
                     f"sudo systemctl restart {name}\njournalctl -u {name} -n 30 --no-pager")
         else:
             rep.add(A, name, OK)
-    if stale:
-        rep.add(A, "dopo la copia", WARN, "ricordati di riavviare i servizi aggiornati",
-                "sudo systemctl restart astreo-monitor-web.service astreo-telegram.service")
-    if sh("systemctl", "is-active", "ttyd.service") == "active":
+    if ans.terminal and sh("systemctl", "is-active", "ttyd.service") == "active":
         rep.add(A, "ttyd.service (del pacchetto)", FAIL, "attivo: occupa la porta 7681 del terminale",
                 "sudo systemctl disable --now ttyd.service\nsudo systemctl restart astreo-terminal.service")
-
-
-def check_files(rep: Report) -> None:
-    A = "File installati"
-    pairs = [("/usr/local/sbin/astreo-smart-collect", "deploy/bin/astreo-smart-collect",
-              "sudo install -m 755 deploy/bin/astreo-smart-collect /usr/local/sbin/astreo-smart-collect"),
-             ("/etc/polkit-1/rules.d/50-astreo-monitor.rules", "deploy/polkit/50-astreo-monitor.rules",
-              "sudo cp deploy/polkit/50-astreo-monitor.rules /etc/polkit-1/rules.d/\nsudo systemctl restart polkit"),
-             ("/etc/nginx/sites-available/astreo-monitor", "deploy/nginx/astreo-monitor.conf",
-              "confronta con: diff deploy/nginx/astreo-monitor.conf /etc/nginx/sites-available/astreo-monitor\n"
-              "(le righe allow possono essere state adattate alla tua VPN)"),
-             ("/etc/nginx/sites-available/netpulse", "deploy/nginx/netpulse.conf",
-              "confronta con: diff deploy/nginx/netpulse.conf /etc/nginx/sites-available/netpulse")]
-    for installed, source, fix in pairs:
-        res = same_file(installed, os.path.join(ROOT, source))
-        if res is None:
-            rep.add(A, installed, SKIP, "non leggibile: rilancia la diagnosi con sudo")
-        elif res == OK:
-            rep.add(A, installed, OK)
-        else:
-            sev = WARN if "nginx" in installed else FAIL
-            rep.add(A, installed, sev, res, fix)
     smart_files = glob.glob("/var/lib/astreo-monitor/smart/*.json")
     if not smart_files:
         rep.add(A, "dati SMART", WARN, "nessun file in /var/lib/astreo-monitor/smart",
@@ -238,7 +214,6 @@ def main() -> None:
     check_database(rep, cfg)
     check_web(rep, cfg)
     check_systemd(rep, cfg)
-    check_files(rep)
     sys.exit(rep.print(not args.no_color and sys.stdout.isatty()))
 
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione controllo scadenze (ogni giorno alle 09:00)
+
+[Timer]
+OnCalendar=*-*-* 09:00:00
+AccuracySec=1min
+Persistent=true
+Unit=astreo-expiry.service
+
+[Install]
+WantedBy=timers.target

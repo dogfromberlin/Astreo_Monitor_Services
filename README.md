@@ -42,7 +42,9 @@ Altri documenti:
 [aggiornamento alla 2.5](docs/aggiornamento-2.5.md),
 [aggiornamento alla 2.5.1](docs/aggiornamento-2.5.1.md),
 [aggiornamento alla 2.6](docs/aggiornamento-2.6.md),
-[aggiornamento alla 2.7](docs/aggiornamento-2.7.md), [punti aperti](docs/roadmap.md).
+[aggiornamento alla 2.7](docs/aggiornamento-2.7.md),
+[aggiornamento alla 3.0](docs/aggiornamento-3.0.md), [3.0.0b2](docs/aggiornamento-3.0b2.md),
+[installazione guidata](docs/installazione-guidata.md), [punti aperti](docs/roadmap.md).
 
 ## Struttura
 

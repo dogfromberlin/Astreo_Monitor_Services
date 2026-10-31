@@ -8,7 +8,9 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from .. import db, notifier
+from sqlalchemy import case, func, select
+
+from .. import db, models, notifier
 from ..config import Config
 from ..web import history
 from .base import run
@@ -22,7 +24,6 @@ def _f(v, d=0, suffix=""):
 
 def build(conn, now: dt.datetime) -> tuple[str, str]:
     start = now - dt.timedelta(days=7)
-    p = (db.ts(start), db.ts(now))
     lines = [f"Settimana dal {start:%d/%m} al {now:%d/%m/%Y}", ""]
 
     # --- connessione
@@ -32,34 +33,35 @@ def build(conn, now: dt.datetime) -> tuple[str, str]:
         longest = max((o["minutes"] for o in c["outages"]), default=0)
         lines.append(f"- Disponibilità {c['availability']:.2f}% — interruzioni: {len(c['outages'])}"
                      + (f", in tutto {c['down_minutes']} min, la più lunga {longest} min" if c["outages"] else ""))
-    s = db.query_one(conn, """
-        SELECT COUNT(*) AS n, AVG(download_mbps) AS dl, MIN(download_mbps) AS dl_min, AVG(upload_mbps) AS ul,
-               AVG(latency_ms) AS lat, SUM(CASE WHEN status IN ('WARNING','ALERT','DOWN') THEN 1 ELSE 0 END) AS bad
-        FROM speedtest_results WHERE provider <> 'legacy'
-          AND [timestamp] >= CONVERT(datetime2(0), %s, 126) AND [timestamp] < CONVERT(datetime2(0), %s, 126)""", p)
+    S = models.speedtest_results
+    bad = func.sum(case((S.c.status.in_(("WARNING", "ALERT", "DOWN")), 1), else_=0))
+    s = db.one(conn, select(func.count().label("n"), func.avg(S.c.download_mbps).label("dl"),
+                            func.min(S.c.download_mbps).label("dl_min"), func.avg(S.c.upload_mbps).label("ul"),
+                            func.avg(S.c.latency_ms).label("lat"), bad.label("bad"))
+               .where(S.c.provider != "legacy", S.c.timestamp >= start, S.c.timestamp < now))
     if s and s["n"]:
         lines.append(f"- Speedtest ({s['n']} misure): download medio {_f(s['dl'])} Mbps (minimo {_f(s['dl_min'])}), "
                      f"upload medio {_f(s['ul'])} Mbps, latenza {_f(s['lat'])} ms; sotto soglia {s['bad']} volte")
     lines.append("")
 
     # --- server
-    m = db.query_one(conn, """
-        SELECT AVG(cpu_pct) AS cpu, MAX(cpu_pct) AS cpu_max, AVG(mem_used_pct) AS mem, MAX(disk_used_pct) AS disk
-        FROM system_metrics WHERE [timestamp] >= CONVERT(datetime2(0), %s, 126) AND [timestamp] < CONVERT(datetime2(0), %s, 126)""", p)
-    t = db.query_one(conn, """
-        SELECT MAX(temperature) AS tmax, AVG(temperature) AS tavg FROM system_temperature
-        WHERE [timestamp] >= CONVERT(datetime, %s, 126) AND [timestamp] < CONVERT(datetime, %s, 126)""", p)
+    M, T = models.system_metrics, models.system_temperature
+    m = db.one(conn, select(func.avg(M.c.cpu_pct).label("cpu"), func.max(M.c.cpu_pct).label("cpu_max"),
+                            func.avg(M.c.mem_used_pct).label("mem"), func.max(M.c.disk_used_pct).label("disk"))
+               .where(M.c.timestamp >= start, M.c.timestamp < now))
+    t = db.one(conn, select(func.max(T.c.temperature).label("tmax"), func.avg(T.c.temperature).label("tavg"))
+               .where(T.c.timestamp >= start, T.c.timestamp < now))
     lines += ["SERVER",
               f"- CPU media {_f(m['cpu'], 1, '%')} (picco {_f(m['cpu_max'], 0, '%')}), RAM media {_f(m['mem'], 0, '%')}, "
               f"disco {_f(m['disk'], 0, '%')}",
               f"- Temperatura media {_f(t['tavg'], 0, ' °C')}, massima {_f(t['tmax'], 0, ' °C')}", ""]
 
     # --- avvisi
-    a = db.query(conn, """
-        SELECT source, COUNT(*) AS n FROM notification_log
-        WHERE status = 'inviata' AND source NOT IN ('test', 'summary', 'riepilogo')
-          AND [timestamp] >= CONVERT(datetime2(0), %s, 126) AND [timestamp] < CONVERT(datetime2(0), %s, 126)
-        GROUP BY source ORDER BY n DESC""", p)
+    L = models.notification_log
+    a = db.rows(conn, select(L.c.source, func.count().label("n"))
+                .where(L.c.status == "inviata", L.c.source.notin_(("test", "summary", "riepilogo")),
+                       L.c.timestamp >= start, L.c.timestamp < now)
+                .group_by(L.c.source).order_by(func.count().desc()))
     from .. import settings as settings_mod
     lines.append("AVVISI INVIATI")
     lines += [f"- {settings_mod.SOURCES.get(r['source'], r['source'])}: {r['n']}" for r in a] or ["- nessuno"]

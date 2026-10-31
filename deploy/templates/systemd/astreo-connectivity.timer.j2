@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione controllo della connessione (ogni minuto)
+
+[Timer]
+OnCalendar=*-*-* *:*:15
+AccuracySec=2s
+Persistent=false
+Unit=astreo-connectivity.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Astreo Monitor - lettura SMART dei dischi (root, solo lettura)
+Documentation=file://{{ project_dir }}/docs/salute-del-sistema.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/astreo-smart-collect
+TimeoutStartSec=300
+# root solo per smartctl: niente rete, file system di sola lettura tranne la cartella dei risultati
+PrivateNetwork=true
+ProtectSystem=strict
+# systemd crea /var/lib/astreo-monitor (anche al primo avvio) e la rende scrivibile
+StateDirectory=astreo-monitor
+StateDirectoryMode=0755
+ProtectHome=true
+NoNewPrivileges=true

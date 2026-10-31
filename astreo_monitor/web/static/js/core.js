@@ -225,8 +225,17 @@
       const h = await api("/api/v1/health");
       const msgs = [];
       if (h.schema_ok === false) {
-        msgs.push(`Database incompleto: esegui come <strong>sa</strong> ${h.schema_scripts.map((x) => `<code>sql/${x}</code>`).join(", ")} `
-          + "(dettaglio: <code>python -m astreo_monitor.schema</code>). Alcune funzioni non lavorano finché manca.");
+        msgs.push(`Database da aggiornare: ${h.schema_fixes.map((x) => `<code>${x}</code>`).join(", ")} `
+          + "(dettaglio: <code>python -m astreo_monitor.schema</code>). Alcune funzioni non lavorano finché non è aggiornato.");
+      }
+      if (location.protocol === "http:") {
+        if (h.https_port) {
+          const url = `https://${location.hostname}:${h.https_port}${location.pathname}${location.hash}`;
+          msgs.push(`Connessione non cifrata: usa <a href="${url}">${url}</a>.`);
+        } else {
+          msgs.push("Connessione <strong>non cifrata</strong> (HTTP): password e dati viaggiano in chiaro e il terminale è disattivato. "
+            + "Per attivare HTTPS e terminale, sul server: <code>sudo bash update.sh --enable-https</code>.");
+        }
       }
       if (h.version && h.version !== document.body.dataset.version) {
         msgs.push(`La pagina è della versione ${document.body.dataset.version}, il server è alla ${h.version}: ricarica con Ctrl+F5.`);

@@ -3,5 +3,10 @@ Flask==3.0.2
 Werkzeug==3.1.9
 waitress==2.1.2
 psutil==5.9.8
-pymssql==2.2.11
 requests==2.31.0
+# Accesso ai dati (dalla 3.0): SQLAlchemy + migrazioni Alembic
+SQLAlchemy==2.0.36
+alembic==1.14.0
+# Driver: SQL Server (pymssql) e PostgreSQL (psycopg). SQLite è incluso in Python.
+pymssql==2.2.11
+psycopg[binary]==3.2.3

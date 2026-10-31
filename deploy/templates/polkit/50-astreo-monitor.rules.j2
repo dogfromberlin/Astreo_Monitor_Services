@@ -1,0 +1,14 @@
+// Astreo Monitor - /etc/polkit-1/rules.d/50-astreo-monitor.rules (generato dall'installatore)
+// Permette all'utente {{ user }} (con cui gira la dashboard) di avviare, fermare e
+// riavviare SOLO le unit di Astreo Monitor elencate qui. Nessun altro servizio.
+polkit.addRule(function (action, subject) {
+    if (action.id !== "org.freedesktop.systemd1.manage-units" || subject.user !== "{{ user }}") {
+        return polkit.Result.NOT_HANDLED;
+    }
+    var units = {{ controllable | tojson }};
+    var verbs = ["start", "stop", "restart"];
+    if (units.indexOf(action.lookup("unit")) >= 0 && verbs.indexOf(action.lookup("verb")) >= 0) {
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});

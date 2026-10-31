@@ -141,7 +141,7 @@ class Bot:
         with db.connect(self.cfg.database) as conn:
             mon = services_store.monitored(conn, self.cfg)
             con = db.state_get(conn, "connectivity:last") or {}
-            alerts = [r for r in db.query(conn, "SELECT [key], [value] FROM monitor_state WHERE [key] LIKE 'alert:%'")]
+            alerts = db.state_rows(conn, "alert:")
         st = services.statuses(mon)
         down = [s["label"] for s in st if not s["up"]]
         active = []

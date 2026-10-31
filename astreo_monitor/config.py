@@ -31,6 +31,8 @@ class DatabaseConfig:
     password: str
     login_timeout: int = 10
     timeout: int = 30
+    engine: str = "mssql"          # mssql | postgresql | sqlite
+    path: str = ""                 # solo sqlite: file del database
 
 
 @dataclass
@@ -63,6 +65,7 @@ class WebConfig:
     services: list[ServiceDef] = field(default_factory=list)
     trusted_proxy: str = ""     # es. 127.0.0.1 quando la dashboard è dietro nginx (HTTPS)
     ca_cert: str = "/etc/astreo-monitor/astreo-ca.crt"   # certificato pubblico della CA (mkcert) da scaricare
+    https_port: int = 0         # porta HTTPS di nginx (0 = dashboard solo in HTTP, senza terminale)
 
 
 @dataclass
@@ -165,14 +168,19 @@ def load(path: str | None = None) -> Config:
 
     try:
         db = sec("database")
+        engine = db.get("engine", "mssql").strip().lower()
+        if engine not in ("mssql", "postgresql", "sqlite"):
+            raise ConfigError("[database] engine deve essere mssql, postgresql oppure sqlite")
         database = DatabaseConfig(
-            host=db.get("host"),
-            port=db.getint("port", 1433),
-            database=db.get("database"),
-            user=db.get("user"),
+            host=db.get("host", "127.0.0.1"),
+            port=db.getint("port", {"mssql": 1433, "postgresql": 5432}.get(engine, 0)),
+            database=db.get("database", "astreo_monitor"),
+            user=db.get("user", ""),
             password=db.get("password", ""),
             login_timeout=db.getint("login_timeout", 10),
             timeout=db.getint("timeout", 30),
+            engine=engine,
+            path=db.get("path", "/var/lib/astreo-monitor/astreo_monitor.db"),
         )
 
         em = sec("email")
@@ -204,6 +212,7 @@ def load(path: str | None = None) -> Config:
             services=services,
             trusted_proxy=w.get("trusted_proxy", "").strip(),
             ca_cert=w.get("ca_cert", "/etc/astreo-monitor/astreo-ca.crt").strip(),
+            https_port=w.getint("https_port", 5443 if w.get("trusted_proxy", "").strip() else 0),
         )
 
         m = sec("metrics")

@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione speedtest connessione
+
+[Timer]
+OnCalendar=*-*-* 00/4:05:00
+AccuracySec=5s
+Persistent=false
+Unit=astreo-speedtest.service
+
+[Install]
+WantedBy=timers.target

@@ -18,7 +18,7 @@ import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
-from .. import db, notifier
+from .. import db, models, notifier
 from .. import settings as settings_mod
 from ..config import Config
 from .base import run
@@ -27,10 +27,6 @@ log = logging.getLogger("job.connectivity")
 
 STATS_RE = re.compile(r"(\d+) packets transmitted, (\d+) (?:packets )?received")
 RTT_RE = re.compile(r"= [\d.]+/([\d.]+)/([\d.]+)/")
-INSERT = """
-INSERT INTO connectivity_samples ([timestamp], target, role, sent, received, loss_pct, rtt_avg_ms, rtt_max_ms)
-VALUES (CONVERT(datetime2(0), %s, 126), %s, %s, %s, %s, %s, %s, %s)
-"""
 
 
 def default_gateway() -> str | None:
@@ -133,8 +129,10 @@ def main(cfg: Config, dry_run: bool) -> int:
         return 0
 
     with db.connect(cfg.database) as conn:
-        db.execute_many(conn, INSERT, [(db.ts(now), s["target"], s["role"], s["sent"], s["received"], s["loss_pct"],
-                                        s["rtt_avg_ms"], s["rtt_max_ms"]) for s in results])
+        conn.execute(models.connectivity_samples.insert(),
+                     [{"timestamp": now, "target": s["target"], "role": s["role"], "sent": s["sent"],
+                       "received": s["received"], "loss_pct": s["loss_pct"], "rtt_avg_ms": s["rtt_avg_ms"],
+                       "rtt_max_ms": s["rtt_max_ms"]} for s in results])
         state = notifier.AlertState(conn, "connectivity")
         since = state.anomaly_since
         should_notify, reason, previous = state.evaluate(status, settings_mod.policy(values, "connectivity"))

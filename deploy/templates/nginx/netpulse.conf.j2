@@ -1,0 +1,31 @@
+# Astreo Monitor - modulo NetPulse (generato dall'installatore): API per il widget Windows NetPulse
+# su https://{{ netpulse_name }}:{{ netpulse_port }}/api/..., con il token in {{ config_dir }}/netpulse_token.
+
+server {
+    listen {{ netpulse_port }} ssl;
+    listen [::]:{{ netpulse_port }} ssl;
+
+    server_name {{ netpulse_name }};
+
+    ssl_certificate     {{ cert_file }};
+    ssl_certificate_key {{ key_file }};
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    # API per il widget Windows -> Astreo Monitor
+    location /api/ {
+        proxy_pass         http://127.0.0.1:{{ web_port }}/api/netpulse/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout    120s;
+    }
+
+    # Pagina web -> vista Connessione di Astreo Monitor
+    location / {
+        return 302 https://$host:{{ https_port }}/#connessione;
+    }
+}

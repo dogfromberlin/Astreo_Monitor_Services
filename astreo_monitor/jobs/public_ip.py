@@ -14,7 +14,7 @@ from collections import Counter
 
 import requests
 
-from .. import __version__, db, notifier
+from .. import __version__, db, models, notifier
 from ..config import Config
 from .base import run
 
@@ -62,11 +62,8 @@ def main(cfg: Config, dry_run: bool) -> int:
             log.info("IP invariato: %s", ip)
             current["checked_at"] = now.isoformat(timespec="seconds")
         else:
-            db.execute(
-                conn,
-                "INSERT INTO public_ip_history ([timestamp], ip, previous_ip) VALUES (CONVERT(datetime2(0), %s, 126), %s, %s)",
-                (db.ts(now), ip, previous),
-            )
+            conn.execute(models.public_ip_history.insert().values(
+                timestamp=now.replace(microsecond=0), ip=ip, previous_ip=previous))
             current = {"ip": ip, "since": now.isoformat(timespec="seconds"), "checked_at": now.isoformat(timespec="seconds")}
             if previous is None:
                 log.info("Primo rilevamento IP pubblico: %s", ip)

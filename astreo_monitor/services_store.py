@@ -1,9 +1,14 @@
 """Elenco dei servizi monitorati, salvato nella tabella monitored_services."""
 from __future__ import annotations
 
-from . import db
+from sqlalchemy import func, select, update
+
+from . import db, models
 from .collectors import services as svc
 from .config import Config
+
+T = models.monitored_services
+COLS = (T.c.unit, T.c.label, T.c.enabled, T.c.notify, T.c.sort_order)
 
 
 def _normalize(unit: str) -> str:
@@ -12,22 +17,17 @@ def _normalize(unit: str) -> str:
 
 def seed_if_empty(conn, cfg: Config) -> None:
     """Primo avvio: copia nel DB i servizi della sezione [services] del config."""
-    row = db.query_one(conn, "SELECT COUNT(*) AS n FROM monitored_services")
-    if row["n"]:
+    if db.scalar(conn, select(func.count()).select_from(T)):
         return
     for i, s in enumerate(cfg.web.services):
         unit = _normalize(s.unit)
         if svc.valid_unit(unit):
-            db.execute(
-                conn,
-                "INSERT INTO monitored_services (unit, label, enabled, notify, sort_order, updated_at) "
-                "VALUES (%s, %s, 1, 0, %s, SYSDATETIME())",
-                (unit, s.label[:100], (i + 1) * 10),
-            )
+            conn.execute(T.insert().values(unit=unit, label=s.label[:100], enabled=True, notify=False,
+                                           sort_order=(i + 1) * 10, updated_at=db.now()))
 
 
 def all_rows(conn) -> list[dict]:
-    return db.query(conn, "SELECT unit, label, enabled, notify, sort_order FROM monitored_services ORDER BY sort_order, unit")
+    return db.rows(conn, select(*COLS).order_by(T.c.sort_order, T.c.unit))
 
 
 def monitored(conn, cfg: Config) -> list[dict]:
@@ -35,35 +35,31 @@ def monitored(conn, cfg: Config) -> list[dict]:
     return [r for r in all_rows(conn) if r["enabled"]]
 
 
+def get(conn, unit: str) -> dict | None:
+    return db.one(conn, select(*COLS).where(T.c.unit == unit))
+
+
 def upsert(conn, unit: str, *, enabled=None, notify=None, label=None) -> dict:
     if not svc.valid_unit(unit):
         raise ValueError(f"Nome di servizio non valido: {unit}")
-    existing = db.query_one(conn, "SELECT unit, label, enabled, notify, sort_order FROM monitored_services WHERE unit = %s", (unit,))
+    existing = get(conn, unit)
     if existing is None:
         known = {u["unit"] for u in svc.catalog()}
         if unit not in known:
             raise ValueError(f"Il servizio {unit} non esiste su questo server")
-        top = db.query_one(conn, "SELECT ISNULL(MAX(sort_order), 0) AS m FROM monitored_services")["m"]
-        default_label = unit.removesuffix(".service")
-        db.execute(
-            conn,
-            "INSERT INTO monitored_services (unit, label, enabled, notify, sort_order, updated_at) VALUES (%s, %s, %s, %s, %s, SYSDATETIME())",
-            (unit, (label or default_label)[:100], 1 if enabled is None or enabled else 0, 1 if notify else 0, top + 10),
-        )
+        top = db.scalar(conn, select(func.coalesce(func.max(T.c.sort_order), 0))) or 0
+        conn.execute(T.insert().values(unit=unit, label=(label or unit.removesuffix(".service"))[:100],
+                                       enabled=True if enabled is None else bool(enabled), notify=bool(notify),
+                                       sort_order=top + 10, updated_at=db.now()))
     else:
-        db.execute(
-            conn,
-            "UPDATE monitored_services SET label = %s, enabled = %s, notify = %s, updated_at = SYSDATETIME() WHERE unit = %s",
-            (
-                (label if label is not None else existing["label"])[:100] or unit,
-                (1 if enabled else 0) if enabled is not None else existing["enabled"],
-                (1 if notify else 0) if notify is not None else existing["notify"],
-                unit,
-            ),
-        )
-    return db.query_one(conn, "SELECT unit, label, enabled, notify, sort_order FROM monitored_services WHERE unit = %s", (unit,))
+        conn.execute(update(T).where(T.c.unit == unit).values(
+            label=((label if label is not None else existing["label"])[:100] or unit),
+            enabled=bool(enabled) if enabled is not None else existing["enabled"],
+            notify=bool(notify) if notify is not None else existing["notify"],
+            updated_at=db.now()))
+    return get(conn, unit)
 
 
 def reorder(conn, units: list[str]) -> None:
     for i, unit in enumerate(units):
-        db.execute(conn, "UPDATE monitored_services SET sort_order = %s WHERE unit = %s", ((i + 1) * 10, unit))
+        conn.execute(update(T).where(T.c.unit == unit).values(sort_order=(i + 1) * 10))

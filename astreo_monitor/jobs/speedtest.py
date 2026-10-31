@@ -24,7 +24,7 @@ import requests
 
 from dataclasses import dataclass
 
-from .. import __version__, db, notifier
+from .. import __version__, db, models, notifier
 from .. import settings as settings_mod
 from ..config import Config
 from .base import run
@@ -35,10 +35,6 @@ BASE = "https://speed.cloudflare.com"
 HEADERS = {"User-Agent": f"astreo-monitor/{__version__}"}
 PROVIDER = "cloudflare"
 
-INSERT = """
-INSERT INTO speedtest_results ([timestamp], download_mbps, upload_mbps, latency_ms, status, provider, error)
-VALUES (CONVERT(datetime2(0), %s, 126), %s, %s, %s, %s, %s, %s)
-"""
 
 
 @dataclass
@@ -179,7 +175,9 @@ def main(cfg: Config, dry_run: bool) -> int:
         return 0
 
     with db.connect(cfg.database) as conn:
-        db.execute(conn, INSERT, (db.ts(now), dl, ul, lat, status, PROVIDER, error))
+        conn.execute(models.speedtest_results.insert().values(
+            timestamp=now.replace(microsecond=0), download_mbps=dl, upload_mbps=ul, latency_ms=lat,
+            status=status, provider=PROVIDER, error=error))
         state = notifier.AlertState(conn, "speedtest")
         should_notify, reason, previous = state.evaluate(status, settings_mod.policy(settings_mod.load(conn, cfg), "speedtest"))
         if should_notify:
