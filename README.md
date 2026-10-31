@@ -23,6 +23,7 @@ Versione 2.0: riscrittura completa della 1.x (`pws/`), vedi
 | Scadenze | Certificati HTTPS e token GitHub, con avviso a 15 e 3 giorni | [scadenze.md](docs/scadenze.md) |
 | Salute del sistema | Dischi (SMART) e aggiornamenti di sicurezza / riavvio richiesto | [salute-del-sistema.md](docs/salute-del-sistema.md) |
 | Certificato HTTPS | CA privata (mkcert): dashboard senza avvisi su PC e Android | [certificato.md](docs/certificato.md) |
+| Verifiche e diagnosi | Test prima dell'installazione, diagnosi dopo, controllo dello schema, GitHub Actions | [verifiche.md](docs/verifiche.md) |
 | IP pubblico | Controllo ogni 15 minuti, storico e avviso al cambio | [ip-pubblico.md](docs/ip-pubblico.md) |
 | Notifiche | Email, Telegram e WhatsApp a cambio di stato, instradabili per evento | [notifiche.md](docs/notifiche.md) |
 | Database | Schema, script SQL, retention | [database.md](docs/database.md) |
@@ -37,7 +38,8 @@ Altri documenti:
 [aggiornamento alla 2.3.1](docs/aggiornamento-2.3.1.md),
 [aggiornamento alla 2.4](docs/aggiornamento-2.4.md),
 [aggiornamento alla 2.5](docs/aggiornamento-2.5.md),
-[aggiornamento alla 2.5.1](docs/aggiornamento-2.5.1.md).
+[aggiornamento alla 2.5.1](docs/aggiornamento-2.5.1.md),
+[aggiornamento alla 2.6](docs/aggiornamento-2.6.md).
 
 ## Struttura
 

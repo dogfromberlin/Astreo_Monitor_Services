@@ -1,0 +1,27 @@
+# Astreo Monitor - verifiche automatiche a ogni push su GitHub.
+# Esito visibile nella scheda "Actions" del repository e accanto a ogni commit (✔ / ✘).
+name: Verifiche
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Dipendenze
+        run: python -m pip install -r requirements-dev.txt
+      - name: Codice Python
+        run: python -m pyflakes astreo_monitor tests
+      - name: Sintassi JavaScript
+        run: for f in astreo_monitor/web/static/js/*.js; do node --check "$f"; done
+      - name: Script SMART
+        run: bash -n deploy/bin/astreo-smart-collect
+      - name: Test
+        run: python -m pytest -q tests

@@ -430,3 +430,8 @@ td.warn { color: var(--warn); }
 .check.down { border-left-color: var(--alert); } .check.down .check-value { color: var(--alert); }
 .led.warn:not(.up):not(.down) { background: var(--warn); box-shadow: 0 0 .5rem var(--warn); }
 @media (max-width: 760px) { .checks { grid-template-columns: 1fr; } }
+
+/* 2.6 - avvisi di installazione */
+.banner { background: rgb(239 122 98 / .12); border: 1px solid var(--alert); border-left-width: 4px; color: var(--strong);
+          border-radius: 6px; padding: .8rem 1rem; line-height: 1.6; }
+.banner code { color: var(--warn); }

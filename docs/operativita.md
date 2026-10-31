@@ -63,11 +63,20 @@ sudo systemctl enable --now astreo-speedtest.timer   # riattivare
 | Avvisi non arrivano di notte | fascia di silenzio attiva: arrivano all'orario di recapito | Impostazioni → Notifiche |
 | Web non parte | porta occupata o config errata | `journalctl -u astreo-monitor-web -n 30`, `sudo ss -tlnp | grep 5025` |
 
+## Diagnosi rapida
+
+```bash
+cd ~/Astreo_Monitor_Services
+sudo .venv/bin/python -m astreo_monitor.doctor
+```
+Vedi [verifiche.md](verifiche.md).
+
 ## Aggiornare il codice
 
 ```bash
 cd ~/Astreo_Monitor_Services
 git pull
+bash scripts/verifica.sh
 .venv/bin/python -m pip install -r requirements.txt
 sudo cp deploy/systemd/astreo-* /etc/systemd/system/
 sudo systemctl daemon-reload

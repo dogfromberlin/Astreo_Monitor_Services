@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ version }}">
 </head>
-<body>
+<body data-version="{{ version }}">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6"/></symbol>
   <symbol id="i-net" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><path d="M12 19h.01"/></symbol>
@@ -66,6 +66,7 @@
 </header>
 
 <main>
+<div class="banner" id="schema-banner" role="alert" hidden></div>
 <div class="view" data-view="server">
   <section class="gauges" aria-label="Risorse in tempo reale">
     <article class="gauge" id="g-cpu">

@@ -11,7 +11,7 @@ from flask import Flask, Response, abort, jsonify, redirect, render_template, re
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
-from .. import __version__, db, heartbeat, notifier, services_store
+from .. import __version__, db, heartbeat, notifier, schema, services_store
 from .. import settings as settings_mod
 from ..collectors import sensors, services, system, units
 from ..config import Config
@@ -66,6 +66,24 @@ def create_app(cfg: Config) -> Flask:
     app.json.sort_keys = False
     app.register_blueprint(netpulse_bp)
     app.register_blueprint(terminal_bp)
+
+    # --- controllo dello schema all'avvio (e poi al massimo ogni 10 minuti)
+    schema_state = {"checked": 0.0, "problems": None}
+
+    def schema_problems(force: bool = False):
+        if force or time.time() - schema_state["checked"] > 600:
+            try:
+                with db.connect(cfg.database) as conn:
+                    schema_state["problems"] = schema.check(conn, cfg.backup.databases if cfg.backup else None)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Controllo dello schema non eseguito: %s", exc)
+                schema_state["problems"] = None
+            schema_state["checked"] = time.time()
+            for p in schema_state["problems"] or []:
+                log.warning("Database incompleto: %s (%s) -> eseguire sql/%s", p["item"], p["problem"], p["script"])
+        return schema_state["problems"]
+
+    schema_problems(force=True)
     # Chiave di firma della sessione (sblocco del terminale): nuova a ogni avvio,
     # quindi un riavvio della dashboard richiude il terminale.
     app.secret_key = secrets.token_bytes(32)
@@ -184,8 +202,15 @@ def create_app(cfg: Config) -> Flask:
     @app.get("/api/v1/health")
     def api_health():
         ok = db.ping(cfg.database)
+        problems = schema_problems() if ok else None
         return jsonify({"status": "ok", "version": __version__, "database": ok,
+                        "schema_ok": problems == [] if problems is not None else None,
+                        "schema_scripts": schema.scripts_to_run(problems) if problems else [],
                         "time": dt.datetime.now().isoformat(timespec="seconds")})
+
+    @app.get("/api/v1/schema")
+    def api_schema():
+        return jsonify({"problems": schema_problems(force=True)})
 
     @app.get("/api/v1/system")
     def api_system():

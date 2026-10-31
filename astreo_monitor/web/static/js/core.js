@@ -144,5 +144,23 @@
 
   window.AM = { $, $$, api, el, row, toast, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtFull, fmtDuration, fmtUptime,
                 level, toLocalInput, C, PALETTE, drawChart, ds, constLine, charts, onView, every, isView };
-  document.addEventListener("DOMContentLoaded", () => { setupSubtabs(); showView(); });
+  // Avvisi di installazione: database incompleto o pagina di una versione diversa dal server
+  async function checkInstall() {
+    try {
+      const h = await api("/api/v1/health");
+      const msgs = [];
+      if (h.schema_ok === false) {
+        msgs.push(`Database incompleto: esegui come <strong>sa</strong> ${h.schema_scripts.map((x) => `<code>sql/${x}</code>`).join(", ")} `
+          + "(dettaglio: <code>python -m astreo_monitor.schema</code>). Alcune funzioni non lavorano finché manca.");
+      }
+      if (h.version && h.version !== document.body.dataset.version) {
+        msgs.push(`La pagina è della versione ${document.body.dataset.version}, il server è alla ${h.version}: ricarica con Ctrl+F5.`);
+      }
+      const b = $("#schema-banner");
+      b.innerHTML = msgs.join("<br>");
+      b.hidden = msgs.length === 0;
+    } catch (e) { /* health non raggiungibile: lo segnalano già le altre sezioni */ }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => { setupSubtabs(); showView(); checkInstall(); setInterval(checkInstall, 600_000); });
 })();
