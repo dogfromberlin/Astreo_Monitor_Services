@@ -11,7 +11,9 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from .. import db, heartbeat, notifier, services_store
+from .. import db, events, heartbeat, notifier, services_store
+from ..integrations import docker as docker_mod
+from ..integrations import pihole as pihole_mod
 from .. import settings as settings_mod
 from ..collectors import sensors, services, system
 from ..config import Config
@@ -120,6 +122,13 @@ def main(cfg: Config, dry_run: bool) -> int:
                     state.mark_notified()
             state.save()
 
+        # --- Eventi per i grafici e moduli opzionali ------------------------
+        for name, func in (("eventi", record_events), ("docker", check_docker), ("pi-hole", check_pihole)):
+            try:
+                func(conn, cfg, values, now)
+            except Exception as exc:  # noqa: BLE001
+                log.error("Controllo %s non riuscito: %s", name, exc)
+
         # --- Avvisi trattenuti dalla fascia di silenzio ----------------------
         problems = []
         try:
@@ -134,6 +143,86 @@ def main(cfg: Config, dry_run: bool) -> int:
         heartbeat.ping(conn, values, ok=not problems,
                        message=f"CPU {cpu:.1f}% RAM {mem['used_pct']}% disco {disk_pct}%" + (f" | {'; '.join(problems)}" if problems else ""))
     return 0
+
+
+def record_events(conn, cfg, values, now) -> None:
+    """Riavvii e cambi di stato dei servizi monitorati, come eventi sui grafici."""
+    if not db.state_get(conn, "events:reboots_imported"):
+        n = events.backfill_reboots(conn)
+        db.state_set(conn, "events:reboots_imported", True)
+        log.info("Importati %d riavvii passati come eventi", n)
+    boot = dt.datetime.fromtimestamp(system.cpu_times_snapshot()["boot_time"]).replace(second=0, microsecond=0)
+    if db.state_get(conn, "events:boot") != boot.isoformat():
+        events.record(conn, "reboot", "info", "Riavvio del server", "", f"reboot:{boot:%Y%m%d%H%M}", boot)
+        db.state_set(conn, "events:boot", boot.isoformat())
+
+    last = db.state_get(conn, "events:services", {}) or {}
+    current = {}
+    for s in services.statuses(services_store.monitored(conn, cfg)):
+        current[s["unit"]] = s["state"]
+        before = last.get(s["unit"])
+        if before is not None and (before == "active") != s["up"]:
+            events.record(conn, "service", "info" if s["up"] else "alert",
+                          f"Servizio {s['label']} {'ripartito' if s['up'] else 'fermo'}", f"{before} → {s['state']}", when=now)
+    db.state_set(conn, "events:services", current)
+
+
+def check_docker(conn, cfg, values, now) -> None:
+    present, _ = docker_mod.detect()
+    if not present:
+        return
+    conts = docker_mod.containers(with_stats=False)
+    last = db.state_get(conn, "events:containers", {}) or {}
+    current = {}
+    rule = settings_mod.policy(values, "docker")
+    for c in conts:
+        current[c["name"]] = {"state": c["state"], "restarts": c["restart_count"]}
+        prev = last.get(c["name"])
+        if prev and prev["state"] != c["state"]:
+            events.record(conn, "container", "info" if c["state"] == "running" else "alert",
+                          f"Container {c['name']}: {c['state']}", f"{prev['state']} → {c['state']}", when=now)
+        elif prev and c["restart_count"] > prev.get("restarts", 0):
+            events.record(conn, "container", "warning", f"Container {c['name']} riavviato",
+                          f"riavvii totali: {c['restart_count']}", when=now)
+        status = docker_mod.evaluate(c)
+        state = notifier.AlertState(conn, f"docker:{c['name']}")
+        should_notify, reason, previous = state.evaluate(status, rule)
+        if should_notify:
+            subject = f"Container {c['name']} di nuovo regolare" if status == "OK" else f"Container {c['name']}: {c['state']}"
+            body = "\n".join(x for x in (notifier.reason_line(reason, state),
+                                          f"Container: {c['name']} ({c['image']})", f"Stato: {c['status']}",
+                                          f"Riavvii: {c['restart_count']} — politica: {c['restart_policy'] or 'nessuna'}",
+                                          f"Dettaglio: docker logs --tail 50 {c['name']}") if x)
+            if notifier.dispatch(conn, cfg, "docker", subject, body, detected_at=now):
+                state.mark_notified()
+        state.save()
+    db.state_set(conn, "events:containers", current)
+
+
+def check_pihole(conn, cfg, values, now) -> None:
+    present, _ = pihole_mod.detect(values["pihole.url"])
+    if not present or not values["pihole.password"]:
+        return
+    client = pihole_mod.Client(values["pihole.url"], values["pihole.password"])
+    ov, err = None, None
+    try:
+        ov = client.overview()
+    except Exception as exc:  # noqa: BLE001
+        err = str(exc)[:200]
+    finally:
+        client.logout()
+    status, text = pihole_mod.evaluate(ov, err)
+    state = notifier.AlertState(conn, "pihole")
+    should_notify, reason, previous = state.evaluate(status, settings_mod.policy(values, "pihole"))
+    if previous is not None and previous != status:
+        events.record(conn, "pihole", "info" if status == "OK" else "alert", f"Pi-hole: {status}", text, when=now)
+    if should_notify:
+        subject = "Pi-hole di nuovo regolare" if status == "OK" else f"Pi-hole: {status}"
+        body = "\n".join(x for x in (notifier.reason_line(reason, state), text,
+                                      "Controllo: systemctl status pihole-FTL --no-pager") if x)
+        if notifier.dispatch(conn, cfg, "pihole", subject, body, detected_at=now):
+            state.mark_notified()
+    state.save()
 
 
 def entrypoint() -> None:

@@ -5,6 +5,7 @@
       <button type="button" role="tab" data-sub="speedtest" class="active">Speedtest</button>
       <button type="button" role="tab" data-sub="notifiche">Notifiche</button>
       <button type="button" role="tab" data-sub="servizi">Servizi</button>
+      <button type="button" role="tab" data-sub="moduli">Moduli</button>
     </div>
 
     <!-- ============================== SPEEDTEST -->
@@ -199,6 +200,37 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- ============================== MODULI -->
+    <div data-subpanel="set:moduli" hidden>
+      <form class="settings-form" id="form-modules">
+        <fieldset>
+          <legend>Moduli</legend>
+          <p class="hint">Ogni modulo compare nella dashboard solo se il servizio è presente su questo server. Puoi comunque nasconderlo.</p>
+          <div class="scroll">
+            <table class="data" id="modules-table">
+              <thead><tr><th>Modulo</th><th>Sul server</th><th>Mostra</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Pi-hole</legend>
+          <div class="grid-fields">
+            <label>Indirizzo (API v6)<input type="text" data-key="pihole.url" placeholder="http://127.0.0.1:8080"></label>
+            <label>Password per le app<input type="password" autocomplete="off" data-key="pihole.password"></label>
+          </div>
+          <p class="hint">In Pi-hole: Impostazioni → Interfaccia web / API → modalità <em>Esperto</em> → <em>Configura password per le app</em>.
+             È una password dedicata, revocabile, diversa da quella di amministratore. Procedura in docs/moduli.md.</p>
+          <button type="button" class="ghost" id="pihole-test">Prova la connessione</button>
+        </fieldset>
+        <fieldset>
+          <legend>Eventi sui grafici</legend>
+          <label class="switch"><input type="checkbox" data-key="ui.events"><span>Mostra gli eventi sui grafici (riavvii, interruzioni, cambi di IP, servizi, avvisi)</span></label>
+        </fieldset>
+        <div class="form-actions"><button type="submit">Salva moduli</button></div>
+      </form>
     </div>
 
     <!-- ============================== SERVIZI -->

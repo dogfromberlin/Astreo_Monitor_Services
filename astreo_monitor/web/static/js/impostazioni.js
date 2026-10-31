@@ -166,6 +166,34 @@
     } catch (e) { toast(e.message, "error"); }
   }
 
+  // -------------------------------------------------------------- moduli
+  async function loadModulesTab() {
+    try {
+      const d = await api("/api/v1/integrations");
+      $("#modules-table tbody").replaceChildren(...d.modules.map((m) => {
+        const tr = el("tr");
+        const st = el("span", { class: m.available ? "" : "warn-text" }, m.available ? `✔ ${m.reason}` : `non presente — ${m.reason}`);
+        const lab = el("label", { class: "switch compact" });
+        lab.append(el("input", { type: "checkbox", "data-key": `ui.${m.key}`, "aria-label": `Mostra ${m.label}` }), el("span"));
+        [[m.label, el("strong", {}, m.label)], ["Sul server", st], ["Mostra", lab]].forEach(([l, node]) => {
+          const td = el("td", { "data-label": l }); td.append(node); tr.append(td);
+        });
+        return tr;
+      }));
+      if (settings) fillForm($("#form-modules"));
+    } catch (e) { toast(`Moduli non disponibili: ${e.message}`, "error"); }
+  }
+  async function testPihole() {
+    const changes = readForm($("#form-modules"));
+    try {
+      if (Object.keys(changes).length) settings = await api("/api/v1/settings", { method: "PUT", json: changes });
+      const r = await api("/api/v1/pihole/test", { method: "POST", json: {} });
+      toast(r.ok ? `Pi-hole raggiunto: ${r.detail}` : `Pi-hole: ${r.detail}`, r.ok ? "ok" : "error");
+      fillForm($("#form-modules"));
+      window.AM.loadModules();
+    } catch (e) { toast(e.message, "error"); }
+  }
+
   // ------------------------------------------------------------ heartbeat
   async function loadHeartbeat() {
     try {
@@ -275,6 +303,12 @@
   document.addEventListener("DOMContentLoaded", () => {
     $("#form-speedtest").addEventListener("submit", (ev) => { ev.preventDefault(); saveForm(ev.target, "Impostazioni speedtest"); });
     $("#form-notify").addEventListener("submit", (ev) => { ev.preventDefault(); saveForm(ev.target, "Impostazioni notifiche"); });
+    $("#form-modules").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      await saveForm(ev.target, "Impostazioni dei moduli");
+      window.AM.loadModules();
+    });
+    $("#pihole-test").addEventListener("click", testPihole);
     $("#st-run").addEventListener("click", runNow);
     $("#hb-test").addEventListener("click", testHeartbeat);
     $("#summary-test").addEventListener("click", async () => {
@@ -293,8 +327,9 @@
       if (ev.detail.sub === "notifiche") { loadLog(); loadHeartbeat(); }
       if (ev.detail.sub === "servizi") loadCatalog();
       if (ev.detail.sub === "speedtest") loadSpeedtestStatus();
+      if (ev.detail.sub === "moduli") loadModulesTab();
     });
-    window.AM.onView("impostazioni", () => { loadSettings().then(loadLog); loadSpeedtestStatus(); loadCatalog(); });
+    window.AM.onView("impostazioni", () => { loadSettings().then(() => { loadLog(); loadModulesTab(); }); loadSpeedtestStatus(); loadCatalog(); });
     window.AM.every(30_000, loadSpeedtestStatus, "impostazioni");
   });
 })();

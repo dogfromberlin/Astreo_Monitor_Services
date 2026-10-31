@@ -25,6 +25,7 @@ TABLES = {
     "notification_log": (["timestamp", "channel", "source", "subject", "ok", "error"], "005_impostazioni.sql"),
     "notification_queue": (["created_at", "due_at", "source", "channel", "subject", "body", "attempts", "sent_at"], "006_avvisi.sql"),
     "connectivity_samples": (["timestamp", "target", "role", "received", "loss_pct", "rtt_avg_ms"], "007_connessione.sql"),
+    "events": (["timestamp", "kind", "severity", "title", "detail"], "009_eventi.sql"),
 }
 # colonne aggiunte a tabelle esistenti da script successivi
 EXTRA_COLUMNS = {("notification_log", "status"): "006_avvisi.sql"}

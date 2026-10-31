@@ -11,7 +11,9 @@ from flask import Flask, Response, abort, jsonify, redirect, render_template, re
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
-from .. import __version__, db, heartbeat, notifier, schema, services_store
+from .. import __version__, db, events, heartbeat, integrations, notifier, schema, services_store
+from ..integrations import docker as docker_mod
+from ..integrations import pihole as pihole_mod
 from .. import settings as settings_mod
 from ..collectors import sensors, services, system, units
 from ..config import Config
@@ -407,6 +409,54 @@ def create_app(cfg: Config) -> Flask:
         if not ok:
             abort(400, description="Nessun canale attivo per il Riepilogo settimanale (tabella Quali avvisi su quali canali)")
         return jsonify({"ok": True})
+
+    # ------------------------------------------------------- moduli ed eventi
+    @app.get("/api/v1/integrations")
+    def api_integrations():
+        with db.connect(cfg.database) as conn:
+            values = settings_mod.load(conn, cfg)
+        return jsonify({"modules": integrations.status(values), "events_visible": values["ui.events"]})
+
+    @app.get("/api/v1/docker")
+    def api_docker():
+        present, reason = docker_mod.detect()
+        if not present:
+            return jsonify({"available": False, "reason": reason, "containers": []})
+        return jsonify({"available": True, "reason": reason, "containers": docker_mod.containers()})
+
+    def pihole_client():
+        with db.connect(cfg.database) as conn:
+            values = settings_mod.load(conn, cfg)
+        return values, pihole_mod.Client(values["pihole.url"], values["pihole.password"])
+
+    @app.get("/api/v1/pihole")
+    def api_pihole():
+        values, client = pihole_client()
+        present, reason = pihole_mod.detect(values["pihole.url"])
+        if not present:
+            return jsonify({"available": False, "reason": reason})
+        if not values["pihole.password"]:
+            return jsonify({"available": True, "configured": False, "reason": "password per le app non impostata"})
+        try:
+            return jsonify({"available": True, "configured": True, **client.overview()})
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"available": True, "configured": True, "error": str(exc)[:200]})
+
+    @app.post("/api/v1/pihole/test")
+    def api_pihole_test():
+        values, client = pihole_client()
+        try:
+            ov = client.overview()
+            return jsonify({"ok": True, "detail": pihole_mod.evaluate(ov, None)[1]})
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"ok": False, "detail": str(exc)[:200]})
+
+    @app.get("/api/v1/events")
+    def api_events():
+        start, end = parse_period()
+        with db.connect(cfg.database) as conn:
+            outages = history.connectivity(conn, start, end)["outages"]
+            return jsonify({"events": events.list_events(conn, start, end, outages), "kinds": events.KINDS})
 
     @app.get("/api/v1/heartbeat")
     def api_heartbeat():

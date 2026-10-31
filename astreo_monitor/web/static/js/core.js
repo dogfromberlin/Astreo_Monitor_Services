@@ -80,11 +80,82 @@
     Chart.defaults.borderColor = C("--line");
     Chart.defaults.font.family = C("--font");
   }
-  function drawChart(id, labels, datasets, yOptions = {}) {
+  // ------------------------------------------------- eventi sui grafici
+  const EVENT_COLOR = { reboot: "#d48fd1", outage: "#ef7a62", ip: "#7382eb", service: "#e8b85c", container: "#6fd6c8",
+                        pihole: "#c9c27a", speedtest: "#f0a35e", alert: "#e8b85c" };
+  const eventState = { visible: true, hidden: new Set(), cache: {} };
+
+  function visibleEvents(list) {
+    return eventState.visible ? (list || []).filter((e) => !eventState.hidden.has(e.kind)) : [];
+  }
+
+  const eventsPlugin = {
+    id: "astreoEvents",
+    afterDatasetsDraw(chart) {
+      const times = chart.$times, evs = visibleEvents(chart.$events);
+      chart.$eventMarks = [];
+      if (!times || times.length < 2 || !evs.length) return;
+      const x = chart.scales.x, area = chart.chartArea, ctx = chart.ctx;
+      const step = (times[times.length - 1] - times[0]) / (times.length - 1);
+      evs.forEach((e) => {
+        const t = Date.parse(e.time);
+        if (t < times[0] - step / 2 || t > times[times.length - 1] + step / 2) return;
+        let i = 0;
+        while (i < times.length - 2 && times[i + 1] <= t) i++;
+        const frac = Math.max(0, Math.min(1, (t - times[i]) / ((times[i + 1] - times[i]) || 1)));
+        const px = x.getPixelForValue(i) + frac * (x.getPixelForValue(i + 1) - x.getPixelForValue(i));
+        const color = EVENT_COLOR[e.kind] || "#e8b85c";
+        ctx.save();
+        ctx.strokeStyle = color; ctx.globalAlpha = .75; ctx.lineWidth = 1.2; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(px, area.top); ctx.lineTo(px, area.bottom); ctx.stroke();
+        ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.fillStyle = color;
+        ctx.beginPath(); ctx.moveTo(px - 4, area.top); ctx.lineTo(px + 4, area.top); ctx.lineTo(px, area.top + 6); ctx.fill();
+        ctx.restore();
+        chart.$eventMarks.push({ px, e });
+      });
+      const h = chart.$hoverEvent;
+      if (h) {
+        const text = [h.e.title, `${fmtDateTime(h.e.time)}${h.e.detail ? " — " + h.e.detail : ""}`];
+        ctx.save();
+        ctx.font = "12px " + C("--font");
+        const w = Math.max(...text.map((l) => ctx.measureText(l).width)) + 16;
+        const bx = Math.min(Math.max(h.px - w / 2, area.left), area.right - w);
+        ctx.fillStyle = "rgba(13,8,34,.95)"; ctx.strokeStyle = EVENT_COLOR[h.e.kind] || "#e8b85c";
+        ctx.fillRect(bx, area.top + 8, w, 40); ctx.strokeRect(bx, area.top + 8, w, 40);
+        ctx.fillStyle = "#dcefd9"; ctx.fillText(text[0], bx + 8, area.top + 24);
+        ctx.fillStyle = "#b7c0b5"; ctx.fillText(text[1], bx + 8, area.top + 40);
+        ctx.restore();
+      }
+    },
+    afterEvent(chart, args) {
+      const ev = args.event, marks = chart.$eventMarks || [];
+      if (ev.type === "mousemove") {
+        const m = marks.find((k) => Math.abs(k.px - ev.x) <= 5 && ev.y >= chart.chartArea.top && ev.y <= chart.chartArea.bottom) || null;
+        if (m !== chart.$hoverEvent) { chart.$hoverEvent = m; args.changed = true; }
+      } else if (ev.type === "mouseout" && chart.$hoverEvent) { chart.$hoverEvent = null; args.changed = true; }
+    },
+  };
+  if (window.Chart) Chart.register(eventsPlugin);
+
+  async function loadEvents(query) {
+    if (!eventState.visible) return [];
+    try {
+      const d = await api(`/api/v1/events?${query}`);
+      eventState.cache[query] = d.events;
+      eventState.kinds = d.kinds;
+      return d.events;
+    } catch (e) { return []; }
+  }
+  function redrawEvents() { Object.values(charts).forEach((c) => c.update("none")); document.dispatchEvent(new Event("events-filter")); }
+
+  function drawChart(id, labels, datasets, yOptions = {}, meta = {}) {
     if (!window.Chart) return;
     const { extra = {}, ...yScale } = yOptions;
     const data = { labels, datasets };
-    if (charts[id]) { charts[id].data = data; charts[id].update("none"); return; }
+    if (charts[id]) {
+      charts[id].$times = meta.times || null; charts[id].$events = meta.events || null;
+      charts[id].data = data; charts[id].update("none"); return;
+    }
     charts[id] = new Chart(document.getElementById(id), {
       type: "line",
       data,
@@ -96,6 +167,9 @@
         plugins: { legend: { labels: { boxWidth: 12 } } },
       },
     });
+    charts[id].$times = meta.times || null;
+    charts[id].$events = meta.events || null;
+    charts[id].update("none");
   }
   const ds = (label, data, color, extra = {}) => ({ label, data, borderColor: color, backgroundColor: color, ...extra });
   const constLine = (label, value, n, color) => ds(label, Array(n).fill(value), color,
@@ -143,7 +217,8 @@
   const isView = (v) => currentView === v;
 
   window.AM = { $, $$, api, el, row, toast, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtFull, fmtDuration, fmtUptime,
-                level, toLocalInput, C, PALETTE, drawChart, ds, constLine, charts, onView, every, isView };
+                level, toLocalInput, C, PALETTE, drawChart, ds, constLine, charts, onView, every, isView,
+                loadEvents, eventState, visibleEvents, redrawEvents, EVENT_COLOR };
   // Avvisi di installazione: database incompleto o pagina di una versione diversa dal server
   async function checkInstall() {
     try {

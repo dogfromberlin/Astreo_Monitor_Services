@@ -139,23 +139,26 @@
     const err = $("#history-error");
     err.hidden = true;
     try {
-      const [m, t, s] = await Promise.all([
+      const [m, t, s, evs] = await Promise.all([
         api(`/api/v1/history/metrics?${q}`),
         api(`/api/v1/history/temperatures?${q}`),
         api(`/api/v1/history/speedtest?${q}`),
+        window.AM.loadEvents(q),
       ]);
       const L = (arr) => arr.map(fmtDateTime);
+      const meta = (arr) => ({ times: arr.map((x) => Date.parse(x)), events: evs });
+      window.AM.renderEvents($("#server-events"), evs);
       drawChart("chart-cpu", L(m.labels), [
         ds("CPU % media", m.cpu, C("--ok")),
         ds("CPU % picco", m.cpu_max, C("--warn"), { borderDash: [4, 3] }),
         ds("Load 1 min", m.load1, C("--accent2"), { yAxisID: "y1" }),
-      ], { max: 100, extra: { y1: { position: "right", beginAtZero: true, grid: { drawOnChartArea: false } } } });
-      drawChart("chart-mem", L(m.labels), [ds("RAM %", m.mem, C("--accent2")), ds("Disco / %", m.disk, C("--sage"))], { max: 100 });
-      drawChart("chart-temp", L(t.labels), Object.entries(t.series).map(([name, values], i) => ds(name, values, PALETTE[i % PALETTE.length])), { beginAtZero: false });
+      ], { max: 100, extra: { y1: { position: "right", beginAtZero: true, grid: { drawOnChartArea: false } } } }, meta(m.labels));
+      drawChart("chart-mem", L(m.labels), [ds("RAM %", m.mem, C("--accent2")), ds("Disco / %", m.disk, C("--sage"))], { max: 100 }, meta(m.labels));
+      drawChart("chart-temp", L(t.labels), Object.entries(t.series).map(([name, values], i) => ds(name, values, PALETTE[i % PALETTE.length])), { beginAtZero: false }, meta(t.labels));
       drawChart("chart-speed", L(s.labels), [
         ds("Download Mbps", s.download, C("--ok"), { pointRadius: 2, tension: 0 }),
         ds("Upload Mbps", s.upload, C("--accent2"), { pointRadius: 2, tension: 0 }),
-      ]);
+      ], {}, meta(s.labels));
     } catch (e) {
       err.textContent = `Storico non disponibile: ${e.message}`;
       err.hidden = false;

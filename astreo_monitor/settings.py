@@ -29,13 +29,15 @@ SOURCES = {
     "smart": "Salute dei dischi",
     "updates": "Aggiornamenti di sistema",
     "restoretest": "Verifica del ripristino",
+    "docker": "Container Docker",
+    "pihole": "Pi-hole",
     "summary": "Riepilogo settimanale",
 }
 
 
 # Monitoraggi con stato (OK/WARNING/ALERT...) a cui si applica una regola di avviso
 POLICY_SOURCES = ("connectivity", "speedtest", "temperature", "disk", "services", "backup", "expiry",
-                  "smart", "updates", "restoretest")
+                  "smart", "updates", "restoretest", "docker", "pihole")
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -112,6 +114,12 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "notify.telegram.bot_token": Spec(str, "", secret=True, label="Token del bot"),
         "notify.telegram.chat_id": Spec(str, "", label="Chat ID"),
         "telegram.commands": Spec(bool, False, label="Rispondi ai comandi (/stato, /speedtest, ...)"),
+        # --- moduli: visibilità nella dashboard (compaiono solo se rilevati sul server)
+        "ui.docker": Spec(bool, True, label="Mostra la sezione Docker"),
+        "ui.pihole": Spec(bool, True, label="Mostra la sezione Pi-hole"),
+        "ui.events": Spec(bool, True, label="Mostra gli eventi sui grafici"),
+        "pihole.url": Spec(str, "http://127.0.0.1:8080", label="Indirizzo di Pi-hole (API v6)"),
+        "pihole.password": Spec(str, "", secret=True, label="Password per le app di Pi-hole"),
         # --- salute dei dischi e aggiornamenti
         "smart.temp_warning": Spec(float, 60, 30, 90, label="Temperatura disco per WARNING (°C)"),
         "smart.wear_warning": Spec(float, 80, 1, 100, label="Usura SSD per WARNING (%)"),
@@ -124,6 +132,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "speedtest": s.notify, "temperature": cfg.metrics.notify, "disk": cfg.metrics.notify,
         "services": True, "backup": cfg.backup.notify if cfg.backup else True, "publicip": cfg.publicip.notify,
         "connectivity": True, "expiry": True, "smart": True, "updates": True, "restoretest": True, "summary": True,
+        "docker": True, "pihole": True,
     }
     # --- regole di avviso per monitoraggio
     backup_rem = cfg.backup.reminder_hours if cfg.backup else 24
@@ -132,6 +141,8 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "smart": ("escalation", True, 24.0),
         "updates": ("escalation", False, 168.0),
         "restoretest": ("change", True, 0.0),
+        "docker": ("change", True, 24.0),
+        "pihole": ("change", True, 24.0),
         "expiry": ("escalation", True, 24.0),
         "speedtest": ("escalation", False, 36.0),
         "temperature": ("change", True, cfg.metrics.reminder_hours),
@@ -225,6 +236,8 @@ def save(conn, cfg: Config, changes: dict[str, Any]) -> dict[str, Any]:
         raise SettingsError("Scadenze: i giorni di ALERT devono essere minori o uguali a quelli di WARNING")
     if clean.get("heartbeat.url") and not str(clean["heartbeat.url"]).startswith(("https://", "http://")):
         raise SettingsError("Heartbeat: l'URL deve iniziare con https://")
+    if clean.get("pihole.url") and not str(clean["pihole.url"]).startswith(("http://", "https://")):
+        raise SettingsError("Pi-hole: l'indirizzo deve iniziare con http:// o https://")
     if clean.get("email.recipients") is not None:
         bad = [r for r in _split(clean["email.recipients"]) if "@" not in r]
         if bad:

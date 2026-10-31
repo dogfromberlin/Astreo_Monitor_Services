@@ -25,8 +25,9 @@
     const err = $("#conn-error");
     err.hidden = true;
     try {
-      const d = await api(`/api/v1/history/speedtest?${query()}`);
-      state.data = { ...d, rows: toRows(d) };
+      const [d, evs] = await Promise.all([api(`/api/v1/history/speedtest?${query()}`), window.AM.loadEvents(query())]);
+      state.data = { ...d, rows: toRows(d), events: evs };
+      window.AM.renderEvents($("#conn-events"), evs);
       $("#conn-label").textContent = `Dal ${fmtFull(d.from)} al ${fmtFull(d.to)}: ${d.labels.length} misure`;
       renderAndamento();
       renderQualita();
@@ -62,13 +63,14 @@
       stat("Misure", String(rows.length), "", down ? `${down} con connessione assente` : "nessuna interruzione"),
     );
     const labels = rows.map((r) => fmtDateTime(r.iso));
+    const meta = { times: rows.map((r) => r.ts), events: state.data.events };
     drawChart("chart-conn-speed", labels, [
       ds("Download", rows.map((r) => r.download), DOWN, { pointRadius: 2, tension: 0 }),
       ds("Upload", rows.map((r) => r.upload), UP, { pointRadius: 2, tension: 0 }),
       constLine(`Soglia download ${t.download_warning}`, t.download_warning, rows.length, DOWN),
       constLine(`Soglia upload ${t.upload_warning}`, t.upload_warning, rows.length, UP),
-    ]);
-    drawChart("chart-conn-latency", labels, [ds("Latenza", rows.map((r) => r.latency), C("--warn"), { pointRadius: 2, tension: 0 })]);
+    ], {}, meta);
+    drawChart("chart-conn-latency", labels, [ds("Latenza", rows.map((r) => r.latency), C("--warn"), { pointRadius: 2, tension: 0 })], {}, meta);
 
     const last = [...rows].reverse().slice(0, 200);
     $("#conn-table tbody").replaceChildren(...last.map((r) => row([
@@ -101,12 +103,13 @@
       );
       const labels = d.labels.map(fmtDateTime);
       const pal = window.AM.PALETTE;
+      const meta = { times: d.labels.map((x) => Date.parse(x)), events: (state.data && state.data.events) || [] };
       drawChart("chart-avail-rtt", labels, series.map(([t, x], i) =>
-        ds(x.role === "gateway" ? `${t} (router)` : t, x.rtt, pal[i % pal.length])));
+        ds(x.role === "gateway" ? `${t} (router)` : t, x.rtt, pal[i % pal.length])), {}, meta);
       drawChart("chart-avail-loss", labels, [
         ...series.map(([t, x], i) => ds(x.role === "gateway" ? `${t} (router)` : t, x.loss, pal[i % pal.length])),
         constLine(`Soglia ${d.thresholds.loss_warning}%`, d.thresholds.loss_warning, labels.length, C("--warn")),
-      ], { max: 100 });
+      ], { max: 100 }, meta);
       $("#avail-outages tbody").replaceChildren(...[...d.outages].reverse().map((o) => row([
         { text: fmtFull(o.start), label: "Inizio" }, { text: fmtFull(o.end), label: "Fine" },
         { text: fmtDuration(o.minutes * 60000), cls: "num alert", label: "Durata" },

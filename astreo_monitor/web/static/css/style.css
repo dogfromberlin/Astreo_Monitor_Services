@@ -435,3 +435,27 @@ td.warn { color: var(--warn); }
 .banner { background: rgb(239 122 98 / .12); border: 1px solid var(--alert); border-left-width: 4px; color: var(--strong);
           border-radius: 6px; padding: .8rem 1rem; line-height: 1.6; }
 .banner code { color: var(--warn); }
+
+/* 2.7 - moduli ed eventi */
+.module[hidden] { display: none; }
+.events-panel { margin-top: 1.25rem; }
+.event-filters { display: flex; flex-wrap: wrap; gap: .35rem; }
+.chip { border-radius: 999px; padding: .2rem .7rem; font-size: .8rem; border: 1px solid var(--chip); background: transparent; color: var(--strong); }
+.chip::before { content: ""; display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; background: var(--chip); margin-right: .4rem; }
+.chip.off { opacity: .4; }
+.event-list { list-style: none; margin: 0; padding: 0; max-height: 16rem; overflow-y: auto; }
+.event-list li { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: .1rem .8rem; padding: .4rem .6rem;
+                 border-left: 3px solid var(--chip, var(--line)); border-bottom: 1px solid var(--line); font-size: .88rem; }
+.event-list li time { color: var(--off); grid-row: span 2; }
+.event-list li strong { color: var(--strong); font-weight: 500; }
+.event-list li span { color: var(--text); font-size: .8rem; }
+.event-list li.empty { display: block; color: var(--off); border-left: none; }
+#docker-table td.cmd { max-width: 18rem; }
+@media (max-width: 760px) {
+  .event-list li { grid-template-columns: 1fr; }
+  .event-list li time { grid-row: auto; }
+  #docker-table thead, #modules-table thead { display: none; }
+  #docker-table tr, #modules-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .15rem .75rem; padding: .6rem .2rem; border-bottom: 1px solid var(--line); }
+  #docker-table td, #modules-table td { border: none; padding: .1rem 0; white-space: normal; text-align: left !important; }
+  #docker-table td::before, #modules-table td::before { content: attr(data-label); display: block; font-size: .7rem; color: var(--off); }
+}

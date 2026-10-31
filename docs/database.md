@@ -32,6 +32,7 @@ convertite con `CONVERT(..., 126)`: il risultato non dipende dalla lingua del lo
 | `001_install.sql` | installazione | login/utente dedicati e nuove tabelle; non tocca le esistenti |
 | `002_switch.sql` | test e switch | rinomina `timstamp` → `timestamp`, indici, import storico; rieseguibile |
 | `003_drop_legacy.sql` | dopo 30 giorni, facoltativo | elimina `cpu_percentage` e `fiber_optic_measurements` |
+| `009_eventi.sql` | aggiornamento 2.7 | tabella degli eventi per i grafici |
 | `008_verifica_ripristino.sql` | aggiornamento 2.5 | procedure firmate per la verifica mensile del ripristino |
 | `007_connessione.sql` | aggiornamento 2.4 | tabella del controllo continuo |
 | `006_avvisi.sql` | aggiornamento 2.3 | coda degli avvisi, stato nel registro invii |

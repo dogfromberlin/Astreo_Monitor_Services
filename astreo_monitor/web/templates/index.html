@@ -100,6 +100,23 @@
     <ul class="checks" id="checks"></ul>
   </section>
 
+  <section class="panel module" id="mod-docker" hidden>
+    <div class="panel-head"><h2>Docker</h2><small id="docker-info"></small></div>
+    <div class="scroll">
+      <table class="data" id="docker-table">
+        <thead><tr><th>Container</th><th>Immagine</th><th>Stato</th><th class="num">CPU</th><th>Memoria</th><th class="num">Riavvii</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="hint" id="docker-empty" hidden>Nessun container su questo server.</p>
+  </section>
+
+  <section class="panel module" id="mod-pihole" hidden>
+    <div class="panel-head"><h2>Pi-hole</h2><small id="pihole-info"></small></div>
+    <div class="stats" id="pihole-stats"></div>
+    <p class="hint" id="pihole-msg" hidden></p>
+  </section>
+
   <div class="columns">
     <section class="panel">
       <div class="panel-head"><h2>Processi</h2><small>ordinati per CPU, ogni 10 s</small></div>
@@ -153,6 +170,10 @@
       <figure><figcaption>Temperature</figcaption><canvas id="chart-temp"></canvas></figure>
       <figure><figcaption>Velocità connessione</figcaption><canvas id="chart-speed"></canvas></figure>
     </div>
+    <div class="events-panel" id="server-events" hidden>
+      <div class="panel-head"><h3 class="sub-title">Eventi del periodo</h3><div class="event-filters" data-events-filters></div></div>
+      <ul class="event-list" data-events-list></ul>
+    </div>
     <details class="ip-history">
       <summary>Variazioni dell'IP pubblico</summary>
       <table class="data" id="ip-history">
@@ -180,6 +201,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="{{ url_for('static', filename='js/core.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/moduli.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/server.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/connessione.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/impostazioni.js') }}?v={{ version }}"></script>
