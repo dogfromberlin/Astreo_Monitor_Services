@@ -12,6 +12,7 @@ nightly database backups with restore checks, and a few extras you usually have 
 |---|---|
 | **Server** | CPU, load, memory, disk, temperatures, processes, partitions; history charts with **events** (reboots, outages, IP changes, service stops, alerts) drawn on the timeline |
 | **Services** | Any systemd unit: running / stopped, alerts when it stops and restarts, start / stop from the dashboard |
+| **Devices and services** | Ping, TCP port and web page checks for other devices (router, NAS, websites…) with history and alerts ([docs](docs/en/checks.md)) |
 | **Connection** | Ping to router and Internet every minute (outages, availability), periodic speedtest with thresholds, public IP changes |
 | **Health** | Disk SMART status, pending security updates and required reboots, certificate and token expirations |
 | **Data safety** | Nightly database backup (optional copy to a private GitHub repository) and **monthly restore test** |

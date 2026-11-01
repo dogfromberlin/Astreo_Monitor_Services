@@ -12,6 +12,7 @@ insieme a mano.
 |---|---|
 | **Server** | CPU, load, memoria, disco, temperature, processi, partizioni; grafici storici con gli **eventi** (riavvii, interruzioni, cambi di IP, servizi fermi, avvisi) sulla linea del tempo |
 | **Servizi** | Qualsiasi unit systemd: attivo / fermo, avvisi quando si ferma e quando riparte, avvio e arresto dalla dashboard |
+| **Dispositivi e servizi** | Controlli ping, porta TCP e pagina web di altri dispositivi (router, NAS, siti…) con storico e avvisi ([controlli.md](docs/controlli.md)) |
 | **Connessione** | Ping verso router e Internet ogni minuto (interruzioni, disponibilità), speedtest periodico con soglie, cambi di IP pubblico |
 | **Salute** | Stato SMART dei dischi, aggiornamenti di sicurezza in sospeso e riavvii richiesti, scadenze di certificati e token |
 | **Sicurezza dei dati** | Backup notturno del database (con copia facoltativa su un repository GitHub privato) e **verifica mensile del ripristino** |

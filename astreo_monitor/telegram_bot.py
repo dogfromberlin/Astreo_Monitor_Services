@@ -17,7 +17,9 @@ import time
 import psutil
 import requests
 
-from . import __version__, config as config_mod, db, i18n, logging_setup, services_store
+from sqlalchemy import true as sa_true, select
+
+from . import __version__, config as config_mod, db, i18n, logging_setup, models, services_store
 from . import settings as settings_mod
 from .collectors import sensors, services, system, units
 
@@ -34,6 +36,7 @@ COMMANDS = [
     ("aiuto", "help", "Elenco dei comandi"),
 ]
 ALIASES = {en: it for it, en, _d in COMMANDS}
+CHECK_NAMES: dict[str, str] = {}          # id -> nome dei controlli, aggiornato a ogni comando
 ICON = {"OK": "🟢", "WARNING": "🟡", "ALERT": "🔴", "DOWN": "🔴", "UNKNOWN": "⚪"}
 
 
@@ -46,6 +49,8 @@ def alert_name(key: str, tr=lambda s, **kw: s.format(**kw)) -> str:
         return tr("Token GitHub (gh)") if rest == "github-token" else tr("Certificato HTTPS {p0}", p0=rest.removeprefix("cert:"))
     if kind == "smart":
         return tr("Disco {p0}", p0=rest)
+    if kind == "check":
+        return CHECK_NAMES.get(rest, tr("Dispositivi e servizi"))
     return tr(settings_mod.SOURCES.get(kind, kind))
 
 
@@ -167,6 +172,7 @@ class Bot:
             mon = services_store.monitored(conn, self.cfg)
             con = db.state_get(conn, "connectivity:last") or {}
             alerts = db.state_rows(conn, "alert:")
+            CHECK_NAMES.update({str(c["id"]): c["name"] for c in db.rows(conn, select(models.checks.c.id, models.checks.c.name))})
         st = services.statuses(mon)
         down = [s["label"] for s in st if not s["up"]]
         active = []
@@ -243,6 +249,10 @@ class Bot:
             bk = db.state_get(conn, "backup:last") or {}
             rt = db.state_get(conn, "restoretest:last") or {}
             hb = db.state_get(conn, "heartbeat:last") or {}
+            checks_rows = [{**c, "state": db.state_get(conn, f"check:{c['id']}")}
+                           for c in db.rows(conn, select(models.checks.c.id, models.checks.c.name)
+                                            .where(models.checks.c.enabled == sa_true())
+                                            .order_by(models.checks.c.sort_order, models.checks.c.id))]
         lines = []
         for d in health.get("disks", []):
             lines.append(f"{ICON.get(d.get('status'), '⚪')} " + self.tr("Disco {p0}", p0=d["device"])
@@ -264,6 +274,12 @@ class Bot:
         if rt:
             lines.append(f"{ICON.get(rt.get('status'), '⚪')} " + self.tr("Verifica ripristino: {stato} il {data}",
                                                                           stato=rt.get("status"), data=str(rt.get("time", ""))[:10]))
+        if checks_rows:
+            for c in checks_rows:
+                st = c.get("state") or {}
+                lines.append(f"{ICON.get(st.get('status'), '⚪')} {c['name']}: {st.get('status', '…')}"
+                             + (f" — {i18n.translate_stored(st.get('warning') or st.get('detail') or '', self.lang)}"
+                                if st.get("status") != "OK" else ""))
         if hb:
             lines.append(f"{'🟢' if hb.get('ok') else '🔴'} Heartbeat: "
                          + self.tr("{p0} alle {p1}", p0=self.tr("inviato") if hb.get("ok") else self.tr("non inviato"),

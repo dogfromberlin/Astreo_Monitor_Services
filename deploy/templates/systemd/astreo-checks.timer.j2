@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione controlli di dispositivi e servizi (ogni minuto)
+
+[Timer]
+OnCalendar=*-*-* *:*:40
+AccuracySec=2s
+Persistent=false
+Unit=astreo-checks.service
+
+[Install]
+WantedBy=timers.target

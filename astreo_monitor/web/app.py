@@ -11,7 +11,8 @@ from flask import Flask, Response, abort, g, jsonify, redirect, render_template,
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
-from .. import __version__, db, events, heartbeat, i18n, integrations, notifier, schema, services_store
+from .. import __version__, db, events, heartbeat, i18n, integrations, models, notifier, schema, services_store
+from .. import checks as checks_mod_errors
 from ..integrations import docker as docker_mod
 from ..integrations import pihole as pihole_mod
 from .. import settings as settings_mod
@@ -209,6 +210,11 @@ def create_app(cfg: Config) -> Flask:
 
     @app.errorhandler(settings_mod.SettingsError)
     def settings_error(exc):
+        lang = current_language()
+        return jsonify({"error": i18n.t("Valore non valido", lang), "detail": i18n.translate_stored(str(exc), lang)}), 400
+
+    @app.errorhandler(checks_mod_errors.CheckError)
+    def check_error(exc):
         lang = current_language()
         return jsonify({"error": i18n.t("Valore non valido", lang), "detail": i18n.translate_stored(str(exc), lang)}), 400
 
@@ -521,6 +527,82 @@ def create_app(cfg: Config) -> Flask:
         with db.connect(cfg.database) as conn:
             outages = history.connectivity(conn, start, end)["outages"]
             return jsonify({"events": events.list_events(conn, start, end, outages, current_language()), "kinds": {k: i18n.t(v, current_language()) for k, v in events.KINDS.items()}})
+
+    # ------------------------------------------- controlli di dispositivi e servizi
+    from sqlalchemy import delete as sa_delete, func as sa_func, select as sa_select, update as sa_update
+    from .. import checks as checks_mod
+
+    def check_row(conn, c: dict) -> dict:
+        lang = current_language()
+        st = db.state_get(conn, f"check:{c['id']}") or {}
+        R = models.check_results
+        since = dt.datetime.now() - dt.timedelta(hours=24)
+        tot, good = db.one(conn, sa_select(sa_func.count().label("n"),
+                                           sa_func.sum(sa_func.cast(R.c.ok, models.Integer)).label("ok"))
+                           .where(R.c.check_id == c["id"], R.c.timestamp >= since)).values()
+        st = i18n.translate_fields(st, lang, fields=("detail", "warning"))
+        return {**c, "updated_at": None, "state": st,
+                "availability_24h": round(100 * (good or 0) / tot, 2) if tot else None}
+
+    @app.get("/api/v1/checks")
+    def api_checks():
+        C = models.checks
+        with db.connect(cfg.database) as conn:
+            return jsonify({"checks": [check_row(conn, c) for c in db.rows(conn, sa_select(C).order_by(C.c.sort_order, C.c.id))]})
+
+    @app.post("/api/v1/checks")
+    def api_check_create():
+        data = checks_mod.validate(request.get_json(silent=True) or {})
+        C = models.checks
+        with db.connect(cfg.database) as conn:
+            top = db.scalar(conn, sa_select(sa_func.coalesce(sa_func.max(C.c.sort_order), 0))) or 0
+            new_id = conn.execute(C.insert().values(**data, sort_order=top + 10, updated_at=db.now())).inserted_primary_key[0]
+            return jsonify(check_row(conn, db.one(conn, sa_select(C).where(C.c.id == new_id)))), 201
+
+    @app.put("/api/v1/checks/<int:cid>")
+    def api_check_update(cid: int):
+        data = checks_mod.validate(request.get_json(silent=True) or {})
+        C = models.checks
+        with db.connect(cfg.database) as conn:
+            if not conn.execute(sa_update(C).where(C.c.id == cid).values(**data, updated_at=db.now())).rowcount:
+                abort(404, description="Controllo inesistente")
+            return jsonify(check_row(conn, db.one(conn, sa_select(C).where(C.c.id == cid))))
+
+    @app.delete("/api/v1/checks/<int:cid>")
+    def api_check_delete(cid: int):
+        C, R, S = models.checks, models.check_results, models.monitor_state
+        with db.connect(cfg.database) as conn:
+            conn.execute(sa_delete(R).where(R.c.check_id == cid))
+            conn.execute(sa_delete(S).where(S.c.key.in_((f"check:{cid}", f"alert:check:{cid}"))))
+            if not conn.execute(sa_delete(C).where(C.c.id == cid)).rowcount:
+                abort(404, description="Controllo inesistente")
+        return jsonify({"deleted": cid})
+
+    @app.post("/api/v1/checks/test")
+    def api_check_test():
+        data = checks_mod.validate(request.get_json(silent=True) or {})
+        r = checks_mod.run(data)
+        lang = current_language()
+        return jsonify({"ok": r.ok, "latency_ms": r.latency_ms, "detail": i18n.translate_stored(r.detail, lang),
+                        "warning": i18n.translate_stored(r.warning, lang), "cert_days": r.cert_days})
+
+    @app.get("/api/v1/checks/<int:cid>/history")
+    def api_check_history(cid: int):
+        start, end = parse_period()
+        R = models.check_results
+        with db.connect(cfg.database) as conn:
+            b = history.bucket_seconds(start, end)
+            if (end - start).total_seconds() <= 6 * 3600:
+                b = 60
+            expr, epoch = db.bucket_expr(conn, R.c.timestamp, b)
+            inner = sa_select(expr.label("bucket"), R.c.latency_ms, sa_func.cast(R.c.ok, models.Integer).label("ok")) \
+                .where(R.c.check_id == cid, R.c.timestamp >= start, R.c.timestamp < end).subquery()
+            rows = db.rows(conn, sa_select(inner.c.bucket, sa_func.avg(inner.c.latency_ms).label("lat"),
+                                           sa_func.avg(inner.c.ok * 100.0).label("up"))
+                           .group_by(inner.c.bucket).order_by(inner.c.bucket))
+        return jsonify({"labels": [db.from_bucket(r["bucket"], epoch).isoformat(timespec="seconds") for r in rows],
+                        "latency": [None if r["lat"] is None else round(float(r["lat"]), 1) for r in rows],
+                        "up": [round(float(r["up"]), 1) for r in rows]})
 
     @app.get("/api/v1/heartbeat")
     def api_heartbeat():

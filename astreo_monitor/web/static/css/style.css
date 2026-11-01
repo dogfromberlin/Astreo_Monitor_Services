@@ -468,3 +468,13 @@ td.warn { color: var(--warn); }
 /* 3.1 - utente in sola lettura: niente impostazioni, terminale, processi e comandi */
 body[data-role="viewer"] .admin-only { display: none !important; }
 .role-badge { font-size: .75rem; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: .05rem .4rem; }
+
+/* 3.2 - controlli di dispositivi e servizi */
+#checks-table tbody tr { cursor: pointer; }
+#checks-table td.target, #checks-admin td.target { color: var(--off); font-family: var(--font-mono, monospace); font-size: .82rem; overflow-wrap: anywhere; }
+dialog.wide { width: min(56rem, 94vw); }
+dialog.wide figure { margin: .8rem 0; }
+dialog.wide canvas { max-height: 14rem; }
+#check-form [data-for][hidden] { display: none; }
+.row-actions { display: flex; gap: .3rem; justify-content: flex-end; }
+.row-actions button { padding: .2rem .55rem; font-size: .8rem; }

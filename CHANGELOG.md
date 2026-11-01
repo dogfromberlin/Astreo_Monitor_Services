@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.0
+
+- **Checks of other devices and services**: ping, TCP port and web page (expected codes, text, certificate expiry), configured in Settings → Devices, with a "test now" button.
+- New panel in the Server view with status, latency and 24 h availability; history dialog; events on charts; alerts (event "Devices and services"); Telegram `/checks`; weekly summary.
+- Database migration 0003 (tables `checks`, `check_results`); new timer `astreo-checks.timer`.
+- Fix: portable boolean comparisons (SQL Server rejected `IS 1`), with a test rule.
+
 ## 3.1.0
 
 - New notification channels: **ntfy**, **Gotify**, **Discord** and a generic **webhook** (JSON POST), routable per event like the others.

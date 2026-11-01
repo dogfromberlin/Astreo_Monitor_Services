@@ -25,6 +25,7 @@ TABLES = [
     (models.public_ip_history, "publicip_days"),
     (models.connectivity_samples, "connectivity_days"),
     (models.events, "metrics_days"),
+    (models.check_results, "connectivity_days"),
     (models.notification_log, None),
 ]
 NOTIFICATION_LOG_DAYS = 180

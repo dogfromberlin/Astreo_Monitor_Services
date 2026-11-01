@@ -8,7 +8,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from sqlalchemy import case, func, select
+from sqlalchemy import true as sa_true, case, func, select
 
 from .. import db, models, notifier
 from ..config import Config
@@ -70,6 +70,18 @@ def build(conn, now: dt.datetime, values: dict | None = None) -> tuple[str, str]
     lines.append(tr("AVVISI INVIATI"))
     lines += [f"- {tr(settings_mod.SOURCES.get(r['source'], r['source']))}: {r['n']}" for r in a] or [tr("- nessuno")]
     lines.append("")
+
+    # --- dispositivi e servizi
+    Ck, Cr = models.checks, models.check_results
+    rows = db.rows(conn, select(Ck.c.name, func.count(Cr.c.id).label("n"),
+                                func.sum(case((Cr.c.ok == sa_true(), 1), else_=0)).label("ok"))
+                   .select_from(Ck.join(Cr, Cr.c.check_id == Ck.c.id))
+                   .where(Cr.c.timestamp >= start, Cr.c.timestamp < now)
+                   .group_by(Ck.c.name).order_by(Ck.c.name))
+    if rows:
+        lines.append(tr("DISPOSITIVI E SERVIZI"))
+        lines += [tr("- {nome}: disponibilità {pct}%", nome=r["name"], pct=f"{100 * (r['ok'] or 0) / r['n']:.2f}") for r in rows]
+        lines.append("")
 
     # --- backup, dischi, aggiornamenti, scadenze
     bk = db.state_get(conn, "backup:last") or {}

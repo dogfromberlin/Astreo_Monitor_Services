@@ -31,6 +31,7 @@ SOURCES = {
     "smart": "Salute dei dischi",
     "updates": "Aggiornamenti di sistema",
     "restoretest": "Verifica del ripristino",
+    "checks": "Dispositivi e servizi",
     "docker": "Container Docker",
     "pihole": "Pi-hole",
     "summary": "Riepilogo settimanale",
@@ -39,7 +40,7 @@ SOURCES = {
 
 # Monitoraggi con stato (OK/WARNING/ALERT...) a cui si applica una regola di avviso
 POLICY_SOURCES = ("connectivity", "speedtest", "temperature", "disk", "services", "backup", "expiry",
-                  "smart", "updates", "restoretest", "docker", "pihole")
+                  "smart", "updates", "restoretest", "docker", "pihole", "checks")
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -149,7 +150,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "speedtest": s.notify, "temperature": cfg.metrics.notify, "disk": cfg.metrics.notify,
         "services": True, "backup": cfg.backup.notify if cfg.backup else True, "publicip": cfg.publicip.notify,
         "connectivity": True, "expiry": True, "smart": True, "updates": True, "restoretest": True, "summary": True,
-        "docker": True, "pihole": True,
+        "docker": True, "pihole": True, "checks": True,
     }
     # --- regole di avviso per monitoraggio
     backup_rem = cfg.backup.reminder_hours if cfg.backup else 24
@@ -159,6 +160,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "updates": ("escalation", False, 168.0),
         "restoretest": ("change", True, 0.0),
         "docker": ("change", True, 24.0),
+        "checks": ("change", True, 0.0),
         "pihole": ("change", True, 24.0),
         "expiry": ("escalation", True, 24.0),
         "speedtest": ("escalation", False, 36.0),

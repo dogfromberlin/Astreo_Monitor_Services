@@ -50,7 +50,8 @@ CORE_UNITS = ["astreo-monitor-web.service", "astreo-metrics.service", "astreo-me
               "astreo-publicip.service", "astreo-publicip.timer", "astreo-maintenance.service", "astreo-maintenance.timer",
               "astreo-connectivity.service", "astreo-connectivity.timer", "astreo-expiry.service", "astreo-expiry.timer",
               "astreo-health.service", "astreo-health.timer", "astreo-smart-collect.service", "astreo-smart-collect.timer",
-              "astreo-summary.service", "astreo-summary.timer", "astreo-telegram.service"]
+              "astreo-summary.service", "astreo-summary.timer", "astreo-telegram.service",
+              "astreo-checks.service", "astreo-checks.timer"]
 MODULE_UNITS = {
     "speedtest": ["astreo-speedtest.service", "astreo-speedtest.timer"],
     "backup": ["astreo-backup.service", "astreo-backup.timer", "astreo-restoretest.service", "astreo-restoretest.timer"],

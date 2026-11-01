@@ -57,6 +57,10 @@ STORED_TEMPLATES = [
     # eventi
     "Riavvio del server", "Servizio {p0} ripartito", "Servizio {p0} fermo", "Container {p0} riavviato",
     "Container {p0}: {p1}", "Pi-hole: {p0}", "riavvii totali: {p0}", "kernel {p0}",
+    # controlli di dispositivi e servizi
+    "{p0}: non raggiungibile", "{p0}: di nuovo raggiungibile", "nessuna risposta su {p0}", "{p0}/{p1} risposte",
+    "porta {p0} aperta", "connessione rifiutata", "nome non risolto", "host irraggiungibile", "rete irraggiungibile", "{p0}: numero non valido", "{p0}: da {p1} a {p2}", "certificato non valido", "nessuna risposta entro {p0} s", "connessione non riuscita",
+    "HTTP {p0}, testo «{p1}» non trovato", "HTTP {p0} (attesi {p1})", "certificato in scadenza tra {p0} giorni", "{p0}% di pacchetti persi",
     # Pi-hole
     "Blocco della pubblicità: {p0}", "Blocco attivo, {p0}% delle richieste bloccate", "Pi-hole non risponde: {p0}",
     # connessione
@@ -90,7 +94,7 @@ def translate_stored(text: str, lang: str) -> str:
         import re
         for tpl in STORED_TEMPLATES:
             rx = "^" + re.escape(tpl)
-            for k in ("p0", "p1"):
+            for k in ("p0", "p1", "p2", "p3"):
                 rx = rx.replace(re.escape("{" + k + "}"), f"(?P<{k}>.+?)")
             _STORED_RX.append((re.compile(rx + "$"), tpl))
     for rx, tpl in _STORED_RX:

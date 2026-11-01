@@ -21,7 +21,7 @@ def read(rel):
 
 
 def files(pattern):
-    return sorted(glob.glob(os.path.join(ROOT, pattern)))
+    return sorted(glob.glob(os.path.join(ROOT, pattern), recursive=True))
 
 
 # ------------------------------------------- file generati dai modelli (installer)
@@ -234,3 +234,10 @@ def test_nessun_riferimento_personale_nel_repository():
         if "dogfromberlin" in text and rel not in allowed_owner:
             found.append(f"{rel}: dogfromberlin")
     assert not found, found[:15]
+
+
+def test_confronti_booleani_portabili():
+    """3.2: .is_(True) diventa 'IS 1', che SQL Server rifiuta. Usare == true() di SQLAlchemy."""
+    for path in files("astreo_monitor/**/*.py"):
+        text = open(path, encoding="utf-8").read()
+        assert ".is_(True)" not in text and ".is_(False)" not in text and "is_(sa_true())" not in text, path

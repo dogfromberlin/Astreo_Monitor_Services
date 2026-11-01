@@ -5,6 +5,7 @@
       <button type="button" role="tab" data-sub="speedtest" class="active">{{ _("Speedtest") }}</button>
       <button type="button" role="tab" data-sub="notifiche">{{ _("Notifiche") }}</button>
       <button type="button" role="tab" data-sub="servizi">{{ _("Servizi") }}</button>
+      <button type="button" role="tab" data-sub="dispositivi">{{ _("Dispositivi") }}</button>
       <button type="button" role="tab" data-sub="moduli">{{ _("Moduli") }}</button>
     </div>
 
@@ -219,6 +220,50 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- ============================== DISPOSITIVI -->
+    <div data-subpanel="set:dispositivi" hidden>
+      <p class="hint">{{ _("Controlli di altri dispositivi e servizi: router, NAS, stampanti, siti web, servizi su altri computer. Avvisi nell'evento «Dispositivi e servizi» (scheda Notifiche).") }}</p>
+      <div class="scroll">
+        <table class="data" id="checks-admin">
+          <thead><tr><th>{{ _("Nome") }}</th><th>{{ _("Controllo") }}</th><th>{{ _("Ogni") }}</th><th>{{ _("Stato") }}</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint" id="checks-empty" hidden>{{ _("Nessun controllo configurato.") }}</p>
+      <form class="settings-form" id="check-form" autocomplete="off">
+        <fieldset>
+          <legend id="check-form-title">{{ _("Nuovo controllo") }}</legend>
+          <input type="hidden" name="id">
+          <div class="grid-fields">
+            <label>{{ _("Nome") }}<input type="text" name="name" maxlength="100" required placeholder="{{ _("es. NAS") }}"></label>
+            <label>{{ _("Tipo") }}
+              <select name="kind">
+                <option value="ping">{{ _("Ping (raggiungibile in rete)") }}</option>
+                <option value="tcp">{{ _("Porta TCP (servizio in ascolto)") }}</option>
+                <option value="http">{{ _("Pagina web (HTTP/HTTPS)") }}</option>
+              </select>
+            </label>
+            <label class="span-2">{{ _("Host o indirizzo") }}<input type="text" name="target" required placeholder="192.0.2.10 / nas.lan / https://…"></label>
+            <label data-for="tcp">{{ _("Porta") }}<input type="number" name="port" min="1" max="65535"></label>
+            <label>{{ _("Ogni (secondi)") }}<input type="number" name="interval_s" min="30" value="60"></label>
+            <label>{{ _("Attesa massima (secondi)") }}<input type="number" name="timeout_s" min="1" max="60" value="10"></label>
+            <label>{{ _("Fallimenti consecutivi prima dell'avviso") }}<input type="number" name="retries" min="1" max="10" value="2"></label>
+            <label data-for="http">{{ _("Codici di risposta attesi") }}<input type="text" name="expect_status" placeholder="200-399"></label>
+            <label data-for="http" class="span-2">{{ _("Testo che deve comparire nella pagina (facoltativo)") }}<input type="text" name="keyword"></label>
+            <label data-for="http">{{ _("Avviso certificato a (giorni)") }}<input type="number" name="cert_warning_days" min="0" max="365" value="14"></label>
+          </div>
+          <label class="switch" data-for="http"><input type="checkbox" name="verify_tls" checked><span>{{ _("Verifica il certificato HTTPS") }}</span></label>
+          <label class="switch"><input type="checkbox" name="enabled" checked><span>{{ _("Attivo") }}</span></label>
+          <p class="hint" id="check-test-result"></p>
+        </fieldset>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="check-cancel" hidden>{{ _("Annulla") }}</button>
+          <button type="button" class="ghost" id="check-test">{{ _("Prova ora") }}</button>
+          <button type="submit">{{ _("Salva controllo") }}</button>
+        </div>
+      </form>
     </div>
 
     <!-- ============================== MODULI -->

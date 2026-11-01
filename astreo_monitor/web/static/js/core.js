@@ -92,7 +92,7 @@
   }
   // ------------------------------------------------- eventi sui grafici
   const EVENT_COLOR = { reboot: "#d48fd1", outage: "#ef7a62", ip: "#7382eb", service: "#e8b85c", container: "#6fd6c8",
-                        pihole: "#c9c27a", speedtest: "#f0a35e", alert: "#e8b85c" };
+                        pihole: "#c9c27a", check: "#8fb8ff", speedtest: "#f0a35e", alert: "#e8b85c" };
   const eventState = { visible: true, hidden: new Set(), cache: {} };
 
   function visibleEvents(list) {

@@ -6,7 +6,7 @@ Ogni modifica a questo file richiede una nuova migrazione in astreo_monitor/migr
 """
 from __future__ import annotations
 
-from sqlalchemy import (BigInteger, Boolean, Column, DateTime, Float, Index, Integer, MetaData, PrimaryKeyConstraint,
+from sqlalchemy import (BigInteger, Boolean, Column, DateTime, Float, Index, Integer, MetaData, PrimaryKeyConstraint,  # noqa: F401
                         SmallInteger, String, Table, Unicode, UnicodeText)
 from sqlalchemy.dialects import mssql
 
@@ -111,4 +111,34 @@ events = Table(
     Index("IX_events_ts", "timestamp", mssql_clustered=True),
     Index("UX_events_ref", "ref", unique=True, mssql_where=Column("ref").isnot(None),
           postgresql_where=Column("ref").isnot(None), sqlite_where=Column("ref").isnot(None)),
+)
+
+
+# --- 3.2: controlli di altri dispositivi e servizi (ping, porta TCP, pagina web) ---
+checks = Table(
+    "checks", metadata, *_id("checks"),
+    Column("name", Unicode(100), nullable=False),
+    Column("kind", String(8), nullable=False),            # ping | tcp | http
+    Column("target", Unicode(400), nullable=False),       # host, host per tcp, URL per http
+    Column("port", Integer),
+    Column("interval_s", Integer, nullable=False, server_default="60"),
+    Column("timeout_s", Integer, nullable=False, server_default="10"),
+    Column("retries", SmallInteger, nullable=False, server_default="2"),   # fallimenti consecutivi prima di DOWN
+    Column("expect_status", String(40)),                  # http: es. "200-399" (predefinito) o "200,204"
+    Column("keyword", Unicode(200)),                      # http: testo che deve comparire nella pagina
+    Column("verify_tls", Boolean, nullable=False, server_default="1"),
+    Column("cert_warning_days", SmallInteger, nullable=False, server_default="14"),
+    Column("enabled", Boolean, nullable=False, server_default="1"),
+    Column("sort_order", Integer, nullable=False, server_default="0"),
+    Column("updated_at", TS, nullable=False),
+)
+
+check_results = Table(
+    "check_results", metadata, *_id("check_results"),
+    Column("timestamp", TS, nullable=False),
+    Column("check_id", BigInteger().with_variant(Integer(), "sqlite"), nullable=False),
+    Column("ok", Boolean, nullable=False),
+    Column("latency_ms", Float),
+    Column("detail", Unicode(300)),
+    Index("IX_check_results_ts", "timestamp", "check_id", mssql_clustered=True),
 )

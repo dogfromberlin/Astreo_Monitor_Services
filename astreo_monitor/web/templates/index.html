@@ -101,6 +101,16 @@
     <ul class="checks" id="checks"></ul>
   </section>
 
+  <section class="panel" id="checks-panel" hidden>
+    <div class="panel-head"><h2>{{ _("Dispositivi e servizi") }}</h2><small id="checks-summary"></small></div>
+    <div class="scroll">
+      <table class="data" id="checks-table">
+        <thead><tr><th>{{ _("Nome") }}</th><th>{{ _("Controllo") }}</th><th>{{ _("Stato") }}</th><th class="num">{{ _("Latenza") }}</th><th class="num">{{ _("Disponibilità 24 ore") }}</th><th>{{ _("Dal") }}</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="panel module" id="mod-docker" hidden>
     <div class="panel-head"><h2>{{ _("Docker") }}</h2><small id="docker-info"></small></div>
     <div class="scroll">
@@ -192,6 +202,20 @@
 <footer><span>Astreo Monitor {{ version }}</span> <a href="{{ url_for('ca_cert') }}">{{ _("certificato CA") }}</a> <a href="{{ url_for('api_health') }}">{{ _("stato API") }}</a>
   <span class="lang-switch">{% for code, name in languages.items() %}<button type="button" data-lang="{{ code }}" class="{{ 'active' if code == lang }}" title="{{ name }}">{{ code|upper }}</button>{% endfor %}</span></footer>
 
+<dialog id="check-dialog" class="wide">
+  <form method="dialog" class="dialog-head">
+    <h2 id="check-dialog-title"></h2>
+    <button type="submit" class="ghost">{{ _("Chiudi") }}</button>
+  </form>
+  <div class="period" id="check-period">
+    <button type="button" data-range="24h" class="active">{{ _("24 ore") }}</button>
+    <button type="button" data-range="7d">{{ _("7 giorni") }}</button>
+    <button type="button" data-range="30d">{{ _("30 giorni") }}</button>
+  </div>
+  <figure><figcaption>{{ _("Latenza (ms)") }}</figcaption><canvas id="chart-check-latency"></canvas></figure>
+  <figure><figcaption>{{ _("Raggiungibile (%)") }}</figcaption><canvas id="chart-check-up"></canvas></figure>
+</dialog>
+
 <dialog id="service-dialog">
   <form method="dialog" class="dialog-head">
     <h2 id="service-dialog-title">{{ _("Servizio") }}</h2>
@@ -206,6 +230,7 @@
 <script src="{{ url_for('static', filename='js/core.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/moduli.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/server.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/controlli.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/connessione.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/impostazioni.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/terminale.js') }}?v={{ version }}"></script>

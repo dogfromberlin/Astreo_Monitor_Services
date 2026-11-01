@@ -24,6 +24,7 @@ KINDS = {
     "service": "Servizio",
     "container": "Container",
     "pihole": "Pi-hole",
+    "check": "Dispositivi e servizi",
     "speedtest": "Speedtest sotto soglia",
     "alert": "Avviso inviato",
 }

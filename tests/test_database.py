@@ -158,3 +158,24 @@ def test_backup_e_ripristino(dbcfg):
     assert t["status"] in ("OK", "WARNING"), t
     if t["status"] == "OK":
         assert t["tables"] >= len(models.metadata.tables) and t["rows"] >= 1
+
+
+def test_controlli_job_e_storico(dbcfg):
+    from unittest import mock as _m
+    from astreo_monitor import checks as checks_mod
+    from astreo_monitor.jobs import checks as checks_job
+    with db.connect(dbcfg.database) as conn:
+        conn.execute(models.checks.insert(), [
+            {"name": "NAS", "kind": "ping", "target": "nas", "interval_s": 60, "timeout_s": 5, "retries": 1,
+             "verify_tls": True, "cert_warning_days": 14, "enabled": True, "sort_order": 10, "updated_at": db.now()},
+            {"name": "Spento", "kind": "tcp", "target": "x", "port": 1, "interval_s": 60, "timeout_s": 5, "retries": 1,
+             "verify_tls": True, "cert_warning_days": 14, "enabled": False, "sort_order": 20, "updated_at": db.now()}])
+    fake = lambda c: checks_mod.Result(c["name"] != "NAS", None, "nessuna risposta su 3")
+    with _m.patch.object(checks_mod, "run", side_effect=fake), _m.patch.object(checks_job.notifier, "dispatch", return_value=True):
+        assert checks_job.main(dbcfg, dry_run=False) == 0
+    with db.connect(dbcfg.database) as conn:
+        assert db.scalar(conn, select(func.count()).select_from(models.check_results)) == 1     # quello disattivato no
+        nas_id = db.scalar(conn, select(models.checks.c.id).where(models.checks.c.name == "NAS"))
+        assert db.state_get(conn, f"check:{nas_id}")["status"] == "DOWN"
+        subject, body = __import__("astreo_monitor.jobs.weekly_summary", fromlist=["x"]).build(conn, dt.datetime.now() + dt.timedelta(minutes=1))
+        assert "NAS: disponibilità 0.00%" in body
