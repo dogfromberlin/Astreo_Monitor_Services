@@ -72,14 +72,24 @@ def sh(*args: str) -> str:
 
 
 # --------------------------------------------------------------------- controlli
+def _service_user(cfg) -> str:
+    """Utente dei servizi: da install.ini, altrimenti il proprietario della cartella del progetto."""
+    import configparser
+    cp = configparser.ConfigParser()
+    if cp.read(os.path.join(os.path.dirname(cfg.path), "install.ini"), encoding="utf-8") and cp.has_option("install", "user"):
+        return cp["install"]["user"]
+    return pwd.getpwuid(os.stat(ROOT).st_uid).pw_name
+
+
 def check_config(rep: Report, cfg, path: str) -> None:
     A = _("Configurazione")
     rep.add(A, f"file {path}", OK)
     st = os.stat(path)
     owner = pwd.getpwuid(st.st_uid).pw_name
-    if st.st_mode & 0o077 or owner != "<utente>":
+    expected = _service_user(cfg)
+    if st.st_mode & 0o077 or owner != expected:
         rep.add(A, _("permessi del config"), WARN, _("{p0}, {p1} (attesi l'utente dei servizi e -rw-------)", p0=owner, p1=stat.filemode(st.st_mode)),
-                f"sudo chown <utente>:<utente> {path}\nsudo chmod 600 {path}")
+                f"sudo chown {expected}:{expected} {path}\nsudo chmod 600 {path}")
     else:
         rep.add(A, _("permessi del config"), OK)
     nginx_site = os.path.exists("/etc/nginx/sites-enabled/astreo-monitor")

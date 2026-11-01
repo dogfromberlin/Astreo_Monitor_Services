@@ -14,7 +14,7 @@ def cfg(tmp_path):
     from astreo_monitor import config
     text = open(os.path.join(ROOT, "config.example.ini"), encoding="utf-8").read()
     text = text.replace("password_hash =\n", f"password_hash = {generate_password_hash('prova')}\n", 1)
-    text = text.replace("host = <IP-LAN>", "host = 127.0.0.1").replace("login_timeout = 10", "login_timeout = 1")
+    text = text.replace("login_timeout = 10", "login_timeout = 1")
     p = tmp_path / "config.ini"
     p.write_text(text, encoding="utf-8")
     return config.load(str(p))

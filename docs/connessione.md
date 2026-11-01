@@ -1,8 +1,7 @@
 # Connessione (ex NetPulse)
 
-Vista **Connessione** della dashboard: `https://<IP-LAN>:5443/#connessione`.
-Sostituisce la webapp NetPulse e usa le misure dello speedtest (tabella `speedtest_results`,
-che contiene anche lo storico della 1.x).
+Vista **Connessione** della dashboard: `https://<server>:5443/#connessione`.
+Usa le misure dello speedtest (tabella `speedtest_results`) e del controllo continuo.
 
 ## Periodo
 
@@ -16,8 +15,7 @@ apribile direttamente con Excel).
 - Indicatori: download e upload medi (con il minimo) e massimi, latenza media, numero di
   misure e misure con connessione assente.
 - Grafico velocità con le soglie di **warning** tratteggiate, grafico della latenza.
-- Tabella delle ultime 200 misure con l'esito (OK, WARNING, ALERT, DOWN; `storico 1.x`
-  per i dati importati, di cui non si mostra l'upload, non attendibile).
+- Tabella delle ultime 200 misure con l'esito (OK, WARNING, ALERT, DOWN).
 
 ## Disponibilità
 
@@ -77,7 +75,7 @@ nginx sulla porta 8081 inoltra le sue chiamate ad Astreo Monitor.
 Il token è in `/etc/astreo-monitor/netpulse_token` (`[netpulse] token_file`).
 La configurazione nginx è in `deploy/nginx/netpulse.conf`.
 
-Verifica (finestra SSH su astreo):
+Verifica (finestra SSH su <server>):
 ```bash
 curl -sk https://127.0.0.1:8081/api/health; echo
 curl -sk -H "Authorization: Bearer $(cat /etc/astreo-monitor/netpulse_token)" "https://127.0.0.1:8081/api/latest?hours=24&buckets=8"; echo

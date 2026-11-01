@@ -21,7 +21,7 @@ Il percorso si può cambiare con `--config FILE` oppure con la variabile
 | Chiave | Descrizione |
 |---|---|
 | `host`, `port`, `database` | Server SQL (default porta 1433) |
-| `user`, `password` | Utente dedicato `astreo_monitor_app` creato da `sql/001_install.sql` |
+| `user`, `password` | Utente dell'applicazione (creato dall'installatore), con soli permessi di lettura e scrittura |
 | `login_timeout`, `timeout` | Secondi di attesa per connessione e query |
 
 ### [email]
@@ -47,7 +47,7 @@ Verifica: `.venv/bin/python -m astreo_monitor.jobs.test_email`
 
 Dalla 2.3 `host = 127.0.0.1`: la dashboard si raggiunge solo tramite nginx in HTTPS.
 
-Generare l'hash (finestra SSH su astreo):
+Generare l'hash (finestra SSH su <server>):
 ```bash
 cd ~/Astreo_Monitor_Services
 .venv/bin/python -c "import getpass; from werkzeug.security import generate_password_hash as g; print(g(getpass.getpass('Nuova password dashboard: ')))"

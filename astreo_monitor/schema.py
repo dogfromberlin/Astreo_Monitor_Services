@@ -53,7 +53,7 @@ def check(conn, backup_databases: list[str] | None = None) -> list[dict]:
         for name in backup_databases or []:
             if db.scalar(conn, text("SELECT HAS_PERMS_BY_NAME(:d, 'DATABASE', 'BACKUP DATABASE')"), {"d": name}) != 1:
                 problems.append({"item": _("backup di {p0}", p0=name), "problem": _("permesso BACKUP DATABASE mancante"),
-                                 "fix": _("come sa: sql/004_backup.sql")})
+                                 "fix": _("come sa: sql/mssql_permessi_backup.sql")})
     return problems
 
 

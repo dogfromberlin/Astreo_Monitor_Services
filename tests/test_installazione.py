@@ -25,7 +25,7 @@ def files(pattern):
 from astreo_monitor import installer  # noqa: E402
 
 FULL = installer.Answers(user="utente", group="utente", home="/home/utente", project_dir="/opt/astreo", https=True,
-                         server_ips=["10.0.0.5"], server_names=["srv"], allowed_networks=["10.0.0.0/24", "<IP-VPN>/24"],
+                         server_ips=["10.0.0.5"], server_names=["srv"], allowed_networks=["10.0.0.0/24", "172.16.5.0/24"],
                          terminal=True, speedtest=True, backup=True, netpulse=True)
 RENDERED = installer.render(FULL)
 UNITS = {os.path.basename(p): c for p, c in RENDERED.items() if p.startswith("/etc/systemd/system/")}
@@ -74,7 +74,7 @@ def test_nginx_passa_host_con_porta():
     conf = NGINX["/etc/nginx/sites-available/astreo-monitor"]
     assert "proxy_set_header Host              $http_host" in conf
     assert "X-Forwarded-Proto https" in conf
-    assert "allow 10.0.0.0/24;" in conf and "allow <IP-VPN>/24;" in conf and "deny  all;" in conf
+    assert "allow 10.0.0.0/24;" in conf and "allow 172.16.5.0/24;" in conf and "deny  all;" in conf
 
 
 @pytest.mark.parametrize("unit", sorted(u for u in UNITS if u.endswith(".timer")))
@@ -205,3 +205,28 @@ def test_lingua_degli_script(env, expected):
                          capture_output=True, text=True, env={"PATH": "/usr/bin:/bin", **env})
     assert res.returncode == 0, res.stderr
     assert res.stdout.strip() == expected
+
+
+def test_nessun_riferimento_personale_nel_repository():
+    """Fase 4: il repository pubblico non contiene dati di un'installazione specifica.
+    Il nome utente GitHub è ammesso solo dove indica il repository o il titolare della licenza."""
+    allowed_owner = {"README.md", "README.it.md", "LICENSE", "docs/en/installation.md", "docs/installazione-guidata.md",
+                     "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", ".github/workflows/release.yml"}
+    bad = re.compile(r"\bmarco\b|/home/<utente>|192\.168\.1\.(2|25[0-9])\b|10\.8\.0\.|<altro-database>|<repository-backup>|\bastreo\.local\b", re.I)
+    found = []
+    for path in glob.glob(os.path.join(ROOT, "**", "*"), recursive=True):
+        rel = os.path.relpath(path, ROOT)
+        if os.path.isdir(path) or rel.startswith((".git" + os.sep, ".venv")) or "__pycache__" in rel or rel.endswith((".png", ".ico", ".zst")):
+            continue
+        if rel == os.path.join("tests", "test_installazione.py"):
+            continue
+        try:
+            text = open(path, encoding="utf-8").read()
+        except (UnicodeDecodeError, OSError):
+            continue
+        text = text.replace("Marco (dogfromberlin)", "")
+        for m in bad.finditer(text):
+            found.append(f"{rel}: {m.group(0)}")
+        if "dogfromberlin" in text and rel not in allowed_owner:
+            found.append(f"{rel}: dogfromberlin")
+    assert not found, found[:15]

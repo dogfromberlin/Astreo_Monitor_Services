@@ -5,7 +5,7 @@ da **Impostazioni → Servizi** ed è salvato nella tabella `monitored_services`
 
 ## Gestione dalla dashboard
 
-La scheda elenca **tutti** i servizi systemd di astreo (attivi per primi), con campo di
+La scheda elenca **tutti** i servizi systemd di <server> (attivi per primi), con campo di
 ricerca e filtro *Solo monitorati*. Per ogni servizio:
 
 | Colonna | Significato |
@@ -28,10 +28,9 @@ l'evento **Servizi** in Impostazioni → Notifiche. Se resta fermo, promemoria o
 
 ## Elenco iniziale
 
-`sql/005_impostazioni.sql` crea l'elenco iniziale per astreo: OpenVPN
-(`openvpn-server@server.service`, la unit reale: `openvpn.service` è fittizia e risulta
-sempre attiva), SQL Server, Nginx, Apache, Docker, Pi-hole, Astreo Monitor; Ollama e
-Medusa sono inseriti ma non monitorati perché non risultano in esecuzione.
+L'installatore propone i servizi attivi riconosciuti (nginx, ssh, docker, SQL Server, PostgreSQL, Pi-hole,
+OpenVPN, WireGuard…). Per OpenVPN la unit reale è di norma `openvpn-server@server.service`:
+`openvpn.service` è una unit fittizia che risulta sempre attiva.
 Su un'installazione nuova, se la tabella è vuota, si parte dalla sezione `[services]` del config.
 
 ## Dettaglio

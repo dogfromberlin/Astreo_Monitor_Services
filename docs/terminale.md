@@ -1,6 +1,6 @@
 # Terminale web
 
-Vista **Terminale** della dashboard (`https://<IP-LAN>:5443/#terminale`): una shell sul
+Vista **Terminale** della dashboard (`https://<server>:5443/#terminale`): una shell sul
 server come utente **<utente>**, dal browser del PC o dello smartphone.
 
 ## Sicurezza
@@ -56,10 +56,10 @@ browser --HTTPS--> nginx :5443 ──/──────────> Astreo Mon
 enabled = true
 password_hash = scrypt:...          # password del terminale, DIVERSA da quella della dashboard
 session_minutes = 15
-allowed_networks = <IP-LAN>/24, <IP-VPN>/24
+allowed_networks = <rete-LAN>, <rete-VPN>
 ```
 
-Cambiare la password del terminale (finestra SSH su astreo):
+Cambiare la password del terminale (finestra SSH su <server>):
 ```bash
 cd ~/Astreo_Monitor_Services
 read -rsp 'Nuova password del terminale: ' PW; echo

@@ -1,6 +1,6 @@
 # Impostazioni
 
-Vista **Impostazioni** della dashboard: `https://<IP-LAN>:5443/#impostazioni`.
+Vista **Impostazioni** della dashboard: `https://<server>:5443/#impostazioni`.
 Tre schede: Speedtest, Notifiche, Servizi.
 
 I valori modificati qui sono salvati nel database (tabelle `app_settings` e
@@ -15,7 +15,7 @@ programmata, ultima misura con esito.
 | Pulsante | Effetto |
 |---|---|
 | **Esegui ora** | avvia subito una misura (`astreo-speedtest.service`); il risultato arriva in circa un minuto |
-| **Sospendi** | ferma le misure automatiche; la sospensione resta valida anche dopo un riavvio di astreo |
+| **Sospendi** | ferma le misure automatiche; la sospensione resta valida anche dopo un riavvio di <server> |
 | **Riattiva** | riprende le misure automatiche |
 
 Sospensione: si salva `speedtest.enabled = false` (il job, se parte, esce senza misurare) e
@@ -39,7 +39,7 @@ sistema. La regola polkit `deploy/polkit/50-astreo-monitor.rules` glielo consent
 per le unit di Astreo Monitor (`astreo-speedtest`, `astreo-metrics`, `astreo-publicip`,
 `astreo-backup`, `astreo-maintenance`) e solo per start/stop/restart.
 
-Installazione e verifica (finestra SSH su astreo):
+Installazione e verifica (finestra SSH su <server>):
 ```bash
 cd ~/Astreo_Monitor_Services
 sudo cp deploy/polkit/50-astreo-monitor.rules /etc/polkit-1/rules.d/

@@ -34,54 +34,34 @@ schema non aggiornato (banner, `/api/v1/health`, `python -m astreo_monitor.schem
 Con SQL Server si possono salvare più database (`[backup] databases`); con PostgreSQL e SQLite si
 salva il database di Astreo Monitor.
 
-## Tabelle (riferimento delle versioni 2.x su SQL Server)
-
-SQL Server su astreo, database `astreo_monitor`, utente applicativo `astreo_monitor_app`
-(ruoli `db_datareader` e `db_datawriter`). Gli script in `sql/` vanno eseguiti
-come amministratore (`sa`) dal client SQL.
-
 ## Tabelle
 
-| Tabella | Scritta da | Contenuto | Indice |
-|---|---|---|---|
-| `system_metrics` | job metrics | CPU, load, RAM, swap, disco | clustered su `timestamp` |
-| `system_temperature` | job metrics | una riga per sensore | clustered su `timestamp` |
-| `speedtest_results` | job speedtest | download, upload, latenza, stato, provider | clustered su `timestamp` |
-| `public_ip_history` | job public_ip | variazioni dell'IP | clustered su `timestamp` |
-| `monitor_state` | tutti i job | stato chiave/valore JSON (IP corrente, allarmi, contatori CPU) | PK su `key` |
-| `app_settings` | dashboard | impostazioni modificate da Impostazioni (chiave/valore JSON) | PK su `key` |
-| `monitored_services` | dashboard | servizi monitorati, etichetta, avviso, ordine | PK su `unit` |
-| `notification_log` | tutti i job | registro degli invii con stato inviata / fallita / in coda (180 giorni) | clustered su `timestamp` |
-| `connectivity_samples` | job connectivity | ping al minuto per destinazione (90 giorni) | clustered su `timestamp` |
-| `notification_queue` | tutti i job | avvisi trattenuti dalla fascia di silenzio (30 giorni) | clustered su `due_at` |
-| `cpu_percentage` | 1.x (dismessa) | storico CPU, importato in `system_metrics` | eliminabile con 003 |
-| `fiber_optic_measurements` | 1.x (dismessa) | storico speedtest, importato in `speedtest_results` | eliminabile con 003 **solo dopo** aver dismesso il proxy NetPulse |
+Definite in `astreo_monitor/models.py`.
 
-Le date sono ora locale di astreo. Nel codice viaggiano in formato ISO e sono
-convertite con `CONVERT(..., 126)`: il risultato non dipende dalla lingua del login.
-
-## Script
-
-| File | Quando | Effetto |
+| Tabella | Scritta da | Contenuto |
 |---|---|---|
-| `backup.sql` | prima dell'installazione | backup completo in `/var/opt/mssql/data/astreo_monitor_pre_v2.bak` |
-| `001_install.sql` | installazione | login/utente dedicati e nuove tabelle; non tocca le esistenti |
-| `002_switch.sql` | test e switch | rinomina `timstamp` → `timestamp`, indici, import storico; rieseguibile |
-| `003_drop_legacy.sql` | dopo 30 giorni, facoltativo | elimina `cpu_percentage` e `fiber_optic_measurements` |
-| `009_eventi.sql` | aggiornamento 2.7 | tabella degli eventi per i grafici |
-| `008_verifica_ripristino.sql` | aggiornamento 2.5 | procedure firmate per la verifica mensile del ripristino |
-| `007_connessione.sql` | aggiornamento 2.4 | tabella del controllo continuo |
-| `006_avvisi.sql` | aggiornamento 2.3 | coda degli avvisi, stato nel registro invii |
-| `005_impostazioni.sql` | aggiornamento 2.2 | tabelle `app_settings`, `monitored_services` (con elenco iniziale), `notification_log` |
-| `004_backup.sql` | attivazione backup (2.1) | permessi di backup, recovery model SIMPLE per `astreo_monitor`, riduzione del log |
+| `system_metrics` | job metrics | CPU, load, RAM, swap, disco |
+| `system_temperature` | job metrics | una riga per sensore |
+| `speedtest_results` | job speedtest | download, upload, latenza, stato, provider |
+| `public_ip_history` | job public_ip | variazioni dell'IP |
+| `monitor_state` | tutti i job | stato chiave/valore JSON (IP corrente, allarmi, contatori CPU) |
+| `app_settings` | dashboard | impostazioni modificate da Impostazioni (chiave/valore JSON) |
+| `monitored_services` | dashboard | servizi monitorati, etichetta, avviso, ordine |
+| `notification_log` | tutti i job | registro degli invii con stato inviata / fallita / in coda (180 giorni) |
+| `notification_queue` | tutti i job | avvisi trattenuti dalla fascia di silenzio (30 giorni) |
+| `connectivity_samples` | job connectivity | ping al minuto per destinazione (90 giorni) |
+| `events` | job metrics | eventi mostrati sui grafici (riavvii, servizi, container, Pi-hole) |
+| `alembic_version` | migrate | revisione dello schema |
 
-Tutti gli script sono idempotenti.
+Le date sono senza fuso orario, nell'ora locale del server.
 
-## Recovery model
+## SQL Server: recovery model
 
-`astreo_monitor` è in **SIMPLE** (da `004_backup.sql`): il log transazionale si svuota da
-solo e non cresce. Il ripristino è al momento dell'ultimo backup notturno
-([backup-database.md](backup-database.md)), adeguato per dati di monitoraggio.
+Per dati di monitoraggio è adeguato il recovery model **SIMPLE**: il log transazionale si svuota da solo
+e il ripristino è al momento dell'ultimo backup notturno ([backup-database.md](backup-database.md)):
+```sql
+ALTER DATABASE astreo_monitor SET RECOVERY SIMPLE;
+```
 
 ## Retention
 
@@ -98,7 +78,7 @@ Cancella a blocchi di 5000 righe i dati più vecchi dei giorni in `[retention]`:
 Volumi stimati con 5 minuti di campionamento: circa 105.000 righe/anno in
 `system_metrics` e 630.000 in `system_temperature` (6 sensori).
 
-Prova senza cancellare (finestra SSH su astreo):
+Prova senza cancellare (finestra SSH su <server>):
 ```bash
 cd ~/Astreo_Monitor_Services
 .venv/bin/python -m astreo_monitor.jobs.maintenance --config /etc/astreo-monitor/config.ini --dry-run

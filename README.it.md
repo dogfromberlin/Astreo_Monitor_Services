@@ -2,77 +2,83 @@
 
 > 🇬🇧 English version: [README.md](README.md)
 
-Monitoraggio del server **astreo**: dashboard web in HTTPS (anche da smartphone), terminale web, API REST e job periodici che
-salvano su SQL Server metriche di sistema, temperature, speedtest IP pubblico e backup notturno dei database,
-con notifiche email solo al cambio di stato.
+Monitoraggio self-hosted per un server Linux di casa: dashboard web, avvisi via email / Telegram / WhatsApp,
+backup notturno del database con verifica del ripristino, e alcune funzioni che di solito bisogna mettere
+insieme a mano.
 
-Versione 2.0: riscrittura completa della 1.x (`pws/`), vedi
-[docs/architettura.md](docs/architettura.md) per le differenze.
+## Funzioni
 
-## Funzionalità
+| Area | Cosa offre |
+|---|---|
+| **Server** | CPU, load, memoria, disco, temperature, processi, partizioni; grafici storici con gli **eventi** (riavvii, interruzioni, cambi di IP, servizi fermi, avvisi) sulla linea del tempo |
+| **Servizi** | Qualsiasi unit systemd: attivo / fermo, avvisi quando si ferma e quando riparte, avvio e arresto dalla dashboard |
+| **Connessione** | Ping verso router e Internet ogni minuto (interruzioni, disponibilità), speedtest periodico con soglie, cambi di IP pubblico |
+| **Salute** | Stato SMART dei dischi, aggiornamenti di sicurezza in sospeso e riavvii richiesti, scadenze di certificati e token |
+| **Sicurezza dei dati** | Backup notturno del database (con copia facoltativa su un repository GitHub privato) e **verifica mensile del ripristino** |
+| **Avvisi** | Email, Telegram, WhatsApp (CallMeBot); regole per controllo (solo se peggiora / a ogni cambio, promemoria, rientro), fascia di silenzio, heartbeat esterno (healthchecks.io) |
+| **Bot Telegram** | `/stato`, `/connessione`, `/speedtest`, `/servizi`, `/controlli`, `/aiuto` (anche in inglese) |
+| **Moduli** | Container Docker e Pi-hole (v6): compaiono solo se presenti sul server |
+| **Terminale web** | Shell nel browser protetta da una password separata (solo HTTPS) |
+| **Riepilogo settimanale** | Ogni lunedì mattina |
+| **Lingue** | Italiano e inglese (dashboard, notifiche, bot, installatore) |
 
-| Funzionalità | Cosa fa | Documentazione |
-|---|---|---|
-| Dashboard e API | Pagina web a tre viste (Server, Connessione, Impostazioni), API REST | [dashboard-e-api.md](docs/dashboard-e-api.md) |
-| Connessione (ex NetPulse) | Andamento, qualità e confronto della connessione; API per il widget Windows | [connessione.md](docs/connessione.md) |
-| Impostazioni | Speedtest, notifiche (email, regole, fascia di silenzio) e servizi dalla dashboard | [impostazioni.md](docs/impostazioni.md) |
-| Terminale | Shell nel browser via HTTPS, con seconda password e sessione a scadenza | [terminale.md](docs/terminale.md) |
-| Servizi | Servizi systemd monitorati, scelti dalla dashboard, con avviso se si fermano | [servizi.md](docs/servizi.md) |
-| Metriche e temperature | CPU (media esatta), load, RAM, disco, sensori ogni 5 minuti | [metriche-e-temperature.md](docs/metriche-e-temperature.md) |
-| Speedtest | Download, upload, latenza ogni 4 ore con soglie | [speedtest.md](docs/speedtest.md) |
-| Controllo continuo | Ping al minuto verso router e Internet, interruzioni e disponibilità | [connessione.md](docs/connessione.md) |
-| Heartbeat esterno | Avviso da un servizio esterno se astreo si spegne o resta isolato | [heartbeat.md](docs/heartbeat.md) |
-| Scadenze | Certificati HTTPS e token GitHub, con avviso a 15 e 3 giorni | [scadenze.md](docs/scadenze.md) |
-| Salute del sistema | Dischi (SMART) e aggiornamenti di sicurezza / riavvio richiesto | [salute-del-sistema.md](docs/salute-del-sistema.md) |
-| Certificato HTTPS | CA privata (mkcert): dashboard senza avvisi su PC e Android | [certificato.md](docs/certificato.md) |
-| Moduli opzionali | Docker e Pi-hole: compaiono solo se presenti, visibilità configurabile | [moduli.md](docs/moduli.md) |
-| Eventi sui grafici | Riavvii, interruzioni, cambi di IP, servizi, container, avvisi sulle linee del tempo | [eventi.md](docs/eventi.md) |
-| Lingue | Italiano e inglese, selettore IT / EN nella dashboard | [traduzioni.md](docs/traduzioni.md) |
-| Verifiche e diagnosi | Test prima dell'installazione, diagnosi dopo, controllo dello schema, GitHub Actions | [verifiche.md](docs/verifiche.md) |
-| IP pubblico | Controllo ogni 15 minuti, storico e avviso al cambio | [ip-pubblico.md](docs/ip-pubblico.md) |
-| Notifiche | Email, Telegram e WhatsApp a cambio di stato, instradabili per evento | [notifiche.md](docs/notifiche.md) |
-| Database | Schema, script SQL, retention | [database.md](docs/database.md) |
-| Backup database | Backup notturno verificato, compresso e copiato su GitHub, ripristino | [backup-database.md](docs/backup-database.md) |
+## Requisiti
 
-Altri documenti:
-[installazione e migrazione dalla 1.x](docs/installazione-e-migrazione.md),
-[configurazione](docs/configurazione.md),
-[operatività e diagnosi](docs/operativita.md),
-[aggiornamento alla 2.2](docs/aggiornamento-2.2.md),
-[aggiornamento alla 2.3](docs/aggiornamento-2.3.md),
-[aggiornamento alla 2.3.1](docs/aggiornamento-2.3.1.md),
-[aggiornamento alla 2.4](docs/aggiornamento-2.4.md),
-[aggiornamento alla 2.5](docs/aggiornamento-2.5.md),
-[aggiornamento alla 2.5.1](docs/aggiornamento-2.5.1.md),
-[aggiornamento alla 2.6](docs/aggiornamento-2.6.md),
-[aggiornamento alla 2.7](docs/aggiornamento-2.7.md),
-[aggiornamento alla 3.0](docs/aggiornamento-3.0.md), [3.0.0b2](docs/aggiornamento-3.0b2.md),
-[installazione guidata](docs/installazione-guidata.md) ([English](docs/en/installation.md)), [punti aperti](docs/roadmap.md).
+- Ubuntu o Debian con systemd, Python 3.10+
+- Database: **SQLite** (niente da installare), **PostgreSQL** (installato dall'installatore se locale) o **SQL Server** (istanza esistente, va bene Express)
+- Facoltativi: nginx per HTTPS (con una CA privata creata con mkcert), Docker, Pi-hole
 
-## Struttura
-
-```
-astreo_monitor/
-  config.py, db.py, notifier.py, logging_setup.py   moduli comuni
-  settings.py, services_store.py                     impostazioni e servizi salvati nel DB
-  collectors/   lettura dati locali (psutil, lm-sensors, systemctl)
-  jobs/         job periodici (metrics, speedtest, public_ip, maintenance, db_backup, test_email)
-  web/          Flask + waitress: dashboard e /api/v1
-sql/            script di installazione, switch, pulizia, backup
-deploy/         unit systemd, regola polkit, nginx per il widget NetPulse
-docs/           documentazione per funzionalità
-config.example.ini   modello di configurazione (quella reale è in /etc/astreo-monitor/)
-```
-
-## Avvio rapido (sviluppo)
+## Installazione
 
 ```bash
-cd ~/Astreo_Monitor_Services
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-export ASTREO_MONITOR_CONFIG=/etc/astreo-monitor/config.ini
-.venv/bin/python -m astreo_monitor.jobs.metrics --dry-run
-.venv/bin/python -m astreo_monitor.web --port 5026
+git clone https://github.com/dogfromberlin/Astreo_Monitor_Services.git
+cd Astreo_Monitor_Services
+sudo bash install.sh
+```
+L'installatore fa alcune domande (lingua, database, HTTPS, terminale, moduli, password), prepara il database,
+genera dai modelli le unit systemd e i file di nginx e polkit, avvia i servizi e lancia una diagnosi.
+Dettagli: [docs/installazione-guidata.md](docs/installazione-guidata.md).
+
+## Aggiornamento
+
+```bash
+sudo bash update.sh                     # da git
+sudo bash update.sh /percorso/pacchetto.zip
+sudo bash update.sh --enable-https      # aggiunge nginx, certificato e terminale a un'installazione HTTP
+```
+Codice → librerie → verifiche automatiche (si ferma se falliscono) → file di sistema → migrazione del database →
+riavvio → diagnosi.
+
+## Diagnosi
+
+```bash
+sudo .venv/bin/python -m astreo_monitor.doctor
 ```
 
-Requisiti: Python 3.12, SQL Server raggiungibile, `lm-sensors` per le temperature, `zstd` e la CLI `gh` autenticata per i backup.
+## Documentazione
+
+| Argomento | Documento |
+|---|---|
+| Installazione e aggiornamento | [installazione-guidata.md](docs/installazione-guidata.md) |
+| Architettura e configurazione | [architettura.md](docs/architettura.md), [configurazione.md](docs/configurazione.md) |
+| Dashboard e API | [dashboard-e-api.md](docs/dashboard-e-api.md), [impostazioni.md](docs/impostazioni.md) |
+| Metriche, servizi, connessione | [metriche-e-temperature.md](docs/metriche-e-temperature.md), [servizi.md](docs/servizi.md), [connessione.md](docs/connessione.md), [speedtest.md](docs/speedtest.md), [ip-pubblico.md](docs/ip-pubblico.md) |
+| Avvisi | [notifiche.md](docs/notifiche.md), [heartbeat.md](docs/heartbeat.md) |
+| Salute e scadenze | [salute-del-sistema.md](docs/salute-del-sistema.md), [scadenze.md](docs/scadenze.md) |
+| Database e backup | [database.md](docs/database.md), [backup-database.md](docs/backup-database.md) |
+| Moduli ed eventi | [moduli.md](docs/moduli.md), [eventi.md](docs/eventi.md) |
+| HTTPS e terminale | [certificato.md](docs/certificato.md), [terminale.md](docs/terminale.md) |
+| Verifiche, operatività, traduzioni | [verifiche.md](docs/verifiche.md), [operativita.md](docs/operativita.md), [traduzioni.md](docs/traduzioni.md) |
+
+## Sviluppo
+
+```bash
+bash scripts/verifica.sh        # pyflakes, sintassi JavaScript, circa 150 test
+```
+I test girano su SQLite in locale e su SQLite, PostgreSQL e SQL Server su GitHub Actions. Le modifiche allo
+schema passano dalle migrazioni Alembic (`astreo_monitor/migrations/`). Come contribuire:
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Licenza
+
+[MIT](LICENSE) © 2026 Marco (dogfromberlin)

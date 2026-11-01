@@ -262,7 +262,7 @@ def load(path: str | None = None) -> Config:
             backup = BackupConfig(
                 databases=_list(b.get("databases", "astreo_monitor")),
                 sql_dir=b.get("sql_dir", "/srv/sqlbackup"),
-                local_dir=b.get("local_dir", "/home/<utente>/backups/sql"),
+                local_dir=b.get("local_dir", "/var/backups/astreo-monitor"),
                 local_keep=b.getint("local_keep", 7),
                 github_repo=b.get("github_repo", "").strip(),
                 github_keep=b.getint("github_keep", 30),
@@ -278,7 +278,7 @@ def load(path: str | None = None) -> Config:
                 enabled=t.getboolean("enabled", False),
                 password_hash=t.get("password_hash", "").strip(),
                 session_minutes=max(1, min(t.getint("session_minutes", 15), 240)),
-                allowed_networks=_list(t.get("allowed_networks", "<IP-LAN>/24")),
+                allowed_networks=_list(t.get("allowed_networks", "")),
             )
 
         netpulse = None

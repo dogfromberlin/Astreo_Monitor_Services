@@ -84,7 +84,7 @@ def test_storico_e_interruzioni(dbcfg):
             down = 30 <= i < 40
             rows += [{"timestamp": t, "target": "1.1.1.1", "role": "internet", "sent": 5, "received": 0 if down else 5,
                       "loss_pct": 100.0 if down else 0.0, "rtt_avg_ms": None if down else 12.0},
-                     {"timestamp": t, "target": "<IP-LAN>", "role": "gateway", "sent": 5, "received": 5,
+                     {"timestamp": t, "target": "192.0.2.1", "role": "gateway", "sent": 5, "received": 5,
                       "loss_pct": 0.0, "rtt_avg_ms": 0.5}]
         conn.execute(models.connectivity_samples.insert(), rows)
         conn.execute(models.speedtest_results.insert().values(timestamp=now, download_mbps=600.0, upload_mbps=200.0,
@@ -96,7 +96,7 @@ def test_storico_e_interruzioni(dbcfg):
         assert list(t["series"]) == ["ISA - Package"]
         c = history.connectivity(conn, now - dt.timedelta(hours=3), now + dt.timedelta(minutes=1))
         assert len(c["outages"]) == 1 and c["outages"][0]["minutes"] == 10 and c["down_minutes"] == 10
-        assert set(c["series"]) == {"1.1.1.1", "<IP-LAN>"}
+        assert set(c["series"]) == {"1.1.1.1", "192.0.2.1"}
         assert history.latest_speedtest(conn)["download_mbps"] == 600.0
 
 

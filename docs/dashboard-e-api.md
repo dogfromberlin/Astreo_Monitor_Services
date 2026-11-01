@@ -1,7 +1,7 @@
 # Dashboard e API
 
 Servizio: `astreo-monitor-web.service` (Flask su waitress).
-Indirizzo: `https://<IP-LAN>:5443/` (il vecchio `/astreomonitor` reindirizza qui).
+Indirizzo: `https://<server>:5443/` (il vecchio `/astreomonitor` reindirizza qui).
 
 ## Autenticazione e modifiche
 
@@ -11,7 +11,7 @@ Il browser chiede le credenziali una volta e le riusa per le chiamate della pagi
 Le chiamate che modificano qualcosa (`PUT`, `POST`) devono avere `Content-Type: application/json`
 e, se presente, un `Origin` uguale all'host della dashboard. Esempio con curl:
 ```bash
-curl -s -u <utente> -X PUT -H "Content-Type: application/json" -d '{"speedtest.download_warning": 250}' https://<IP-LAN>:5443/api/v1/settings
+curl -s -u <utente> -X PUT -H "Content-Type: application/json" -d '{"speedtest.download_warning": 250}' https://<server>:5443/api/v1/settings
 ```
 `/api/netpulse/*` non usa la Basic Auth ma il token del widget NetPulse.
 
@@ -88,11 +88,11 @@ codice 400 (parametri), 401 (credenziali), 404, 500 o 503 (database non raggiung
 Parametri di periodo per `/history/*`: `range=24h|7d|30d|90d|365d` (default 24h)
 oppure `from=AAAA-MM-GGTHH:MM&to=AAAA-MM-GGTHH:MM`; per lo speedtest anche `range=6h`. Periodo massimo 400 giorni.
 
-Esempi (finestra SSH su astreo o qualsiasi PC della LAN):
+Esempi (finestra SSH su <server> o qualsiasi PC della LAN):
 ```bash
-curl -s https://<IP-LAN>:5443/api/v1/health
-curl -s -u <utente> https://<IP-LAN>:5443/api/v1/system
-curl -s -u <utente> "https://<IP-LAN>:5443/api/v1/history/metrics?range=7d"
+curl -s https://<server>:5443/api/v1/health
+curl -s -u <utente> https://<server>:5443/api/v1/system
+curl -s -u <utente> "https://<server>:5443/api/v1/history/metrics?range=7d"
 ```
 (`-u <utente>` senza password: curl la chiede a terminale.)
 

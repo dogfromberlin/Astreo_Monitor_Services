@@ -1,7 +1,7 @@
 # Backup dei database
 
 Job: `astreo_monitor.jobs.db_backup` — timer `astreo-backup.timer`, ogni notte alle 02:30.
-Se astreo è spento a quell'ora, il backup parte al riavvio (`Persistent=true`).
+Se <server> è spento a quell'ora, il backup parte al riavvio (`Persistent=true`).
 
 ## Cosa fa
 
@@ -11,15 +11,15 @@ Per ogni database in `[backup] databases` (oggi `astreo_monitor` e `<altro-datab
    interferisce con eventuali altre catene di backup.
 2. `RESTORE VERIFYONLY ... WITH CHECKSUM`: verifica che il file sia leggibile e integro.
 3. Compressione **zstd** (SQL Server Express non ha la compressione nativa) in
-   `/home/<utente>/backups/sql/backup-AAAAMMGG-HHMMSS/<database>.bak.zst`; il `.bak`
+   `/var/backups/astreo-monitor/backup-AAAAMMGG-HHMMSS/<database>.bak.zst`; il `.bak`
    non compresso viene eliminato.
 4. Calcolo SHA-256.
 
 Poi scrive nella stessa cartella `SHA256SUMS` e `manifest.json` (database, dimensioni,
 hash, versione SQL Server) e pubblica tutto come **Release** nel repository privato
-`dogfromberlin/<repository-backup>`, con tag `backup-AAAAMMGG-HHMMSS`.
+`<utente-github>/<repository-backup>`, con tag `backup-AAAAMMGG-HHMMSS`.
 
-Retention: ultime `local_keep` (7) cartelle su astreo, ultime `github_keep` (30) Release su GitHub.
+Retention: ultime `local_keep` (7) cartelle su <server>, ultime `github_keep` (30) Release su GitHub.
 
 ### Perché Release e non commit
 Git conserva per sempre ogni versione di ogni file: con un backup binario al giorno il
@@ -42,12 +42,12 @@ sudo mkdir -p /srv/sqlbackup
 sudo chown mssql:<utente> /srv/sqlbackup
 sudo chmod 2770 /srv/sqlbackup
 ```
-**SQL** — `sql/004_backup.sql` (ruolo `db_backupoperator` e permesso `CREATE DATABASE`
+**SQL** — `sql/mssql_permessi_backup.sql` (ruolo `db_backupoperator` e permesso `CREATE DATABASE`
 in master, richiesto da `RESTORE VERIFYONLY`).
 **GitHub** — repository privato `<repository-backup>` con almeno un commit; il token usato
 da `gh` deve avere *Contents: Read and write* su di esso.
 
-## Comandi (finestra SSH su astreo)
+## Comandi (finestra SSH su <server>)
 
 ```bash
 cd ~/Astreo_Monitor_Services
@@ -57,12 +57,12 @@ cd ~/Astreo_Monitor_Services
 sudo systemctl start astreo-backup.service
 journalctl -u astreo-backup.service -n 30 --no-pager
 # elenco backup
-ls -la /home/<utente>/backups/sql
-gh release list --repo dogfromberlin/<repository-backup>
+ls -la /var/backups/astreo-monitor
+gh release list --repo <utente-github>/<repository-backup>
 ```
 
 Per aggiungere un database: aggiungilo in `[backup] databases` e, nel client SQL, esegui
-per quel database il blocco 2 di `sql/004_backup.sql` (con il suo nome al posto di `<altro-database>`).
+per quel database il blocco 2 di `sql/mssql_permessi_backup.sql` (con il suo nome al posto di `<altro-database>`).
 
 ---
 
@@ -92,14 +92,14 @@ journalctl -u astreo-restoretest.service -n 20 --no-pager
 ## Ripristino
 
 Il ripristino si fa con l'utente `sa` dal client SQL. Le finestre sono le stesse:
-**SSH** su astreo e **SQL** nel client.
+**SSH** su <server> e **SQL** nel client.
 
 ### 1. Scegli e prepara il file
 
 **Da copia locale** (ultimi 7 giorni) — **SSH**:
 ```bash
-ls -la /home/<utente>/backups/sql
-cd /home/<utente>/backups/sql/backup-AAAAMMGG-HHMMSS      # sostituisci con la cartella scelta
+ls -la /var/backups/astreo-monitor
+cd /var/backups/astreo-monitor/backup-AAAAMMGG-HHMMSS      # sostituisci con la cartella scelta
 sha256sum -c SHA256SUMS
 zstd -d astreo_monitor.bak.zst -o /srv/sqlbackup/restore_astreo_monitor.bak
 ls -la /srv/sqlbackup
@@ -107,9 +107,9 @@ ls -la /srv/sqlbackup
 
 **Da GitHub** (ultimi 30 giorni) — **SSH**:
 ```bash
-gh release list --repo dogfromberlin/<repository-backup>
+gh release list --repo <utente-github>/<repository-backup>
 mkdir -p /tmp/restore && cd /tmp/restore
-gh release download backup-AAAAMMGG-HHMMSS --repo dogfromberlin/<repository-backup> --dir /tmp/restore
+gh release download backup-AAAAMMGG-HHMMSS --repo <utente-github>/<repository-backup> --dir /tmp/restore
 sha256sum -c SHA256SUMS
 zstd -d astreo_monitor.bak.zst -o /srv/sqlbackup/restore_astreo_monitor.bak
 ls -la /srv/sqlbackup

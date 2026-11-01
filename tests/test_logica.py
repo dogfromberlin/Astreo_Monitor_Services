@@ -100,10 +100,10 @@ def fake_ping(outputs):
     (PING_OK, PING_OK, "OK"), (PING_OK, PING_KO, "DOWN"), (PING_KO, PING_KO, "DOWN"),
 ])
 def test_classificazione_connessione(router, internet, expected):
-    outs = {"<IP-LAN>": router, "1.1.1.1": internet, "8.8.8.8": internet}
+    outs = {"192.0.2.1": router, "1.1.1.1": internet, "8.8.8.8": internet}
     values = {"connectivity.loss_warning": 20, "connectivity.rtt_warning": 100}
     with mock.patch.object(connectivity.subprocess, "run", side_effect=fake_ping(outs)):
-        res = [{**connectivity.ping(t), "role": r} for t, r in (("<IP-LAN>", "gateway"), ("1.1.1.1", "internet"), ("8.8.8.8", "internet"))]
+        res = [{**connectivity.ping(t), "role": r} for t, r in (("192.0.2.1", "gateway"), ("1.1.1.1", "internet"), ("8.8.8.8", "internet"))]
     status, text = connectivity.classify(res, values)
     assert status == expected
     if expected == "DOWN":

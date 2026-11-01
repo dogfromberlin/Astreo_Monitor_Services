@@ -1,7 +1,7 @@
 # Scadenze
 
 Job: `astreo_monitor.jobs.expiry` — timer `astreo-expiry.timer`, ogni giorno alle 09:00
-(e all'avvio, se astreo era spento a quell'ora).
+(e all'avvio, se <server> era spento a quell'ora).
 
 ## Cosa controlla
 
@@ -14,7 +14,7 @@ Stato per voce: **WARNING** a 15 giorni, **ALERT** a 3 giorni (modificabili). Re
 iniziale: *solo se peggiora*, con avviso di rientro (*rinnovato*) e promemoria ogni 24 ore.
 Lo stato è visibile nella vista **Server → Controlli**.
 
-Esecuzione immediata (finestra SSH su astreo):
+Esecuzione immediata (finestra SSH su <server>):
 ```bash
 sudo systemctl start astreo-expiry.service
 journalctl -u astreo-expiry.service -n 10 --no-pager
@@ -43,7 +43,7 @@ Dashboard (5443) e widget NetPulse (8081) usano lo stesso certificato, `/etc/ngi
 sudo cp /etc/nginx/ssl/netpulse.crt /etc/nginx/ssl/netpulse.crt.bak-$(date +%Y%m%d)
 sudo cp /etc/nginx/ssl/netpulse.key /etc/nginx/ssl/netpulse.key.bak-$(date +%Y%m%d)
 sudo openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
-  -subj "/CN=astreo" -addext "subjectAltName=IP:<IP-LAN>,DNS:astreo,DNS:netpulse.local" \
+  -subj "/CN=<server>" -addext "subjectAltName=IP:<server>,DNS:<server>,DNS:netpulse.local" \
   -keyout /etc/nginx/ssl/netpulse.key -out /etc/nginx/ssl/netpulse.crt
 sudo nginx -t && sudo systemctl reload nginx
 sudo systemctl start astreo-expiry.service

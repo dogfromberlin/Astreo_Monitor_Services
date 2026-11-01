@@ -13,16 +13,15 @@ Tabella `system_metrics`, una riga per esecuzione:
 | `mem_used_pct`, `mem_used_mb` | Memoria realmente usata (esclusa la cache) |
 | `swap_used_pct` | Swap |
 | `disk_used_pct` | Disco `root_disk` (default `/`) |
-| `source` | `v2` per i nuovi dati, `legacy` per lo storico importato dalla 1.x |
+| `source` | origine del dato (`v2`) |
 
-Tabella `system_temperature`: una riga per sensore (`adapter`, `device`, `temperature`),
-con gli stessi nomi della 1.x, così lo storico resta continuo.
+Tabella `system_temperature`: una riga per sensore (`adapter`, `device`, `temperature`).
 
 ### Come si calcola la CPU
 A ogni esecuzione si salvano i contatori cumulativi della CPU (`cpu_times`) in
 `monitor_state`. All'esecuzione successiva la percentuale è calcolata sulla
 differenza: tempo occupato / tempo totale dell'intervallo. Così il valore
-rappresenta tutti i 5 minuti, non un istante di mezzo secondo come nella 1.x.
+rappresenta tutti i 5 minuti, non un istante.
 Se il confronto non è possibile (primo avvio, riavvio del server, intervallo
 sotto i 30 secondi o sopra l'ora), si misura un campione di 5 secondi.
 
@@ -40,7 +39,7 @@ usa psutil (in quel caso i nomi dei sensori cambiano).
 Email al cambio di stato e promemoria ogni `reminder_hours` (vedi [notifiche.md](notifiche.md)).
 `notify = false` registra lo stato senza inviare email.
 
-## Comandi (finestra SSH su astreo)
+## Comandi (finestra SSH su <server>)
 
 ```bash
 cd ~/Astreo_Monitor_Services

@@ -25,7 +25,7 @@ Se Docker non è installato, o l'utente non ha accesso, la scheda Moduli ne indi
 Astreo legge le statistiche con una **password per le app**: dedicata, revocabile, diversa dalla
 password di amministratore e non soggetta all'autenticazione a due fattori.
 
-1. Apri l'interfaccia di Pi-hole (es. `http://<IP-LAN>:8080/admin`) e accedi.
+1. Apri l'interfaccia di Pi-hole (es. `http://<server>:8080/admin`) e accedi.
 2. **Impostazioni → Interfaccia web / API**; in alto a destra passa da *Base* a **Esperto**.
 3. Premi **Configura password per le app**: Pi-hole ne genera una e la mostra **una sola volta**. Copiala.
 4. Premi **Abilita la nuova password per le app**.

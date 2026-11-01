@@ -1,0 +1,37 @@
+# Astreo Monitor - pubblica una Release quando si crea un tag v* (es. git tag v3.0.0 && git push --tags).
+# Allega il pacchetto zip (da usare con: sudo bash update.sh pacchetto.zip) e il suo SHA256.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verifiche
+        run: |
+          sudo apt-get update && sudo apt-get install -y zstd
+          python -m pip install -r requirements-dev.txt
+          python -m pyflakes astreo_monitor tests
+          python -m pytest -q tests
+      - name: Pacchetto
+        run: |
+          NAME="astreo_monitor_${GITHUB_REF_NAME}.zip"
+          git archive --format=zip -o "$NAME" HEAD
+          sha256sum "$NAME" > "$NAME.sha256"
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES=$(awk '/^## /{n++} n==1' CHANGELOG.md)
+          gh release create "$GITHUB_REF_NAME" "$NAME" "$NAME.sha256" --title "Astreo Monitor $GITHUB_REF_NAME" --notes "$NOTES"

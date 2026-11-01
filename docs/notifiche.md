@@ -89,7 +89,7 @@ Per Gmail serve una **password per le app**: https://myaccount.google.com/apppas
    BotFather risponde con il **token** (formato `123456789:AA…`).
 2. Apri la chat con il tuo nuovo bot e inviagli un messaggio qualsiasi (es. `ciao`):
    un bot non può scriverti finché non lo contatti tu.
-3. Ricava il **Chat ID** (finestra SSH su astreo; il token non resta nella cronologia):
+3. Ricava il **Chat ID** (finestra SSH su <server>; il token non resta nella cronologia):
    ```bash
    read -rsp 'Token del bot: ' T; echo
    curl -s "https://api.telegram.org/bot$T/getUpdates" | python3 -c "import json,sys; [print(u['message']['chat']['id'], u['message']['chat'].get('first_name','')) for u in json.load(sys.stdin)['result'] if 'message' in u]"

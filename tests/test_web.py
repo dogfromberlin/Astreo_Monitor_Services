@@ -6,7 +6,7 @@ import pytest
 from astreo_monitor import db
 from astreo_monitor.web import app as webapp
 
-AUTH = {"Authorization": "Basic bWFyY286cHJvdmE="}      # <utente>:prova
+AUTH = {"Authorization": "Basic YWRtaW46cHJvdmE="}      # admin:prova
 
 
 @pytest.fixture()
@@ -20,7 +20,7 @@ def client(cfg):
 def test_login_richiesto(client):
     assert client.get("/").status_code == 401
     assert client.get("/api/v1/system").status_code == 401
-    assert client.get("/api/v1/system", headers={"Authorization": "Basic bWFyY286c2JhZ2xpYXRh"}).status_code == 401
+    assert client.get("/api/v1/system", headers={"Authorization": "Basic YWRtaW46c2JhZ2xpYXRh"}).status_code == 401
 
 
 def test_pagine_pubbliche(client):

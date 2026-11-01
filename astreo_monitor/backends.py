@@ -108,9 +108,9 @@ class Mssql:
                 if d not in online:
                     problems.append(f"{d}: database non trovato o non online")
                 elif db.scalar(conn, text("SELECT HAS_PERMS_BY_NAME(:d, 'DATABASE', 'BACKUP DATABASE')"), {"d": d}) != 1:
-                    problems.append(f"{d}: permesso BACKUP DATABASE mancante (sql/004_backup.sql)")
+                    problems.append(f"{d}: permesso BACKUP DATABASE mancante (sql/mssql_permessi_backup.sql)")
             if db.scalar(conn, text("SELECT HAS_PERMS_BY_NAME('master', 'DATABASE', 'CREATE DATABASE')")) != 1:
-                problems.append("permesso CREATE DATABASE in master mancante, serve a RESTORE VERIFYONLY (sql/004_backup.sql)")
+                problems.append("permesso CREATE DATABASE in master mancante, serve a RESTORE VERIFYONLY (sql/mssql_permessi_backup.sql)")
         return problems, f"SQL Server {version}"
 
     def backup(self, dbc, b, name, stamp, run_dir) -> dict:

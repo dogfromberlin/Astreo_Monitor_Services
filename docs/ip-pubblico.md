@@ -1,7 +1,6 @@
 # IP pubblico
 
-Job: `astreo_monitor.jobs.public_ip` — timer `astreo-publicip.timer`, ogni 15 minuti
-(la 1.x controllava ogni 6 ore).
+Job: `astreo_monitor.jobs.public_ip` — timer `astreo-publicip.timer`, ogni 15 minuti.
 
 ## Come funziona
 
@@ -10,8 +9,7 @@ Job: `astreo_monitor.jobs.public_ip` — timer `astreo-publicip.timer`, ogni 15 
 2. Ogni risposta è validata come indirizzo IP; quelle non valide sono scartate.
 3. Vince il valore indicato dalla maggioranza. Se nessun provider risponde, o se le
    risposte non hanno una maggioranza, il controllo viene **saltato**: nessun dato
-   aggiornato e nessuna email (la 1.x in questo caso registrava un IP vuoto e
-   mandava un falso allarme, perdendo poi il cambio reale).
+   aggiornato e nessuna email.
 4. Se l'IP è diverso dall'ultimo noto: riga in `public_ip_history` e email.
    Al primo rilevamento si registra senza email.
 
@@ -24,7 +22,7 @@ vecchio `ipaddress.json`.
 - API: `GET /api/v1/network`.
 - SQL: `SELECT * FROM public_ip_history ORDER BY [timestamp] DESC;`
 
-## Comandi (finestra SSH su astreo)
+## Comandi (finestra SSH su <server>)
 
 ```bash
 cd ~/Astreo_Monitor_Services

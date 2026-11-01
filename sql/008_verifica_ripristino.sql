@@ -25,7 +25,7 @@ CREATE PROCEDURE dbo.astreo_restoretest_check @db sysname
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF @db NOT LIKE N'astreo[_]restoretest[_]%' THROW 50001, N'Nome di database non ammesso', 1;
+    IF @db NOT LIKE N'<server>[_]restoretest[_]%' THROW 50001, N'Nome di database non ammesso', 1;
     IF DB_ID(@db) IS NULL THROW 50002, N'Database inesistente', 1;
     DECLARE @q nvarchar(max) = N'DBCC CHECKDB (' + QUOTENAME(@db) + N') WITH NO_INFOMSGS';
     EXEC (@q);
@@ -39,7 +39,7 @@ CREATE PROCEDURE dbo.astreo_restoretest_drop @db sysname
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF @db NOT LIKE N'astreo[_]restoretest[_]%' THROW 50001, N'Nome di database non ammesso', 1;
+    IF @db NOT LIKE N'<server>[_]restoretest[_]%' THROW 50001, N'Nome di database non ammesso', 1;
     IF DB_ID(@db) IS NULL RETURN;
     DECLARE @q nvarchar(max) = N'ALTER DATABASE ' + QUOTENAME(@db) + N' SET SINGLE_USER WITH ROLLBACK IMMEDIATE; '
                              + N'DROP DATABASE ' + QUOTENAME(@db) + N';';
@@ -72,5 +72,5 @@ SELECT o.name AS procedura, c.name AS certificato
 FROM sys.crypt_properties cp
 JOIN sys.objects o ON o.object_id = cp.major_id
 JOIN sys.certificates c ON c.thumbprint = cp.thumbprint
-WHERE o.name LIKE N'astreo[_]restoretest[_]%';
+WHERE o.name LIKE N'<server>[_]restoretest[_]%';
 GO

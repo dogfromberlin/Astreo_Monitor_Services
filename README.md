@@ -63,3 +63,8 @@ bash scripts/verifica.sh        # pyflakes, JavaScript syntax, ~150 tests
 Tests run on SQLite locally and on SQLite, PostgreSQL and SQL Server in GitHub Actions.
 Database schema changes go through Alembic migrations (`astreo_monitor/migrations/`).
 Translations: `astreo_monitor/i18n/en.json` (keys are the Italian texts) — see [docs/traduzioni.md](docs/traduzioni.md).
+How to contribute: [CONTRIBUTING.md](CONTRIBUTING.md) · Security issues: [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Marco (dogfromberlin)

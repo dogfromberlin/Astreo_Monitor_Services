@@ -1,7 +1,7 @@
 """Controllo delle unit di Astreo Monitor (solo quelle, mai altri servizi).
 
 Richiede la regola polkit deploy/polkit/50-astreo-monitor.rules, che consente
-all'utente <utente> start/stop/restart delle sole unit elencate qui.
+all'utente dei servizi start/stop/restart delle sole unit elencate qui.
 """
 from __future__ import annotations
 

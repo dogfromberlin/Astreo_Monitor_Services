@@ -1,6 +1,6 @@
 # Operatività e diagnosi
 
-Tutti i comandi vanno lanciati nella **finestra SSH su astreo**.
+Tutti i comandi vanno lanciati nella **finestra SSH su <server>**.
 
 ## Stato generale
 

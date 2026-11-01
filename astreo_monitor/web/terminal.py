@@ -1,7 +1,7 @@
 """Terminale web: sblocco con password separata e verifica per nginx.
 
 Architettura:
-  browser --HTTPS--> nginx :5443 --/terminal/--> ttyd (127.0.0.1:7681) -> bash come <utente>
+  browser --HTTPS--> nginx :5443 --/terminal/--> ttyd (127.0.0.1:7681) -> bash come utente dei servizi
                          \\-- auth_request --> /api/v1/terminal/check (questa app)
 
 Il terminale si apre solo se TUTTE queste condizioni sono vere:

@@ -566,7 +566,7 @@
  "certificato CA": "CA certificate",
  "certificato non valido: {p0}": "invalid certificate: {p0}",
  "colonne mancanti: {p0}": "missing columns: {p0}",
- "come sa: sql/004_backup.sql": "as sa: sql/004_backup.sql",
+ "come sa: sql/mssql_permessi_backup.sql": "as sa: sql/mssql_permessi_backup.sql",
  "come sa: sql/008_verifica_ripristino.sql": "as sa: sql/008_verifica_ripristino.sql",
  "con Chiudi terminale o chiudendo la scheda.": "with Close terminal or by closing the tab.",
  "con la durata. Le regole di avviso sono nella scheda Notifiche (evento": "with the duration. Alert rules are in the Notifications tab (event",
