@@ -1,10 +1,10 @@
 /* Astreo Monitor - vista Terminale.
    La shell (ttyd in un iframe) resta aperta mentre navighi nelle altre sezioni:
-   l'iframe viene solo nascosto, mai ricaricato. Si chiude con "Chiudi terminale",
+   l'iframe viene solo nascosto, mai ricaricato. Si chiude con t("Chiudi terminale"),
    dopo N minuti senza attività, o chiudendo la scheda / il browser. */
 (() => {
   "use strict";
-  const { $, api, toast } = window.AM;
+  const { t, $, api, toast } = window.AM;
   const TOUCH_EVERY = 60_000;     // al massimo un rinnovo al minuto
   let st = null;                   // ultimo stato dal server
   let open = false;                // shell caricata nell'iframe
@@ -34,7 +34,7 @@
     if (!open || lastActivity <= lastTouch || Date.now() - lastTouch < TOUCH_EVERY) return;
     lastTouch = Date.now();
     try { st = await api("/api/v1/terminal/touch", { method: "POST", json: {} }); }
-    catch (e) { closeShell("Sessione del terminale scaduta"); }
+    catch (e) { closeShell(t("Sessione del terminale scaduta")); }
   }
 
   function startTick() {
@@ -44,9 +44,9 @@
       hookActivity();
       touchIfActive();
       const left = st.unlocked_until * 1000 - Date.now();
-      if (left <= 0) { closeShell("Sessione del terminale chiusa per inattività"); return; }
+      if (left <= 0) { closeShell(t("Sessione del terminale chiusa per inattività")); return; }
       const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
-      $("#term-session").textContent = `Si chiude tra ${m}:${String(s).padStart(2, "0")} senza attività`;
+      $("#term-session").textContent = t("Si chiude tra {p0}:{p1} senza attività", { p0: m, p1: String(s).padStart(2, "0") });
     }, 1000);
   }
 
@@ -79,28 +79,27 @@
   }
 
   async function refresh() {
-    try { st = await api("/api/v1/terminal/status"); } catch (e) { blocked(`Stato del terminale non disponibile: ${e.message}`); return; }
+    try { st = await api("/api/v1/terminal/status"); } catch (e) { blocked(t("Stato del terminale non disponibile: {p0}", { p0: e.message })); return; }
     if (!st.enabled) {
-      blocked("Il terminale non è abilitato. Si attiva nella sezione <code>[terminal]</code> di <code>/etc/astreo-monitor/config.ini</code> (vedi <code>docs/terminale.md</code>).");
+      blocked(t("Il terminale non è abilitato. Si attiva nella sezione <code>[terminal]</code> di <code>/etc/astreo-monitor/config.ini</code> (vedi <code>docs/terminale.md</code>)."));
       return;
     }
     if (!st.https) {
       if (location.protocol === "https:") {
-        blocked("La pagina è in HTTPS, ma la dashboard non lo rileva: in <code>/etc/astreo-monitor/config.ini</code>, sezione <code>[web]</code>, "
-          + "devono esserci <code>trusted_proxy = 127.0.0.1</code> e <code>host = 127.0.0.1</code> (vedi <code>docs/terminale.md</code>, Diagnosi).");
+        blocked(t("La pagina è in HTTPS, ma la dashboard non lo rileva: in <code>/etc/astreo-monitor/config.ini</code>, sezione <code>[web]</code>, devono esserci <code>trusted_proxy = 127.0.0.1</code> e <code>host = 127.0.0.1</code> (vedi <code>docs/terminale.md</code>, Diagnosi)."));
       } else {
         const url = `https://${location.hostname}:5443/#terminale`;
-        blocked(`Per sicurezza il terminale funziona solo con una connessione cifrata. Apri <a href="${url}">${url}</a>.`);
+        blocked(t("Per sicurezza il terminale funziona solo con una connessione cifrata. Apri {p0}.", { p0: `<a href="${url}">${url}</a>` }));
       }
       return;
     }
-    if (!st.ip_allowed) { blocked(`Il tuo indirizzo (${st.client_ip}) non è tra quelli ammessi per il terminale.`); return; }
+    if (!st.ip_allowed) { blocked(t("Il tuo indirizzo ({p0}) non è tra quelli ammessi per il terminale.", { p0: st.client_ip })); return; }
     if (!st.unlocked_until) {
       open = false;
       setBadge(false);
       $("#term-frame").src = "about:blank";
-      $("#term-unlock-info").textContent = `La sessione resta aperta mentre usi le altre sezioni e si chiude dopo ${st.session_minutes} minuti senza attività, `
-        + "con Chiudi terminale o chiudendo la scheda.";
+      $("#term-unlock-info").textContent = t("La sessione resta aperta mentre usi le altre sezioni e si chiude dopo {p0} minuti senza attività, ", { p0: st.session_minutes })
+        + t("con Chiudi terminale o chiudendo la scheda.");
       $("#term-session").textContent = "";
       show("#term-unlock");
       $("#term-unlock input").focus();
@@ -119,7 +118,7 @@
         refresh();
       } catch (e) { toast(e.message, "error"); input.select(); }
     });
-    $("#term-lock").addEventListener("click", () => closeShell("Terminale chiuso"));
+    $("#term-lock").addEventListener("click", () => closeShell(t("Terminale chiuso")));
     // entrando nella vista: se la shell è già aperta la mostra com'era, altrimenti verifica lo stato
     window.AM.onView("terminale", () => { if (open) openShell(); else refresh(); });
     // chiusura della scheda o del browser: chiude subito la sessione lato server

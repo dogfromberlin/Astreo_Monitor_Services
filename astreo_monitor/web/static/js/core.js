@@ -1,6 +1,15 @@
 /* Astreo Monitor - funzioni comuni a tutte le viste. */
 (() => {
   "use strict";
+  // --------------------------------------------------------------- traduzioni
+  // La chiave è il testo italiano; segnaposto {nome}. Senza traduzione resta l'italiano.
+  const LANG = window.LANG || "it";
+  const LOCALE = LANG === "en" ? "en-GB" : "it-IT";
+  function t(text, vars) {
+    let out = (window.I18N && window.I18N[text]) || text;
+    if (vars) out = out.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+    return out;
+  }
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -18,11 +27,11 @@
   }
 
   const fmtNum = (v, d = 1) => (v === null || v === undefined || Number.isNaN(v) ? "–"
-    : Number(v).toLocaleString("it-IT", { maximumFractionDigits: d, minimumFractionDigits: d }));
+    : Number(v).toLocaleString(LOCALE, { maximumFractionDigits: d, minimumFractionDigits: d }));
   const fmtGB = (mb) => `${fmtNum(mb / 1024, 1)} GB`;
-  const fmtTime = (d = new Date()) => d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const fmtDateTime = (iso) => iso ? new Date(iso).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "–";
-  const fmtFull = (iso) => iso ? new Date(iso).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "–";
+  const fmtTime = (d = new Date()) => d.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const fmtDateTime = (iso) => iso ? new Date(iso).toLocaleString(LOCALE, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "–";
+  const fmtFull = (iso) => iso ? new Date(iso).toLocaleString(LOCALE, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "–";
   const fmtDuration = (ms) => {
     const m = Math.round(ms / 60000);
     if (m < 60) return `${m} min`;
@@ -62,12 +71,12 @@
 
   let toastTimer;
   function toast(msg, kind = "ok") {
-    const t = $("#toast");
-    t.textContent = msg;
-    t.className = `toast ${kind}`;
-    t.hidden = false;
+    const box = $("#toast");
+    box.textContent = msg;
+    box.className = `toast ${kind}`;
+    box.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.hidden = true; }, kind === "error" ? 6000 : 2500);
+    toastTimer = setTimeout(() => { box.hidden = true; }, kind === "error" ? 6000 : 2500);
   }
 
   // ---------------------------------------------------------------- grafici
@@ -98,11 +107,11 @@
       const x = chart.scales.x, area = chart.chartArea, ctx = chart.ctx;
       const step = (times[times.length - 1] - times[0]) / (times.length - 1);
       evs.forEach((e) => {
-        const t = Date.parse(e.time);
-        if (t < times[0] - step / 2 || t > times[times.length - 1] + step / 2) return;
+        const ts = Date.parse(e.time);
+        if (ts < times[0] - step / 2 || ts > times[times.length - 1] + step / 2) return;
         let i = 0;
-        while (i < times.length - 2 && times[i + 1] <= t) i++;
-        const frac = Math.max(0, Math.min(1, (t - times[i]) / ((times[i + 1] - times[i]) || 1)));
+        while (i < times.length - 2 && times[i + 1] <= ts) i++;
+        const frac = Math.max(0, Math.min(1, (ts - times[i]) / ((times[i + 1] - times[i]) || 1)));
         const px = x.getPixelForValue(i) + frac * (x.getPixelForValue(i + 1) - x.getPixelForValue(i));
         const color = EVENT_COLOR[e.kind] || "#e8b85c";
         ctx.save();
@@ -216,7 +225,15 @@
   }
   const isView = (v) => currentView === v;
 
-  window.AM = { $, $$, api, el, row, toast, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtFull, fmtDuration, fmtUptime,
+  // selettore della lingua (piè di pagina): salva l'impostazione e ricarica
+  document.addEventListener("click", async (ev) => {
+    const b = ev.target.closest(".lang-switch button[data-lang]");
+    if (!b || b.dataset.lang === LANG) return;
+    try { await api("/api/v1/language", { method: "POST", json: { lang: b.dataset.lang } }); location.reload(); }
+    catch (e) { toast(e.message, "error"); }
+  });
+
+  window.AM = { t, LANG, LOCALE, $, $$, api, el, row, toast, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtFull, fmtDuration, fmtUptime,
                 level, toLocalInput, C, PALETTE, drawChart, ds, constLine, charts, onView, every, isView,
                 loadEvents, eventState, visibleEvents, redrawEvents, EVENT_COLOR };
   // Avvisi di installazione: database incompleto o pagina di una versione diversa dal server
@@ -225,20 +242,19 @@
       const h = await api("/api/v1/health");
       const msgs = [];
       if (h.schema_ok === false) {
-        msgs.push(`Database da aggiornare: ${h.schema_fixes.map((x) => `<code>${x}</code>`).join(", ")} `
-          + "(dettaglio: <code>python -m astreo_monitor.schema</code>). Alcune funzioni non lavorano finché non è aggiornato.");
+        msgs.push(t("Database da aggiornare: {p0} (dettaglio: <code>python -m astreo_monitor.schema</code>). Alcune funzioni non lavorano finché non è aggiornato.",
+                    { p0: h.schema_fixes.map((x) => `<code>${x}</code>`).join(", ") }));
       }
       if (location.protocol === "http:") {
         if (h.https_port) {
           const url = `https://${location.hostname}:${h.https_port}${location.pathname}${location.hash}`;
-          msgs.push(`Connessione non cifrata: usa <a href="${url}">${url}</a>.`);
+          msgs.push(t("Connessione non cifrata: usa {p0}.", { p0: `<a href="${url}">${url}</a>` }));
         } else {
-          msgs.push("Connessione <strong>non cifrata</strong> (HTTP): password e dati viaggiano in chiaro e il terminale è disattivato. "
-            + "Per attivare HTTPS e terminale, sul server: <code>sudo bash update.sh --enable-https</code>.");
+          msgs.push(t("Connessione <strong>non cifrata</strong> (HTTP): password e dati viaggiano in chiaro e il terminale è disattivato. Per attivare HTTPS e terminale, sul server: <code>sudo bash update.sh --enable-https</code>."));
         }
       }
       if (h.version && h.version !== document.body.dataset.version) {
-        msgs.push(`La pagina è della versione ${document.body.dataset.version}, il server è alla ${h.version}: ricarica con Ctrl+F5.`);
+        msgs.push(t("La pagina è della versione {p0}, il server è alla {p1}: ricarica con Ctrl+F5.", { p0: document.body.dataset.version, p1: h.version }));
       }
       const b = $("#schema-banner");
       b.innerHTML = msgs.join("<br>");

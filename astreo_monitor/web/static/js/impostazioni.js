@@ -1,9 +1,9 @@
 /* Astreo Monitor - vista Impostazioni: speedtest, notifiche, servizi. */
 (() => {
   "use strict";
-  const { $, $$, api, el, row, toast, fmtFull, fmtDateTime, fmtNum } = window.AM;
+  const { t, $, $$, api, el, row, toast, fmtFull, fmtDateTime, fmtNum } = window.AM;
   const CHANNEL_LABEL = { email: "Email", telegram: "Telegram", whatsapp: "WhatsApp" };
-  const MODE_LABEL = { escalation: "Solo se peggiora", change: "A ogni cambio" };
+  const MODE_LABEL = { escalation: t("Solo se peggiora"), change: t("A ogni cambio") };
   let settings = null;      // { values, meta, sources, channels, policy_sources }
   let catalog = [];
   let viewOrder = null;     // ordine delle righe dei servizi, fisso finché non cambi filtro
@@ -33,7 +33,7 @@
   }
   async function saveForm(form, label) {
     const changes = readForm(form);
-    if (!Object.keys(changes).length) { toast("Nessuna modifica da salvare"); return; }
+    if (!Object.keys(changes).length) { toast(t("Nessuna modifica da salvare")); return; }
     try {
       settings = await api("/api/v1/settings", { method: "PUT", json: changes });
       $$("form.settings-form").forEach(fillForm);
@@ -50,7 +50,7 @@
       renderRules();
       $$("form.settings-form").forEach(fillForm);
       renderTraffic();
-    } catch (e) { toast(`Impostazioni non disponibili: ${e.message}`, "error"); }
+    } catch (e) { toast(t("Impostazioni non disponibili: {p0}", { p0: e.message }), "error"); }
   }
 
   // ------------------------------------------------------------ speedtest
@@ -58,34 +58,34 @@
     const v = settings.values;
     const dl = v["speedtest.streams"] * v["speedtest.rounds"] * v["speedtest.download_mb"];
     const ul = v["speedtest.streams"] * v["speedtest.rounds"] * v["speedtest.upload_mb"];
-    $("#st-traffic").textContent = `Traffico per misura: circa ${dl} MB in download e ${ul} MB in upload; con 6 misure al giorno ${fmtNum(dl * 6 / 1000, 1)} GB al giorno.`;
+    $("#st-traffic").textContent = t("Traffico per misura: circa {p0} MB in download e {p1} MB in upload; con 6 misure al giorno {p2} GB al giorno.", { p0: dl, p1: ul, p2: fmtNum(dl * 6 / 1000, 1) });
   }
 
   async function loadSpeedtestStatus() {
     try {
       const s = await api("/api/v1/speedtest/status");
       const running = s.service.active === "activating" || s.service.sub === "start";
-      $("#st-state").textContent = running ? "Misura in corso" : s.enabled ? "Attivo" : "Sospeso";
+      $("#st-state").textContent = running ? t("Misura in corso") : s.enabled ? t("Attivo") : t("Sospeso");
       $("#st-state").className = s.enabled ? "" : "warn-text";
       $("#st-next").textContent = s.enabled && s.timer.next_run ? fmtFull(s.timer.next_run) : "–";
       if (s.latest) {
         $("#st-last").textContent = `↓ ${fmtNum(s.latest.download_mbps, 0)}  ↑ ${fmtNum(s.latest.upload_mbps, 0)} Mbps`;
-        $("#st-last-when").textContent = `${s.latest.status} alle ${fmtDateTime(s.latest.timestamp)}`;
+        $("#st-last-when").textContent = t("{p0} alle {p1}", { p0: s.latest.status, p1: fmtDateTime(s.latest.timestamp) });
       }
       const pause = $("#st-pause");
-      pause.textContent = s.enabled ? "Sospendi" : "Riattiva";
+      pause.textContent = s.enabled ? t("Sospendi") : t("Riattiva");
       pause.dataset.paused = s.enabled ? "0" : "1";
       $("#st-run").disabled = running;
-    } catch (e) { toast(`Stato speedtest non disponibile: ${e.message}`, "error"); }
+    } catch (e) { toast(t("Stato speedtest non disponibile: {p0}", { p0: e.message }), "error"); }
   }
 
   async function runNow() {
     const msg = $("#st-run-msg");
     try {
       await api("/api/v1/speedtest/run", { method: "POST", json: {} });
-      msg.textContent = "Misura avviata: dura circa un minuto, poi il risultato compare qui e nella vista Connessione.";
+      msg.textContent = t("Misura avviata: dura circa un minuto, poi il risultato compare qui e nella vista Connessione.");
       msg.hidden = false;
-      toast("Speedtest avviato");
+      toast(t("Speedtest avviato"));
       setTimeout(loadSpeedtestStatus, 3000);
       setTimeout(() => { loadSpeedtestStatus(); msg.hidden = true; }, 75_000);
     } catch (e) { toast(e.message, "error"); }
@@ -93,13 +93,13 @@
 
   async function togglePause() {
     const paused = $("#st-pause").dataset.paused !== "1";
-    if (paused && !confirm("Sospendere lo speedtest automatico? Resterà sospeso anche dopo un riavvio, finché non lo riattivi.")) return;
+    if (paused && !confirm(t("Sospendere lo speedtest automatico? Resterà sospeso anche dopo un riavvio, finché non lo riattivi."))) return;
     try {
       const r = await api("/api/v1/speedtest/pause", { method: "POST", json: { paused } });
       await loadSettings();
       await loadSpeedtestStatus();
-      toast(paused ? "Speedtest sospeso" : "Speedtest riattivato");
-      if (r.timer_error) toast(`Impostazione salvata, ma il timer non è stato aggiornato: ${r.timer_error}`, "error");
+      toast(paused ? t("Speedtest sospeso") : t("Speedtest riattivato"));
+      if (r.timer_error) toast(t("Impostazione salvata, ma il timer non è stato aggiornato: {p0}", { p0: r.timer_error }), "error");
     } catch (e) { toast(e.message, "error"); }
   }
 
@@ -125,15 +125,15 @@
   function renderRules() {
     $("#rules tbody").replaceChildren(...Object.entries(settings.policy_sources).map(([src, label]) => {
       const tr = el("tr");
-      tr.append(el("td", { "data-label": "Monitoraggio" }, label));
-      const sel = el("select", { "data-key": `alert.${src}.mode`, "aria-label": `Quando avvisare per ${label}` });
-      Object.entries(MODE_LABEL).forEach(([v, t]) => sel.append(el("option", { value: v }, t)));
-      const td1 = el("td", { "data-label": "Quando avvisare" }); td1.append(sel);
+      tr.append(el("td", { "data-label": t("Monitoraggio") }, label));
+      const sel = el("select", { "data-key": `alert.${src}.mode`, "aria-label": t("Quando avvisare per {p0}", { p0: label }) });
+      Object.entries(MODE_LABEL).forEach(([v, lbl]) => sel.append(el("option", { value: v }, lbl)));
+      const td1 = el("td", { "data-label": t("Quando avvisare") }); td1.append(sel);
       const lab = el("label", { class: "switch compact" });
-      lab.append(el("input", { type: "checkbox", "data-key": `alert.${src}.recovery`, "aria-label": `Avviso di rientro per ${label}` }), el("span"));
-      const td2 = el("td", { "data-label": "Al rientro in OK" }); td2.append(lab);
-      const num = el("input", { type: "number", step: "1", min: "0", max: "720", "data-key": `alert.${src}.reminder_hours`, "aria-label": `Promemoria per ${label}` });
-      const td3 = el("td", { "data-label": "Promemoria (ore)" }); td3.append(num);
+      lab.append(el("input", { type: "checkbox", "data-key": `alert.${src}.recovery`, "aria-label": t("Avviso di rientro per {p0}", { p0: label }) }), el("span"));
+      const td2 = el("td", { "data-label": t("Al rientro in OK") }); td2.append(lab);
+      const num = el("input", { type: "number", step: "1", min: "0", max: "720", "data-key": `alert.${src}.reminder_hours`, "aria-label": t("Promemoria per {p0}", { p0: label }) });
+      const td3 = el("td", { "data-label": t("Promemoria (ore)") }); td3.append(num);
       tr.append(td1, td2, td3);
       return tr;
     }));
@@ -142,25 +142,26 @@
   async function loadLog() {
     try {
       const data = await api("/api/v1/notify/log");
-      const label = { inviata: "Inviata", fallita: "Non inviata", "in coda": "In coda" };
+      const label = { inviata: t("Inviata"), fallita: t("Non inviata"), "in coda": t("In coda") };
       $("#notify-log tbody").replaceChildren(...data.items.map((r) => row([
-        { text: fmtFull(r.timestamp), label: "Quando" }, { text: CHANNEL_LABEL[r.channel] || r.channel, label: "Canale" },
-        { text: settings?.sources[r.source] || ({ test: "Prova", riepilogo: "Riepilogo" }[r.source] || r.source), label: "Evento" },
-        { text: r.subject, label: "Oggetto" },
-        { text: `${label[r.status] || r.status}${r.error ? `: ${r.error}` : ""}`, label: "Esito",
+        { text: fmtFull(r.timestamp), label: t("Quando") }, { text: CHANNEL_LABEL[r.channel] || r.channel, label: t("Canale") },
+        { text: settings?.sources[r.source] || ({ test: t("Prova"), riepilogo: t("Riepilogo") }[r.source] || r.source), label: t("Evento") },
+        { text: r.subject, label: t("Oggetto") },
+        { text: `${label[r.status] || r.status}${r.error ? `: ${r.error}` : ""}`, label: t("Esito"),
           cls: r.status === "fallita" ? "alert" : r.status === "in coda" ? "warn" : "" },
       ])));
-      $("#queue-info").textContent = data.pending ? `Avvisi in coda ora: ${data.pending}.` : "";
+      $("#queue-info").textContent = data.pending ? t("Avvisi in coda ora: {p0}.", { p0: data.pending }) : "";
     } catch (e) { /* tabella non ancora creata o DB assente: nessun registro */ }
   }
 
   async function testChannel(ch) {
     const changes = readForm($("#form-notify"));
-    if (Object.keys(changes).length && !confirm("Ci sono modifiche non salvate: salvarle prima della prova?")) return;
+    if (Object.keys(changes).length && !confirm(t("Ci sono modifiche non salvate: salvarle prima della prova?"))) return;
     try {
       if (Object.keys(changes).length) settings = await api("/api/v1/settings", { method: "PUT", json: changes });
       const r = await api("/api/v1/notify/test", { method: "POST", json: { channel: ch } });
-      toast(r.ok ? `Prova ${CHANNEL_LABEL[ch]} inviata` : `Prova ${CHANNEL_LABEL[ch]} non riuscita: ${r.error}`, r.ok ? "ok" : "error");
+      toast(r.ok ? t("Prova {p0} inviata", { p0: CHANNEL_LABEL[ch] }) : t("Prova {p0} non riuscita: {p1}", { p0: CHANNEL_LABEL[ch], p1: r.error }),
+            r.ok ? "ok" : "error");
       fillForm($("#form-notify"));
       loadLog();
     } catch (e) { toast(e.message, "error"); }
@@ -172,23 +173,23 @@
       const d = await api("/api/v1/integrations");
       $("#modules-table tbody").replaceChildren(...d.modules.map((m) => {
         const tr = el("tr");
-        const st = el("span", { class: m.available ? "" : "warn-text" }, m.available ? `✔ ${m.reason}` : `non presente — ${m.reason}`);
+        const st = el("span", { class: m.available ? "" : "warn-text" }, m.available ? `✔ ${m.reason}` : t("non presente — {p0}", { p0: m.reason }));
         const lab = el("label", { class: "switch compact" });
         lab.append(el("input", { type: "checkbox", "data-key": `ui.${m.key}`, "aria-label": `Mostra ${m.label}` }), el("span"));
-        [[m.label, el("strong", {}, m.label)], ["Sul server", st], ["Mostra", lab]].forEach(([l, node]) => {
+        [[m.label, el("strong", {}, m.label)], [t("Sul server"), st], [t("Mostra"), lab]].forEach(([l, node]) => {
           const td = el("td", { "data-label": l }); td.append(node); tr.append(td);
         });
         return tr;
       }));
       if (settings) fillForm($("#form-modules"));
-    } catch (e) { toast(`Moduli non disponibili: ${e.message}`, "error"); }
+    } catch (e) { toast(t("Moduli non disponibili: {p0}", { p0: e.message }), "error"); }
   }
   async function testPihole() {
     const changes = readForm($("#form-modules"));
     try {
       if (Object.keys(changes).length) settings = await api("/api/v1/settings", { method: "PUT", json: changes });
       const r = await api("/api/v1/pihole/test", { method: "POST", json: {} });
-      toast(r.ok ? `Pi-hole raggiunto: ${r.detail}` : `Pi-hole: ${r.detail}`, r.ok ? "ok" : "error");
+      toast(r.ok ? t("Pi-hole raggiunto: {p0}", { p0: r.detail }) : `Pi-hole: ${r.detail}`, r.ok ? "ok" : "error");
       fillForm($("#form-modules"));
       window.AM.loadModules();
     } catch (e) { toast(e.message, "error"); }
@@ -198,7 +199,8 @@
   async function loadHeartbeat() {
     try {
       const h = await api("/api/v1/heartbeat");
-      $("#hb-info").textContent = h.time ? `Ultimo ping alle ${fmtFull(h.time)}: ${h.ok ? "inviato" : `non inviato (${h.error})`}.` : "";
+      $("#hb-info").textContent = !h.time ? "" : h.ok ? t("Ultimo ping alle {p0}: inviato.", { p0: fmtFull(h.time) })
+        : t("Ultimo ping alle {p0}: non inviato ({p1}).", { p0: fmtFull(h.time), p1: h.error });
     } catch (e) { /* */ }
   }
   async function testHeartbeat() {
@@ -206,7 +208,7 @@
     try {
       if (Object.keys(changes).length) settings = await api("/api/v1/settings", { method: "PUT", json: changes });
       const r = await api("/api/v1/heartbeat/test", { method: "POST", json: {} });
-      toast(r.ok ? "Ping di prova inviato" : `Ping non riuscito: ${r.error}`, r.ok ? "ok" : "error");
+      toast(r.ok ? t("Ping di prova inviato") : t("Ping non riuscito: {p0}", { p0: r.error }), r.ok ? "ok" : "error");
       fillForm($("#form-notify"));
       loadHeartbeat();
     } catch (e) { toast(e.message, "error"); }
@@ -217,7 +219,7 @@
     try {
       catalog = await api("/api/v1/settings/services");
       renderServices(true);
-    } catch (e) { toast(`Elenco servizi non disponibile: ${e.message}`, "error"); }
+    } catch (e) { toast(t("Elenco servizi non disponibile: {p0}", { p0: e.message }), "error"); }
   }
 
   function monitoredSorted() {
@@ -241,22 +243,22 @@
     const led = el("span", { class: `led ${s.active === "active" ? "up" : s.monitored ? "down" : ""}`, title: `${s.active} (${s.sub})` });
     const name = el("div", { class: "svc-name" });
     name.append(el("strong", { title: s.unit }, s.unit), el("small", { class: "block" }, s.description || s.load));
-    const label = el("input", { type: "text", value: s.label, maxlength: "100", "aria-label": `Etichetta di ${s.unit}` });
+    const label = el("input", { type: "text", value: s.label, maxlength: "100", "aria-label": t("Etichetta di {p0}", { p0: s.unit }) });
     label.disabled = !s.monitored;
     label.addEventListener("change", () => update(s, { label: label.value.trim() || s.unit }));
     const monSw = switchEl(s.monitored, `Monitora ${s.unit}`, (v) => update(s, { monitored: v }));
-    const ntf = switchEl(s.notify, `Avvisami per ${s.unit}`, (v) => update(s, { notify: v, monitored: v ? true : s.monitored }));
+    const ntf = switchEl(s.notify, t("Avvisami per {p0}", { p0: s.unit }), (v) => update(s, { notify: v, monitored: v ? true : s.monitored }));
     const order = el("div", { class: "order" });
     if (s.monitored) {
       const i = mon.indexOf(s);
-      const upB = el("button", { type: "button", class: "ghost", "aria-label": "Sposta su" }, "↑");
-      const dnB = el("button", { type: "button", class: "ghost", "aria-label": "Sposta giù" }, "↓");
+      const upB = el("button", { type: "button", class: "ghost", "aria-label": t("Sposta su") }, "↑");
+      const dnB = el("button", { type: "button", class: "ghost", "aria-label": t("Sposta giù") }, "↓");
       upB.disabled = i <= 0; dnB.disabled = i === mon.length - 1;
       upB.addEventListener("click", () => move(i, -1));
       dnB.addEventListener("click", () => move(i, 1));
       order.append(upB, dnB);
     }
-    [["Stato", led], ["Servizio", name], ["Etichetta", label], ["Monitora", monSw], ["Avvisami", ntf], ["Ordine", order]].forEach(([l, node]) => {
+    [[t("Stato"), led], [t("Servizio"), name], [t("Etichetta"), label], [t("Monitora"), monSw], [t("Avvisami"), ntf], [t("Ordine"), order]].forEach(([l, node]) => {
       const td = el("td", { "data-label": l }); td.append(node); tr.append(td);
     });
     return tr;
@@ -266,7 +268,7 @@
     if (resetOrder || !viewOrder) computeOrder();
     const byUnit = Object.fromEntries(catalog.map((s) => [s.unit, s]));
     const y = window.scrollY;
-    $("#svc-count").textContent = `${monitoredSorted().length} monitorati su ${catalog.length} servizi`;
+    $("#svc-count").textContent = t("{p0} monitorati su {p1} servizi", { p0: monitoredSorted().length, p1: catalog.length });
     $("#svc-table tbody").replaceChildren(...viewOrder.filter((u) => byUnit[u]).map((u) => serviceRow(byUnit[u])));
     window.scrollTo({ top: y });
   }
@@ -301,11 +303,11 @@
 
   // ----------------------------------------------------------------- avvio
   document.addEventListener("DOMContentLoaded", () => {
-    $("#form-speedtest").addEventListener("submit", (ev) => { ev.preventDefault(); saveForm(ev.target, "Impostazioni speedtest"); });
-    $("#form-notify").addEventListener("submit", (ev) => { ev.preventDefault(); saveForm(ev.target, "Impostazioni notifiche"); });
+    $("#form-speedtest").addEventListener("submit", (ev) => { ev.preventDefault(); saveForm(ev.target, t("Impostazioni speedtest")); });
+    $("#form-notify").addEventListener("submit", (ev) => { ev.preventDefault(); saveForm(ev.target, t("Impostazioni notifiche")); });
     $("#form-modules").addEventListener("submit", async (ev) => {
       ev.preventDefault();
-      await saveForm(ev.target, "Impostazioni dei moduli");
+      await saveForm(ev.target, t("Impostazioni dei moduli"));
       window.AM.loadModules();
     });
     $("#pihole-test").addEventListener("click", testPihole);
@@ -314,7 +316,7 @@
     $("#summary-test").addEventListener("click", async () => {
       try {
         await api("/api/v1/summary/test", { method: "POST", json: {} });
-        toast("Riepilogo inviato sui canali scelti per il Riepilogo settimanale");
+        toast(t("Riepilogo inviato sui canali scelti per il Riepilogo settimanale"));
         loadLog();
       } catch (e) { toast(e.message, "error"); }
     });

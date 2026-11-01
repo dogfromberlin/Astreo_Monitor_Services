@@ -1,80 +1,77 @@
 <div class="view" data-view="impostazioni" hidden>
   <section class="panel">
-    <div class="panel-head"><h2>Impostazioni</h2></div>
+    <div class="panel-head"><h2>{{ _("Impostazioni") }}</h2></div>
     <div class="subtabs" role="tablist" data-subtabs="set">
-      <button type="button" role="tab" data-sub="speedtest" class="active">Speedtest</button>
-      <button type="button" role="tab" data-sub="notifiche">Notifiche</button>
-      <button type="button" role="tab" data-sub="servizi">Servizi</button>
-      <button type="button" role="tab" data-sub="moduli">Moduli</button>
+      <button type="button" role="tab" data-sub="speedtest" class="active">{{ _("Speedtest") }}</button>
+      <button type="button" role="tab" data-sub="notifiche">{{ _("Notifiche") }}</button>
+      <button type="button" role="tab" data-sub="servizi">{{ _("Servizi") }}</button>
+      <button type="button" role="tab" data-sub="moduli">{{ _("Moduli") }}</button>
     </div>
 
     <!-- ============================== SPEEDTEST -->
     <div data-subpanel="set:speedtest">
       <div class="status-strip" id="st-status">
-        <div><span class="net-label">Stato</span><strong id="st-state">–</strong></div>
-        <div><span class="net-label">Prossima misura</span><strong id="st-next">–</strong></div>
-        <div><span class="net-label">Ultima misura</span><strong id="st-last">–</strong><small id="st-last-when"></small></div>
+        <div><span class="net-label">{{ _("Stato") }}</span><strong id="st-state">–</strong></div>
+        <div><span class="net-label">{{ _("Prossima misura") }}</span><strong id="st-next">–</strong></div>
+        <div><span class="net-label">{{ _("Ultima misura") }}</span><strong id="st-last">–</strong><small id="st-last-when"></small></div>
         <div class="actions">
-          <button type="button" id="st-run">Esegui ora</button>
-          <button type="button" class="ghost" id="st-pause">Sospendi</button>
+          <button type="button" id="st-run">{{ _("Esegui ora") }}</button>
+          <button type="button" class="ghost" id="st-pause">{{ _("Sospendi") }}</button>
         </div>
       </div>
       <p class="hint" id="st-run-msg" hidden></p>
 
       <form class="settings-form" id="form-speedtest">
         <fieldset>
-          <legend>Soglie</legend>
-          <p class="hint">Sotto la soglia di warning lo stato è WARNING, sotto quella di alert è ALERT. Le stesse soglie valgono per la vista Connessione.</p>
+          <legend>{{ _("Soglie") }}</legend>
+          <p class="hint">{{ _("Sotto la soglia di warning lo stato è WARNING, sotto quella di alert è ALERT. Le stesse soglie valgono per la vista Connessione.") }}</p>
           <div class="grid-fields">
-            <label>Download warning (Mbps)<input type="number" step="1" data-key="speedtest.download_warning"></label>
-            <label>Download alert (Mbps)<input type="number" step="1" data-key="speedtest.download_alert"></label>
-            <label>Upload warning (Mbps)<input type="number" step="1" data-key="speedtest.upload_warning"></label>
-            <label>Upload alert (Mbps)<input type="number" step="1" data-key="speedtest.upload_alert"></label>
+            <label>{{ _("Download warning (Mbps)") }}<input type="number" step="1" data-key="speedtest.download_warning"></label>
+            <label>{{ _("Download alert (Mbps)") }}<input type="number" step="1" data-key="speedtest.download_alert"></label>
+            <label>{{ _("Upload warning (Mbps)") }}<input type="number" step="1" data-key="speedtest.upload_warning"></label>
+            <label>{{ _("Upload alert (Mbps)") }}<input type="number" step="1" data-key="speedtest.upload_alert"></label>
           </div>
         </fieldset>
         <fieldset>
-          <legend>Misura</legend>
+          <legend>{{ _("Misura") }}</legend>
           <div class="grid-fields">
-            <label>Connessioni parallele<input type="number" step="1" data-key="speedtest.streams"></label>
-            <label>Giri di misura<input type="number" step="1" data-key="speedtest.rounds"></label>
-            <label>MB scaricati per connessione<input type="number" step="1" data-key="speedtest.download_mb"></label>
-            <label>MB inviati per connessione<input type="number" step="1" data-key="speedtest.upload_mb"></label>
+            <label>{{ _("Connessioni parallele") }}<input type="number" step="1" data-key="speedtest.streams"></label>
+            <label>{{ _("Giri di misura") }}<input type="number" step="1" data-key="speedtest.rounds"></label>
+            <label>{{ _("MB scaricati per connessione") }}<input type="number" step="1" data-key="speedtest.download_mb"></label>
+            <label>{{ _("MB inviati per connessione") }}<input type="number" step="1" data-key="speedtest.upload_mb"></label>
           </div>
           <p class="hint" id="st-traffic"></p>
         </fieldset>
         <fieldset>
-          <legend>Avvisi</legend>
+          <legend>{{ _("Avvisi") }}</legend>
           <div class="toggles">
-            <label class="switch"><input type="checkbox" data-key="route.speedtest.email"><span>Email</span></label>
-            <label class="switch"><input type="checkbox" data-key="route.speedtest.telegram"><span>Telegram</span></label>
-            <label class="switch"><input type="checkbox" data-key="route.speedtest.whatsapp"><span>WhatsApp</span></label>
+            <label class="switch"><input type="checkbox" data-key="route.speedtest.email"><span>{{ _("Email") }}</span></label>
+            <label class="switch"><input type="checkbox" data-key="route.speedtest.telegram"><span>{{ _("Telegram") }}</span></label>
+            <label class="switch"><input type="checkbox" data-key="route.speedtest.whatsapp"><span>{{ _("WhatsApp") }}</span></label>
           </div>
           <div class="grid-fields">
-            <label>Quando avvisare
+            <label>{{ _("Quando avvisare") }}
               <select data-key="alert.speedtest.mode">
-                <option value="escalation">Solo se la situazione peggiora</option>
-                <option value="change">A ogni cambio di stato</option>
+                <option value="escalation">{{ _("Solo se la situazione peggiora") }}</option>
+                <option value="change">{{ _("A ogni cambio di stato") }}</option>
               </select>
             </label>
-            <label>Promemoria se resta anomalo (ore, 0 = mai)<input type="number" step="1" data-key="alert.speedtest.reminder_hours"></label>
+            <label>{{ _("Promemoria se resta anomalo (ore, 0 = mai)") }}<input type="number" step="1" data-key="alert.speedtest.reminder_hours"></label>
           </div>
-          <label class="switch"><input type="checkbox" data-key="alert.speedtest.recovery"><span>Avvisa anche quando torna OK</span></label>
-          <p class="hint">Solo se peggiora: avviso per OK→WARNING, WARNING→ALERT e connessione assente; nessun avviso se resta uguale o migliora.
-             Il promemoria parte se la situazione resta anomala (WARNING o ALERT, anche alternati) per il numero di ore indicato dall'ultimo avviso.
-             I canali si configurano nella scheda Notifiche.</p>
+          <label class="switch"><input type="checkbox" data-key="alert.speedtest.recovery"><span>{{ _("Avvisa anche quando torna OK") }}</span></label>
+          <p class="hint">{{ _("Solo se peggiora: avviso per OK→WARNING, WARNING→ALERT e connessione assente; nessun avviso se resta uguale o migliora. Il promemoria parte se la situazione resta anomala (WARNING o ALERT, anche alternati) per il numero di ore indicato dall'ultimo avviso. I canali si configurano nella scheda Notifiche.") }}</p>
         </fieldset>
         <fieldset>
-          <legend>Controllo continuo della connessione (ping ogni minuto)</legend>
-          <label class="switch"><input type="checkbox" data-key="connectivity.enabled"><span>Attivo</span></label>
+          <legend>{{ _("Controllo continuo della connessione (ping ogni minuto)") }}</legend>
+          <label class="switch"><input type="checkbox" data-key="connectivity.enabled"><span>{{ _("Attivo") }}</span></label>
           <div class="grid-fields">
-            <label class="span-2">Destinazioni (separate da virgola; <em>gateway</em> = il router)<input type="text" data-key="connectivity.targets"></label>
-            <label>Perdita pacchetti per WARNING (%)<input type="number" step="1" data-key="connectivity.loss_warning"></label>
-            <label>Latenza per WARNING (ms)<input type="number" step="1" data-key="connectivity.rtt_warning"></label>
+            <label class="span-2">{{ _("Destinazioni (separate da virgola;") }} <em>{{ _("gateway") }}</em> {{ _("= il router)") }}<input type="text" data-key="connectivity.targets"></label>
+            <label>{{ _("Perdita pacchetti per WARNING (%)") }}<input type="number" step="1" data-key="connectivity.loss_warning"></label>
+            <label>{{ _("Latenza per WARNING (ms)") }}<input type="number" step="1" data-key="connectivity.rtt_warning"></label>
           </div>
-          <p class="hint">Se nessuna destinazione Internet risponde lo stato è DOWN. Durante un'interruzione gli avvisi non possono partire:
-             arriva quello di <em>Connessione ripristinata</em> con la durata. Le regole di avviso sono nella scheda Notifiche (evento <em>Connessione (ping)</em>).</p>
+          <p class="hint">{{ _("Se nessuna destinazione Internet risponde lo stato è DOWN. Durante un'interruzione gli avvisi non possono partire: arriva quello di") }} <em>{{ _("Connessione ripristinata") }}</em> {{ _("con la durata. Le regole di avviso sono nella scheda Notifiche (evento") }} <em>{{ _("Connessione (ping)") }}</em>).</p>
         </fieldset>
-        <div class="form-actions"><button type="submit">Salva impostazioni</button></div>
+        <div class="form-actions"><button type="submit">{{ _("Salva impostazioni") }}</button></div>
       </form>
     </div>
 
@@ -83,120 +80,117 @@
       <form class="settings-form" id="form-notify">
         <div class="channels">
           <fieldset class="channel channel-wide">
-            <legend>Email</legend>
-            <label class="switch"><input type="checkbox" data-key="notify.email.enabled"><span>Attiva</span></label>
+            <legend>{{ _("Email") }}</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.email.enabled"><span>{{ _("Attiva") }}</span></label>
             <div class="grid-fields">
-              <label>Server SMTP<input type="text" data-key="email.smtp_host" placeholder="smtp.gmail.com"></label>
-              <label>Porta<input type="number" step="1" data-key="email.smtp_port"></label>
-              <label>Sicurezza
+              <label>{{ _("Server SMTP") }}<input type="text" data-key="email.smtp_host" placeholder="{{ _("smtp.gmail.com") }}"></label>
+              <label>{{ _("Porta") }}<input type="number" step="1" data-key="email.smtp_port"></label>
+              <label>{{ _("Sicurezza") }}
                 <select data-key="email.security">
-                  <option value="ssl">SSL (porta 465)</option>
-                  <option value="starttls">STARTTLS (porta 587)</option>
-                  <option value="none">Nessuna</option>
+                  <option value="ssl">{{ _("SSL (porta 465)") }}</option>
+                  <option value="starttls">{{ _("STARTTLS (porta 587)") }}</option>
+                  <option value="none">{{ _("Nessuna") }}</option>
                 </select>
               </label>
-              <label>Utente<input type="text" autocomplete="off" data-key="email.username"></label>
-              <label>Password<input type="password" autocomplete="new-password" data-key="email.password"></label>
-              <label>Mittente<input type="text" data-key="email.sender"></label>
-              <label class="span-2">Destinatari (separati da virgola)<input type="text" data-key="email.recipients"></label>
-              <label>Prefisso dell'oggetto<input type="text" data-key="email.subject_prefix"></label>
+              <label>{{ _("Utente") }}<input type="text" autocomplete="off" data-key="email.username"></label>
+              <label>{{ _("Password") }}<input type="password" autocomplete="new-password" data-key="email.password"></label>
+              <label>{{ _("Mittente") }}<input type="text" data-key="email.sender"></label>
+              <label class="span-2">{{ _("Destinatari (separati da virgola)") }}<input type="text" data-key="email.recipients"></label>
+              <label>{{ _("Prefisso dell'oggetto") }}<input type="text" data-key="email.subject_prefix"></label>
             </div>
-            <p class="hint">Per Gmail: utente = indirizzo completo, password = password per le app.</p>
-            <button type="button" class="ghost" data-test="email">Invia prova</button>
+            <p class="hint">{{ _("Per Gmail: utente = indirizzo completo, password = password per le app.") }}</p>
+            <button type="button" class="ghost" data-test="email">{{ _("Invia prova") }}</button>
           </fieldset>
           <fieldset class="channel">
-            <legend>Telegram</legend>
-            <label class="switch"><input type="checkbox" data-key="notify.telegram.enabled"><span>Attiva</span></label>
-            <label>Token del bot<input type="password" autocomplete="off" data-key="notify.telegram.bot_token" placeholder="123456789:AA…"></label>
-            <label>Chat ID<input type="text" data-key="notify.telegram.chat_id" placeholder="es. 123456789"></label>
-            <label class="switch"><input type="checkbox" data-key="telegram.commands"><span>Rispondi ai comandi (/stato, /speedtest…)</span></label>
-            <button type="button" class="ghost" data-test="telegram">Invia prova</button>
+            <legend>{{ _("Telegram") }}</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.telegram.enabled"><span>{{ _("Attiva") }}</span></label>
+            <label>{{ _("Token del bot") }}<input type="password" autocomplete="off" data-key="notify.telegram.bot_token" placeholder="{{ _("123456789:AA…") }}"></label>
+            <label>{{ _("Chat ID") }}<input type="text" data-key="notify.telegram.chat_id" placeholder="{{ _("es. 123456789") }}"></label>
+            <label class="switch"><input type="checkbox" data-key="telegram.commands"><span>{{ _("Rispondi ai comandi (/stato, /speedtest…)") }}</span></label>
+            <button type="button" class="ghost" data-test="telegram">{{ _("Invia prova") }}</button>
           </fieldset>
           <fieldset class="channel">
-            <legend>WhatsApp</legend>
-            <label class="switch"><input type="checkbox" data-key="notify.whatsapp.enabled"><span>Attiva</span></label>
-            <label>Numero (prefisso internazionale, senza +)<input type="text" data-key="notify.whatsapp.phone" placeholder="39333…"></label>
-            <label>API key CallMeBot<input type="password" autocomplete="off" data-key="notify.whatsapp.apikey"></label>
-            <button type="button" class="ghost" data-test="whatsapp">Invia prova</button>
+            <legend>{{ _("WhatsApp") }}</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.whatsapp.enabled"><span>{{ _("Attiva") }}</span></label>
+            <label>{{ _("Numero (prefisso internazionale, senza +)") }}<input type="text" data-key="notify.whatsapp.phone" placeholder="39333…"></label>
+            <label>{{ _("API key CallMeBot") }}<input type="password" autocomplete="off" data-key="notify.whatsapp.apikey"></label>
+            <button type="button" class="ghost" data-test="whatsapp">{{ _("Invia prova") }}</button>
           </fieldset>
         </div>
-        <p class="hint">Il valore dei campi segreti non viene mai mostrato: lascia il campo com'è per mantenerlo, scrivi un nuovo valore per sostituirlo. La procedura per ottenere token e API key è in docs/notifiche.md.</p>
+        <p class="hint">{{ _("Il valore dei campi segreti non viene mai mostrato: lascia il campo com'è per mantenerlo, scrivi un nuovo valore per sostituirlo. La procedura per ottenere token e API key è in docs/notifiche.md.") }}</p>
 
         <fieldset>
-          <legend>Heartbeat esterno (avviso se astreo si spegne)</legend>
-          <label class="switch"><input type="checkbox" data-key="heartbeat.enabled"><span>Attivo</span></label>
+          <legend>{{ _("Heartbeat esterno (avviso se il server si spegne)") }}</legend>
+          <label class="switch"><input type="checkbox" data-key="heartbeat.enabled"><span>{{ _("Attivo") }}</span></label>
           <div class="grid-fields">
-            <label class="span-2">URL di ping (es. https://hc-ping.com/…)<input type="password" autocomplete="off" data-key="heartbeat.url"></label>
+            <label class="span-2">{{ _("URL di ping (es. https://hc-ping.com/…)") }}<input type="password" autocomplete="off" data-key="heartbeat.url"></label>
           </div>
-          <p class="hint">Ogni 5 minuti astreo avvisa un servizio esterno che è attivo; se i segnali smettono di arrivare (server spento, bloccato o senza rete)
-             è il servizio esterno ad avvisarti. Configurazione in docs/heartbeat.md. <span id="hb-info"></span></p>
-          <button type="button" class="ghost" id="hb-test">Invia ping di prova</button>
+          <p class="hint">{{ _("Ogni 5 minuti il server avvisa un servizio esterno che è attivo; se i segnali smettono di arrivare (server spento, bloccato o senza rete) è il servizio esterno ad avvisarti. Configurazione in docs/heartbeat.md.") }} <span id="hb-info"></span></p>
+          <button type="button" class="ghost" id="hb-test">{{ _("Invia ping di prova") }}</button>
         </fieldset>
 
         <fieldset>
-          <legend>Scadenze</legend>
+          <legend>{{ _("Scadenze") }}</legend>
           <div class="grid-fields">
-            <label>WARNING a (giorni)<input type="number" step="1" data-key="expiry.warning_days"></label>
-            <label>ALERT a (giorni)<input type="number" step="1" data-key="expiry.alert_days"></label>
-            <label class="span-2">Certificati da controllare (host:porta, separati da virgola)<input type="text" data-key="expiry.endpoints"></label>
+            <label>{{ _("WARNING a (giorni)") }}<input type="number" step="1" data-key="expiry.warning_days"></label>
+            <label>{{ _("ALERT a (giorni)") }}<input type="number" step="1" data-key="expiry.alert_days"></label>
+            <label class="span-2">{{ _("Certificati da controllare (host:porta, separati da virgola)") }}<input type="text" data-key="expiry.endpoints"></label>
           </div>
-          <label class="switch"><input type="checkbox" data-key="expiry.github"><span>Controlla la scadenza del token GitHub usato da gh</span></label>
-          <p class="hint">Controllo ogni giorno alle 09:00. Lo stato attuale è nella vista Server, riquadro <em>Controlli</em>.</p>
+          <label class="switch"><input type="checkbox" data-key="expiry.github"><span>{{ _("Controlla la scadenza del token GitHub usato da gh") }}</span></label>
+          <p class="hint">{{ _("Controllo ogni giorno alle 09:00. Lo stato attuale è nella vista Server, riquadro") }} <em>{{ _("Controlli") }}</em>.</p>
         </fieldset>
 
         <fieldset>
-          <legend>Dischi</legend>
+          <legend>{{ _("Dischi") }}</legend>
           <div class="grid-fields">
-            <label>Temperatura disco per WARNING (°C)<input type="number" step="1" data-key="smart.temp_warning"></label>
-            <label>Usura SSD per WARNING (%)<input type="number" step="1" data-key="smart.wear_warning"></label>
+            <label>{{ _("Temperatura disco per WARNING (°C)") }}<input type="number" step="1" data-key="smart.temp_warning"></label>
+            <label>{{ _("Usura SSD per WARNING (%)") }}<input type="number" step="1" data-key="smart.wear_warning"></label>
           </div>
-          <p class="hint">Settori in attesa, non correggibili o autodiagnosi SMART fallita danno sempre ALERT. Controllo ogni 6 ore.</p>
+          <p class="hint">{{ _("Settori in attesa, non correggibili o autodiagnosi SMART fallita danno sempre ALERT. Controllo ogni 6 ore.") }}</p>
         </fieldset>
 
         <fieldset>
-          <legend>Fascia di silenzio</legend>
-          <label class="switch"><input type="checkbox" data-key="quiet.enabled"><span>Attiva</span></label>
+          <legend>{{ _("Fascia di silenzio") }}</legend>
+          <label class="switch"><input type="checkbox" data-key="quiet.enabled"><span>{{ _("Attiva") }}</span></label>
           <div class="grid-fields quiet-fields">
-            <label>Dalle<input type="time" data-key="quiet.start"></label>
-            <label>alle<input type="time" data-key="quiet.end"></label>
-            <label>Recapita gli avvisi trattenuti alle<input type="time" data-key="quiet.deliver_at"></label>
+            <label>{{ _("Dalle") }}<input type="time" data-key="quiet.start"></label>
+            <label>{{ _("alle") }}<input type="time" data-key="quiet.end"></label>
+            <label>{{ _("Recapita gli avvisi trattenuti alle") }}<input type="time" data-key="quiet.deliver_at"></label>
           </div>
-          <p class="hint">Gli avvisi nati nella fascia vengono trattenuti e recapitati all'orario indicato, in un unico messaggio per canale,
-             con l'ora in cui sono stati rilevati. Fuori dalla fascia gli avvisi partono subito. L'orario di recapito deve essere fuori dalla fascia
-             (può coincidere con la fine). <span id="queue-info"></span></p>
+          <p class="hint">{{ _("Gli avvisi nati nella fascia vengono trattenuti e recapitati all'orario indicato, in un unico messaggio per canale, con l'ora in cui sono stati rilevati. Fuori dalla fascia gli avvisi partono subito. L'orario di recapito deve essere fuori dalla fascia (può coincidere con la fine).") }} <span id="queue-info"></span></p>
         </fieldset>
 
         <fieldset>
-          <legend>Regole di avviso</legend>
+          <legend>{{ _("Regole di avviso") }}</legend>
           <div class="scroll">
             <table class="data rules" id="rules">
-              <thead><tr><th>Monitoraggio</th><th>Quando avvisare</th><th>Al rientro in OK</th><th>Promemoria (ore)</th></tr></thead>
+              <thead><tr><th>{{ _("Monitoraggio") }}</th><th>{{ _("Quando avvisare") }}</th><th>{{ _("Al rientro in OK") }}</th><th>{{ _("Promemoria (ore)") }}</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
-          <p class="hint"><em>Solo se peggiora</em>: avviso quando lo stato si aggrava (OK→WARNING→ALERT), nessun avviso se resta uguale o migliora.
-             <em>A ogni cambio</em>: avviso a ogni variazione. Il promemoria parte se la situazione resta anomala per le ore indicate dall'ultimo avviso (0 = mai).</p>
+          <p class="hint"><em>{{ _("Solo se peggiora") }}</em>{{ _(": avviso quando lo stato si aggrava (OK→WARNING→ALERT), nessun avviso se resta uguale o migliora.") }}
+             <em>{{ _("A ogni cambio") }}</em>{{ _(": avviso a ogni variazione. Il promemoria parte se la situazione resta anomala per le ore indicate dall'ultimo avviso (0 = mai).") }}</p>
         </fieldset>
 
         <fieldset>
-          <legend>Quali avvisi su quali canali</legend>
+          <legend>{{ _("Quali avvisi su quali canali") }}</legend>
           <div class="scroll">
             <table class="data routes" id="routes">
-              <thead><tr><th>Evento</th><th>Email</th><th>Telegram</th><th>WhatsApp</th></tr></thead>
+              <thead><tr><th>{{ _("Evento") }}</th><th>{{ _("Email") }}</th><th>{{ _("Telegram") }}</th><th>{{ _("WhatsApp") }}</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
         </fieldset>
         <div class="form-actions">
-          <button type="button" class="ghost" id="summary-test">Invia ora il riepilogo settimanale</button>
-          <button type="submit">Salva notifiche</button>
+          <button type="button" class="ghost" id="summary-test">{{ _("Invia ora il riepilogo settimanale") }}</button>
+          <button type="submit">{{ _("Salva notifiche") }}</button>
         </div>
       </form>
 
-      <h3 class="sub-title">Ultimi invii</h3>
+      <h3 class="sub-title">{{ _("Ultimi invii") }}</h3>
       <div class="scroll table-tall">
         <table class="data" id="notify-log">
-          <thead><tr><th>Quando</th><th>Canale</th><th>Evento</th><th>Oggetto</th><th>Esito</th></tr></thead>
+          <thead><tr><th>{{ _("Quando") }}</th><th>{{ _("Canale") }}</th><th>{{ _("Evento") }}</th><th>{{ _("Oggetto") }}</th><th>{{ _("Esito") }}</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -206,44 +200,43 @@
     <div data-subpanel="set:moduli" hidden>
       <form class="settings-form" id="form-modules">
         <fieldset>
-          <legend>Moduli</legend>
-          <p class="hint">Ogni modulo compare nella dashboard solo se il servizio è presente su questo server. Puoi comunque nasconderlo.</p>
+          <legend>{{ _("Moduli") }}</legend>
+          <p class="hint">{{ _("Ogni modulo compare nella dashboard solo se il servizio è presente su questo server. Puoi comunque nasconderlo.") }}</p>
           <div class="scroll">
             <table class="data" id="modules-table">
-              <thead><tr><th>Modulo</th><th>Sul server</th><th>Mostra</th></tr></thead>
+              <thead><tr><th>{{ _("Modulo") }}</th><th>{{ _("Sul server") }}</th><th>{{ _("Mostra") }}</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
         </fieldset>
         <fieldset>
-          <legend>Pi-hole</legend>
+          <legend>{{ _("Pi-hole") }}</legend>
           <div class="grid-fields">
-            <label>Indirizzo (API v6)<input type="text" data-key="pihole.url" placeholder="http://127.0.0.1:8080"></label>
-            <label>Password per le app<input type="password" autocomplete="off" data-key="pihole.password"></label>
+            <label>{{ _("Indirizzo (API v6)") }}<input type="text" data-key="pihole.url" placeholder="{{ _("http://127.0.0.1:8080") }}"></label>
+            <label>{{ _("Password per le app") }}<input type="password" autocomplete="off" data-key="pihole.password"></label>
           </div>
-          <p class="hint">In Pi-hole: Impostazioni → Interfaccia web / API → modalità <em>Esperto</em> → <em>Configura password per le app</em>.
-             È una password dedicata, revocabile, diversa da quella di amministratore. Procedura in docs/moduli.md.</p>
-          <button type="button" class="ghost" id="pihole-test">Prova la connessione</button>
+          <p class="hint">{{ _("In Pi-hole: Impostazioni → Interfaccia web / API → modalità") }} <em>{{ _("Esperto") }}</em> → <em>{{ _("Configura password per le app") }}</em>{{ _(". È una password dedicata, revocabile, diversa da quella di amministratore. Procedura in docs/moduli.md.") }}</p>
+          <button type="button" class="ghost" id="pihole-test">{{ _("Prova la connessione") }}</button>
         </fieldset>
         <fieldset>
-          <legend>Eventi sui grafici</legend>
-          <label class="switch"><input type="checkbox" data-key="ui.events"><span>Mostra gli eventi sui grafici (riavvii, interruzioni, cambi di IP, servizi, avvisi)</span></label>
+          <legend>{{ _("Eventi sui grafici") }}</legend>
+          <label class="switch"><input type="checkbox" data-key="ui.events"><span>{{ _("Mostra gli eventi sui grafici (riavvii, interruzioni, cambi di IP, servizi, avvisi)") }}</span></label>
         </fieldset>
-        <div class="form-actions"><button type="submit">Salva moduli</button></div>
+        <div class="form-actions"><button type="submit">{{ _("Salva moduli") }}</button></div>
       </form>
     </div>
 
     <!-- ============================== SERVIZI -->
     <div data-subpanel="set:servizi" hidden>
       <div class="services-toolbar">
-        <input type="search" id="svc-search" placeholder="Cerca un servizio" aria-label="Cerca un servizio">
-        <label class="switch"><input type="checkbox" id="svc-only"><span>Solo monitorati</span></label>
+        <input type="search" id="svc-search" placeholder="{{ _("Cerca un servizio") }}" aria-label="{{ _("Cerca un servizio") }}">
+        <label class="switch"><input type="checkbox" id="svc-only"><span>{{ _("Solo monitorati") }}</span></label>
         <small id="svc-count"></small>
       </div>
-      <p class="hint">Le modifiche si salvano subito. <em>Avvisami</em> invia una notifica quando il servizio si ferma e quando riparte (controllo ogni 5 minuti, canali scelti nella scheda Notifiche).</p>
+      <p class="hint">{{ _("Le modifiche si salvano subito.") }} <em>{{ _("Avvisami") }}</em> {{ _("invia una notifica quando il servizio si ferma e quando riparte (controllo ogni 5 minuti, canali scelti nella scheda Notifiche).") }}</p>
       <div class="scroll table-tall">
         <table class="data" id="svc-table">
-          <thead><tr><th>Stato</th><th>Servizio</th><th>Etichetta</th><th>Monitora</th><th>Avvisami</th><th>Ordine</th></tr></thead>
+          <thead><tr><th>{{ _("Stato") }}</th><th>{{ _("Servizio") }}</th><th>{{ _("Etichetta") }}</th><th>{{ _("Monitora") }}</th><th>{{ _("Avvisami") }}</th><th>{{ _("Ordine") }}</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

@@ -25,6 +25,7 @@ Versione 2.0: riscrittura completa della 1.x (`pws/`), vedi
 | Certificato HTTPS | CA privata (mkcert): dashboard senza avvisi su PC e Android | [certificato.md](docs/certificato.md) |
 | Moduli opzionali | Docker e Pi-hole: compaiono solo se presenti, visibilità configurabile | [moduli.md](docs/moduli.md) |
 | Eventi sui grafici | Riavvii, interruzioni, cambi di IP, servizi, container, avvisi sulle linee del tempo | [eventi.md](docs/eventi.md) |
+| Lingue | Italiano e inglese, selettore IT / EN nella dashboard | [traduzioni.md](docs/traduzioni.md) |
 | Verifiche e diagnosi | Test prima dell'installazione, diagnosi dopo, controllo dello schema, GitHub Actions | [verifiche.md](docs/verifiche.md) |
 | IP pubblico | Controllo ogni 15 minuti, storico e avviso al cambio | [ip-pubblico.md](docs/ip-pubblico.md) |
 | Notifiche | Email, Telegram e WhatsApp a cambio di stato, instradabili per evento | [notifiche.md](docs/notifiche.md) |

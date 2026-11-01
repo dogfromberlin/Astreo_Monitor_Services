@@ -459,3 +459,8 @@ td.warn { color: var(--warn); }
   #docker-table td, #modules-table td { border: none; padding: .1rem 0; white-space: normal; text-align: left !important; }
   #docker-table td::before, #modules-table td::before { content: attr(data-label); display: block; font-size: .7rem; color: var(--off); }
 }
+
+/* 3.0 - selettore della lingua */
+.lang-switch { margin-left: auto; display: inline-flex; gap: .25rem; }
+.lang-switch button { padding: .1rem .45rem; font-size: .75rem; border: 1px solid var(--line); background: transparent; color: var(--off); border-radius: 4px; }
+.lang-switch button.active { color: var(--strong); border-color: var(--ok); }

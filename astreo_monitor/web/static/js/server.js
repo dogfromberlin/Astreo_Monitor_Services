@@ -1,7 +1,7 @@
 /* Astreo Monitor - vista Server: risorse in tempo reale, servizi, storico. */
 (() => {
   "use strict";
-  const { $, $$, api, el, row, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtUptime, level, C, PALETTE, drawChart, ds, every } = window.AM;
+  const { t, $, $$, api, el, row, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtUptime, level, C, PALETTE, drawChart, ds, every } = window.AM;
   const REFRESH = { system: 10_000, processes: 10_000, services: 60_000, temps: 60_000, network: 300_000, history: 300_000 };
   const state = { range: "24h", custom: null };
 
@@ -21,11 +21,11 @@
       $("#hostname").textContent = s.hostname;
       $("#uptime").textContent = fmtUptime(s.uptime.uptime_s);
       $("#last-update").textContent = fmtTime();
-      setGauge("#g-cpu", s.cpu_pct, level(s.cpu_pct, 70, 90), `load ${s.load.load1} / ${s.load.load5} / ${s.load.load15} su ${s.load.cpu_count} core`);
+      setGauge("#g-cpu", s.cpu_pct, level(s.cpu_pct, 70, 90), t("load {p0} / {p1} / {p2} su {p3} core", { p0: s.load.load1, p1: s.load.load5, p2: s.load.load15, p3: s.load.cpu_count }));
       const m = s.memory;
-      setGauge("#g-mem", m.used_pct, level(m.used_pct, 80, 92), `${fmtGB(m.used_mb)} di ${fmtGB(m.total_mb)}, swap ${fmtNum(m.swap_used_pct)}%`);
+      setGauge("#g-mem", m.used_pct, level(m.used_pct, 80, 92), t("{p0} di {p1}, swap {p2}%", { p0: fmtGB(m.used_mb), p1: fmtGB(m.total_mb), p2: fmtNum(m.swap_used_pct) }));
       const root = s.disks.find((d) => d.mountpoint === "/") || {};
-      setGauge("#g-disk", s.root_disk_pct, level(s.root_disk_pct, 85, 95), root.free_mb !== undefined ? `${fmtGB(root.free_mb)} liberi` : "");
+      setGauge("#g-disk", s.root_disk_pct, level(s.root_disk_pct, 85, 95), root.free_mb !== undefined ? t("{p0} liberi", { p0: fmtGB(root.free_mb) }) : "");
       const tb = $("#disks tbody");
       tb.replaceChildren(...s.disks.map((d) => row([
         { text: d.mountpoint, title: `${d.device} (${d.fstype})` },
@@ -40,26 +40,26 @@
     try {
       const list = await api("/api/v1/processes?limit=15");
       $("#processes tbody").replaceChildren(...list.map((p) => row([
-        { text: p.pid, cls: "num", label: "PID" }, { text: p.user || "", label: "Utente" },
+        { text: p.pid, cls: "num", label: "PID" }, { text: p.user || "", label: t("Utente") },
         { text: fmtNum(p.cpu_pct), cls: "num", label: "CPU %" }, { text: fmtNum(p.mem_pct), cls: "num", label: "RAM %" },
-        { text: p.rss_mb, cls: "num", label: "RSS MB" }, { text: p.command, cls: "cmd", title: p.command, label: "Comando" },
+        { text: p.rss_mb, cls: "num", label: "RSS MB" }, { text: p.command, cls: "cmd", title: p.command, label: t("Comando") },
       ])));
     } catch (e) { console.error("processes", e); }
   }
 
   async function loadTemperatures() {
     try {
-      const t = await api("/api/v1/temperatures");
-      state.temps = { warning: t.warning, alert: t.alert };
-      const sensors = t.sensors || [];
+      const temp = await api("/api/v1/temperatures");
+      state.temps = { warning: temp.warning, alert: temp.alert };
+      const sensors = temp.sensors || [];
       $("#temperatures tbody").replaceChildren(...sensors.map((s) => row([
         { text: `${s.device}`, title: s.adapter },
-        { text: fmtNum(s.value), cls: `num ${level(s.value, t.warning, t.alert)}` },
+        { text: fmtNum(s.value), cls: `num ${level(s.value, temp.warning, temp.alert)}` },
         { text: s.high ? fmtNum(s.high, 0) : "–", cls: "num" },
       ])));
       if (sensors.length) {
         const hot = sensors.reduce((a, b) => (b.value > a.value ? b : a));
-        setGauge("#g-temp", hot.value, level(hot.value, t.warning, t.alert), `${hot.device}, soglia ${t.warning} °C`);
+        setGauge("#g-temp", hot.value, level(hot.value, temp.warning, temp.alert), t("{p0}, soglia {p1} °C", { p0: hot.device, p1: temp.warning }));
       }
     } catch (e) { console.error("temperatures", e); }
   }
@@ -76,8 +76,8 @@
       $("#leds").replaceChildren(...leds);
       const down = list.filter((s) => !s.up);
       $("#svc-summary-text").textContent = down.length
-        ? `${down.length} ${down.length === 1 ? "servizio fermo" : "servizi fermi"} su ${list.length}`
-        : `${list.length}/${list.length} servizi attivi`;
+        ? t("{p0} {p1} su {p2}", { p0: down.length, p1: down.length === 1 ? t("servizio fermo") : t("servizi fermi"), p2: list.length })
+        : t("{p0}/{p1} servizi attivi", { p0: list.length, p1: list.length });
       $("#svc-summary-led").className = `led ${down.length ? "down" : "up"}`;
       $("#services").replaceChildren(...list.map((s) => {
         const li = el("li", { class: s.up ? "up" : "down" });
@@ -98,7 +98,7 @@
     dlg.showModal();
     try {
       const d = await api(`/api/v1/services/${encodeURIComponent(s.unit)}`);
-      $("#service-dialog-body").textContent = d.detail || "(nessun output)";
+      $("#service-dialog-body").textContent = d.detail || t("(nessun output)");
     } catch (e) { $("#service-dialog-body").textContent = `Errore: ${e.message}`; }
   }
 
@@ -107,20 +107,20 @@
       const n = await api("/api/v1/network");
       if (n.public_ip && n.public_ip.ip) {
         $("#public-ip").textContent = n.public_ip.ip;
-        $("#public-ip-since").textContent = `dal ${fmtDateTime(n.public_ip.since)}`;
+        $("#public-ip-since").textContent = t("dal {p0}", { p0: fmtDateTime(n.public_ip.since) });
       }
       if (n.speedtest) {
         const st = n.speedtest;
         $("#speed-latest").textContent = `↓ ${fmtNum(st.download_mbps, 0)}  ↑ ${fmtNum(st.upload_mbps, 0)} Mbps`;
-        $("#speed-latest-when").textContent = `${st.status} alle ${fmtDateTime(st.timestamp)}`;
+        $("#speed-latest-when").textContent = t("{p0} alle {p1}", { p0: st.status, p1: fmtDateTime(st.timestamp) });
       }
       if (n.backup) {
         const b = n.backup;
         const total = (b.databases || []).reduce((a, d) => a + d.zst_bytes, 0);
         const el = $("#backup-latest");
-        el.textContent = b.status === "OK" ? `${(b.databases || []).length} DB, ${fmtNum(total / 1048576, 1)} MB` : "Fallito";
+        el.textContent = b.status === "OK" ? `${(b.databases || []).length} DB, ${fmtNum(total / 1048576, 1)} MB` : t("Fallito");
         el.style.color = b.status === "OK" ? "" : C("--alert");
-        $("#backup-latest-when").textContent = `${b.status} alle ${fmtDateTime(b.time)}`;
+        $("#backup-latest-when").textContent = t("{p0} alle {p1}", { p0: b.status, p1: fmtDateTime(b.time) });
         if (b.errors && b.errors.length) el.title = b.errors.join("\n");
       }
       $("#ip-history tbody").replaceChildren(...(n.public_ip_history || []).map((h) => row([
@@ -139,7 +139,7 @@
     const err = $("#history-error");
     err.hidden = true;
     try {
-      const [m, t, s, evs] = await Promise.all([
+      const [m, tm, s, evs] = await Promise.all([
         api(`/api/v1/history/metrics?${q}`),
         api(`/api/v1/history/temperatures?${q}`),
         api(`/api/v1/history/speedtest?${q}`),
@@ -153,14 +153,14 @@
         ds("CPU % picco", m.cpu_max, C("--warn"), { borderDash: [4, 3] }),
         ds("Load 1 min", m.load1, C("--accent2"), { yAxisID: "y1" }),
       ], { max: 100, extra: { y1: { position: "right", beginAtZero: true, grid: { drawOnChartArea: false } } } }, meta(m.labels));
-      drawChart("chart-mem", L(m.labels), [ds("RAM %", m.mem, C("--accent2")), ds("Disco / %", m.disk, C("--sage"))], { max: 100 }, meta(m.labels));
-      drawChart("chart-temp", L(t.labels), Object.entries(t.series).map(([name, values], i) => ds(name, values, PALETTE[i % PALETTE.length])), { beginAtZero: false }, meta(t.labels));
+      drawChart("chart-mem", L(m.labels), [ds("RAM %", m.mem, C("--accent2")), ds(t("Disco / %"), m.disk, C("--sage"))], { max: 100 }, meta(m.labels));
+      drawChart("chart-temp", L(tm.labels), Object.entries(tm.series).map(([name, values], i) => ds(name, values, PALETTE[i % PALETTE.length])), { beginAtZero: false }, meta(tm.labels));
       drawChart("chart-speed", L(s.labels), [
-        ds("Download Mbps", s.download, C("--ok"), { pointRadius: 2, tension: 0 }),
-        ds("Upload Mbps", s.upload, C("--accent2"), { pointRadius: 2, tension: 0 }),
+        ds(t("Download Mbps"), s.download, C("--ok"), { pointRadius: 2, tension: 0 }),
+        ds(t("Upload Mbps"), s.upload, C("--accent2"), { pointRadius: 2, tension: 0 }),
       ], {}, meta(s.labels));
     } catch (e) {
-      err.textContent = `Storico non disponibile: ${e.message}`;
+      err.textContent = t("Storico non disponibile: {p0}", { p0: e.message });
       err.hidden = false;
     }
   }
@@ -177,7 +177,7 @@
     ev.preventDefault();
     const f = new FormData(ev.target);
     if (f.get("from") >= f.get("to")) {
-      $("#history-error").textContent = "La data di fine deve essere successiva a quella di inizio.";
+      $("#history-error").textContent = t("La data di fine deve essere successiva a quella di inizio.");
       $("#history-error").hidden = false;
       return;
     }
@@ -204,29 +204,29 @@
       const [n, e, h, hc] = await Promise.all([api("/api/v1/network"), api("/api/v1/expiry"), api("/api/v1/heartbeat"),
                                                 api("/api/v1/health-checks")]);
       const c = n.connectivity;
-      items.push(c ? check("Connessione (ping)", c.status, c.status === "OK" ? "regolare" : c.status === "DOWN" ? "assente" : "degradata",
+      items.push(c ? check(t("Connessione (ping)"), c.status, c.status === "OK" ? t("regolare") : c.status === "DOWN" ? t("assente") : t("degradata"),
                            `${c.text} — ${fmtDateTime(c.time)}`)
-                   : check("Connessione (ping)", "UNKNOWN", "nessun dato", "il controllo continuo non ha ancora registrato misure"));
-      items.push(h && h.time ? check("Heartbeat esterno", h.ok ? "OK" : "ALERT", h.ok ? "inviato" : "non inviato",
-                                     `${h.ok ? "" : `${h.error} — `}ultimo alle ${fmtDateTime(h.time)}`)
-                             : check("Heartbeat esterno", "UNKNOWN", "non configurato", "Impostazioni → Notifiche → Heartbeat esterno"));
+                   : check(t("Connessione (ping)"), "UNKNOWN", t("nessun dato"), t("il controllo continuo non ha ancora registrato misure")));
+      items.push(h && h.time ? check(t("Heartbeat esterno"), h.ok ? "OK" : "ALERT", h.ok ? "inviato" : t("non inviato"),
+                                     (h.ok ? "" : `${h.error} — `) + t("ultimo alle {p0}", { p0: fmtDateTime(h.time) }))
+                             : check(t("Heartbeat esterno"), "UNKNOWN", t("non configurato"), t("Impostazioni → Notifiche → Heartbeat esterno")));
       (e.items || []).forEach((it) => items.push(check(it.name, it.status,
-        it.note || (it.days === null ? "non verificabile" : `${Math.floor(it.days)} giorni`),
-        it.error || (it.expires ? `scade il ${new Date(it.expires).toLocaleDateString("it-IT")}` : ""))));
-      if (!(e.items || []).length) items.push(check("Scadenze", "UNKNOWN", "nessun dato", "il controllo gira ogni giorno alle 09:00"));
+        it.note || (it.days === null ? t("non verificabile") : t("{p0} giorni", { p0: Math.floor(it.days) })),
+        it.error || (it.expires ? t("scade il {p0}", { p0: new Date(it.expires).toLocaleDateString(window.AM.LOCALE) }) : ""))));
+      if (!(e.items || []).length) items.push(check(t("Scadenze"), "UNKNOWN", t("nessun dato"), t("il controllo gira ogni giorno alle 09:00")));
       const health = hc.health || {};
-      (health.disks || []).forEach((d) => items.push(check(`Disco ${d.device}`, d.status,
-        d.status === "OK" ? "in salute" : d.status === "UNKNOWN" ? "non verificabile" : d.status.toLowerCase(),
-        [d.model, d.temperature != null ? `${d.temperature} °C` : null, d.wear_used_pct != null ? `usura ${d.wear_used_pct}%` : null,
+      (health.disks || []).forEach((d) => items.push(check(t("Disco {p0}", { p0: d.device }), d.status,
+        d.status === "OK" ? t("in salute") : d.status === "UNKNOWN" ? t("non verificabile") : d.status.toLowerCase(),
+        [d.model, d.temperature != null ? `${d.temperature} °C` : null, d.wear_used_pct != null ? t("usura {p0}%", { p0: d.wear_used_pct }) : null,
          ...(d.reasons || [])].filter(Boolean).join(" — "))));
-      if (!(health.disks || []).length) items.push(check("Dischi (SMART)", "UNKNOWN", "nessun dato", "astreo-smart-collect.timer attivo?"));
+      if (!(health.disks || []).length) items.push(check(t("Dischi (SMART)"), "UNKNOWN", t("nessun dato"), t("astreo-smart-collect.timer attivo?")));
       const u = health.updates;
-      if (u) items.push(check("Aggiornamenti", u.status, u.status === "OK" ? "nessuno urgente" : `${(u.security || []).length} di sicurezza`,
-        `${u.total} in sospeso${u.reboot && u.reboot.required ? " — riavvio richiesto" : ""}`));
+      if (u) items.push(check(t("Aggiornamenti"), u.status, u.status === "OK" ? t("nessuno urgente") : t("{p0} di sicurezza", { p0: (u.security || []).length }),
+        t("{p0} in sospeso{p1}", { p0: u.total, p1: u.reboot && u.reboot.required ? " — riavvio richiesto" : "" })));
       const rt = hc.restoretest;
-      items.push(rt ? check("Verifica ripristino", rt.status, rt.status === "OK" ? "riuscita" : "fallita",
+      items.push(rt ? check(t("Verifica ripristino"), rt.status, rt.status === "OK" ? t("riuscita") : t("fallita"),
                             `${(rt.results || []).map((r) => `${r.database}: ${r.status === "OK" ? `${r.rows} righe` : r.error}`).join(" — ")} — ${fmtDateTime(rt.time)}`)
-                    : check("Verifica ripristino", "UNKNOWN", "mai eseguita", "una volta al mese, la prima domenica"));
+                    : check(t("Verifica ripristino"), "UNKNOWN", t("mai eseguita"), t("una volta al mese, la prima domenica")));
       $("#checks").replaceChildren(...items);
     } catch (err) { console.error("checks", err); }
   }

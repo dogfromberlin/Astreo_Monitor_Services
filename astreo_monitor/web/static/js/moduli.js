@@ -1,7 +1,7 @@
 /* Astreo Monitor - moduli opzionali (Docker, Pi-hole) ed elenchi degli eventi. */
 (() => {
   "use strict";
-  const { $, $$, api, el, row, fmtNum, fmtDateTime, fmtFull, every, eventState, EVENT_COLOR } = window.AM;
+  const { t, $, $$, api, el, row, fmtNum, fmtDateTime, fmtFull, every, eventState, EVENT_COLOR } = window.AM;
   const mods = { list: [] };
 
   // ------------------------------------------------------------ moduli
@@ -31,10 +31,10 @@
         const led = el("span", { class: `led ${c.state === "running" ? "up" : "down"}` });
         const name = el("div"); name.append(led, document.createTextNode(` ${c.name}`));
         return row([
-          { node: name, label: "Container" }, { text: c.image, label: "Immagine", cls: "cmd", title: c.image },
-          { text: c.status + (c.health ? ` (${c.health})` : ""), label: "Stato", cls: c.state === "running" ? "" : "alert" },
-          { text: c.cpu || "–", cls: "num", label: "CPU" }, { text: c.mem || "–", label: "Memoria" },
-          { text: c.restart_count, cls: `num ${c.restart_count ? "warn" : ""}`, label: "Riavvii" },
+          { node: name, label: t("Container") }, { text: c.image, label: t("Immagine"), cls: "cmd", title: c.image },
+          { text: c.status + (c.health ? ` (${c.health})` : ""), label: t("Stato"), cls: c.state === "running" ? "" : "alert" },
+          { text: c.cpu || "–", cls: "num", label: "CPU" }, { text: c.mem || "–", label: t("Memoria") },
+          { text: c.restart_count, cls: `num ${c.restart_count ? "warn" : ""}`, label: t("Riavvii") },
         ]);
       }));
     } catch (e) { console.error("docker", e); }
@@ -56,19 +56,19 @@
       msg.hidden = true;
       if (!d.configured || d.error) {
         $("#pihole-stats").replaceChildren();
-        msg.textContent = d.error ? `Pi-hole non leggibile: ${d.error}` : "Imposta la password per le app in Impostazioni → Moduli per vedere le statistiche.";
+        msg.textContent = d.error ? t("Pi-hole non leggibile: {p0}", { p0: d.error }) : t("Imposta la password per le app in Impostazioni → Moduli per vedere le statistiche.");
         msg.hidden = false;
         return;
       }
       const on = d.blocking === "enabled";
-      $("#pihole-info").textContent = on ? "blocco attivo" : `blocco ${d.blocking}`;
+      $("#pihole-info").textContent = on ? t("blocco attivo") : `blocco ${d.blocking}`;
       $("#pihole-info").className = on ? "" : "warn-text";
       const upd = d.gravity_updated ? fmtDateTime(new Date(d.gravity_updated * 1000).toISOString()) : "–";
       $("#pihole-stats").replaceChildren(
-        stat("Richieste oggi", fmtNum(d.queries_total, 0), `${fmtNum(d.unique_domains, 0)} domini diversi`),
-        stat("Bloccate", fmtNum(d.queries_blocked, 0), `${fmtNum(d.percent_blocked, 1)}%`),
-        stat("Client attivi", fmtNum(d.clients_active, 0), `su ${fmtNum(d.clients_total, 0)}`),
-        stat("Domini in blocco", fmtNum(d.domains_blocked, 0), `liste aggiornate ${upd}`),
+        stat(t("Richieste oggi"), fmtNum(d.queries_total, 0), t("{p0} domini diversi", { p0: fmtNum(d.unique_domains, 0) })),
+        stat(t("Bloccate"), fmtNum(d.queries_blocked, 0), `${fmtNum(d.percent_blocked, 1)}%`),
+        stat(t("Client attivi"), fmtNum(d.clients_active, 0), t("su {p0}", { p0: fmtNum(d.clients_total, 0) })),
+        stat(t("Domini in blocco"), fmtNum(d.domains_blocked, 0), t("liste aggiornate {p0}", { p0: upd })),
         stat("Da cache / inoltrate", `${fmtNum(d.cached, 0)} / ${fmtNum(d.forwarded, 0)}`),
       );
     } catch (e) { console.error("pihole", e); }
@@ -100,7 +100,7 @@
       li.style.setProperty("--chip", EVENT_COLOR[e.kind] || "#e8b85c");
       li.append(el("time", {}, fmtFull(e.time)), el("strong", {}, e.title), el("span", {}, e.detail || ""));
       return li;
-    }) : [el("li", { class: "empty" }, events.length ? "Tutti gli eventi sono nascosti dai filtri." : "Nessun evento nel periodo.")]));
+    }) : [el("li", { class: "empty" }, events.length ? t("Tutti gli eventi sono nascosti dai filtri.") : t("Nessun evento nel periodo."))]));
     panel.$events = events;
   }
   document.addEventListener("events-filter", () => {

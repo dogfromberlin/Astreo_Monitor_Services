@@ -119,6 +119,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "notify.telegram.chat_id": Spec(str, "", label="Chat ID"),
         "telegram.commands": Spec(bool, False, label="Rispondi ai comandi (/stato, /speedtest, ...)"),
         # --- moduli: visibilità nella dashboard (compaiono solo se rilevati sul server)
+        "ui.language": Spec(str, "it", label="Lingua", choices=("it", "en")),
         "ui.docker": Spec(bool, True, label="Mostra la sezione Docker"),
         "ui.pihole": Spec(bool, True, label="Mostra la sezione Pi-hole"),
         "ui.events": Spec(bool, True, label="Mostra gli eventi sui grafici"),
@@ -323,12 +324,14 @@ def mask(value: str) -> str:
     return "••••" + value[-4:] if len(value) > 6 else "••••"
 
 
-def public_view(cfg: Config, values: dict[str, Any]) -> dict:
+def public_view(cfg: Config, values: dict[str, Any], lang: str = "it") -> dict:
     """Versione da mostrare nella dashboard: segreti mascherati, più i metadati dei campi."""
     spec = build_spec(cfg)
     out_values = {k: (mask(v) if spec[k].secret else v) for k, v in values.items()}
     meta = {k: {"type": sp.type.__name__, "min": sp.min, "max": sp.max, "secret": sp.secret, "label": sp.label,
                 "choices": list(sp.choices) if sp.choices else None, "kind": sp.kind}
             for k, sp in spec.items()}
-    return {"values": out_values, "meta": meta, "channels": list(CHANNELS), "sources": SOURCES,
-            "policy_sources": {k: SOURCES[k] for k in POLICY_SOURCES}}
+    from . import i18n
+    sources = {k: i18n.t(v, lang) for k, v in SOURCES.items()}
+    return {"values": out_values, "meta": meta, "channels": list(CHANNELS), "sources": sources,
+            "policy_sources": {k: sources[k] for k in POLICY_SOURCES}}

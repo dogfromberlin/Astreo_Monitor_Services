@@ -11,7 +11,7 @@ from flask import Flask, Response, abort, jsonify, redirect, render_template, re
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
-from .. import __version__, db, events, heartbeat, integrations, notifier, schema, services_store
+from .. import __version__, db, events, heartbeat, i18n, integrations, notifier, schema, services_store
 from ..integrations import docker as docker_mod
 from ..integrations import pihole as pihole_mod
 from .. import settings as settings_mod
@@ -89,6 +89,36 @@ def create_app(cfg: Config) -> Flask:
         return schema_state["problems"]
 
     schema_problems(force=True)
+
+    # --- lingua dell'interfaccia (impostazione ui.language, letta al massimo ogni 30 secondi)
+    lang_state = {"checked": 0.0, "lang": i18n.DEFAULT}
+
+    def current_language() -> str:
+        if time.time() - lang_state["checked"] > 30:
+            try:
+                with db.connect(cfg.database) as conn:
+                    lang_state["lang"] = i18n.normalize(settings_mod.load(conn, cfg)["ui.language"])
+            except Exception:  # noqa: BLE001
+                pass
+            lang_state["checked"] = time.time()
+        return lang_state["lang"]
+
+    def service_user() -> str:
+        import getpass
+        return getpass.getuser()
+
+    @app.context_processor
+    def _i18n():
+        lang = current_language()
+        return {"_": lambda text, **kw: i18n.t(text, lang, **kw)}
+
+    @app.post("/api/v1/language")
+    def api_language():
+        lang = i18n.normalize((request.get_json(silent=True) or {}).get("lang"))
+        with db.connect(cfg.database) as conn:
+            settings_mod.save(conn, cfg, {"ui.language": lang})
+        lang_state.update(lang=lang, checked=time.time())
+        return jsonify({"lang": lang})
     # Chiave di firma della sessione (sblocco del terminale): nuova a ogni avvio,
     # quindi un riavvio della dashboard richiude il terminale.
     app.secret_key = secrets.token_bytes(32)
@@ -177,7 +207,9 @@ def create_app(cfg: Config) -> Flask:
     # ------------------------------------------------------------- dashboard
     @app.get("/")
     def dashboard():
-        return render_template("index.html", version=__version__)
+        lang = current_language()
+        return render_template("index.html", version=__version__, lang=lang, languages=i18n.LANGUAGES,
+                               catalog=i18n.catalog(lang), service_user=service_user())
 
     @app.get("/astreomonitor")  # vecchio indirizzo, mantenuto per i preferiti
     def legacy_dashboard():
@@ -292,14 +324,14 @@ def create_app(cfg: Config) -> Flask:
     @app.get("/api/v1/settings")
     def api_settings():
         with db.connect(cfg.database) as conn:
-            return jsonify(settings_mod.public_view(cfg, settings_mod.load(conn, cfg)))
+            return jsonify(settings_mod.public_view(cfg, settings_mod.load(conn, cfg), current_language()))
 
     @app.put("/api/v1/settings")
     def api_settings_update():
         with db.connect(cfg.database) as conn:
             values = settings_mod.save(conn, cfg, body())
             log.info("Impostazioni aggiornate da %s", request.remote_addr)
-            return jsonify(settings_mod.public_view(cfg, values))
+            return jsonify(settings_mod.public_view(cfg, values, current_language()))
 
     @app.post("/api/v1/notify/test")
     def api_notify_test():
@@ -463,7 +495,7 @@ def create_app(cfg: Config) -> Flask:
         start, end = parse_period()
         with db.connect(cfg.database) as conn:
             outages = history.connectivity(conn, start, end)["outages"]
-            return jsonify({"events": events.list_events(conn, start, end, outages), "kinds": events.KINDS})
+            return jsonify({"events": events.list_events(conn, start, end, outages), "kinds": {k: i18n.t(v, current_language()) for k, v in events.KINDS.items()}})
 
     @app.get("/api/v1/heartbeat")
     def api_heartbeat():

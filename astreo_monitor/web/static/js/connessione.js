@@ -1,7 +1,7 @@
 /* Astreo Monitor - vista Connessione (ex NetPulse): andamento, qualità, confronto. */
 (() => {
   "use strict";
-  const { $, $$, api, el, row, fmtNum, fmtDateTime, fmtFull, fmtDuration, toLocalInput, C, drawChart, ds, constLine, toast } = window.AM;
+  const { t, $, $$, api, el, row, fmtNum, fmtDateTime, fmtFull, fmtDuration, toLocalInput, C, drawChart, ds, constLine, toast } = window.AM;
   const state = { range: "7d", custom: null, data: null };
   const DOWN = C("--ok"), UP = C("--accent2");
 
@@ -34,7 +34,7 @@
       $("#compare-result").hidden = true;
       loadAvailability();
     } catch (e) {
-      err.textContent = `Dati non disponibili: ${e.message}`;
+      err.textContent = t("Dati non disponibili: {p0}", { p0: e.message });
       err.hidden = false;
     }
   }
@@ -51,34 +51,34 @@
   }
 
   function renderAndamento() {
-    const { rows, thresholds: t } = state.data;
+    const { rows, thresholds: th } = state.data;
     const dl = values(rows, "download"), ul = values(rows, "upload"), lat = values(rows, "latency");
     const down = rows.filter((r) => r.status === "DOWN").length;
     $("#conn-stats").replaceChildren(
-      stat("Download medio", fmtNum(avg(dl), 0), "Mbps", `minimo ${fmtNum(min(dl), 0)}`),
-      stat("Download massimo", fmtNum(max(dl), 0), "Mbps"),
-      stat("Upload medio", fmtNum(avg(ul), 0), "Mbps", `minimo ${fmtNum(min(ul), 0)}`),
-      stat("Upload massimo", fmtNum(max(ul), 0), "Mbps"),
-      stat("Latenza media", fmtNum(avg(lat), 0), "ms"),
-      stat("Misure", String(rows.length), "", down ? `${down} con connessione assente` : "nessuna interruzione"),
+      stat(t("Download medio"), fmtNum(avg(dl), 0), "Mbps", `minimo ${fmtNum(min(dl), 0)}`),
+      stat(t("Download massimo"), fmtNum(max(dl), 0), "Mbps"),
+      stat(t("Upload medio"), fmtNum(avg(ul), 0), "Mbps", `minimo ${fmtNum(min(ul), 0)}`),
+      stat(t("Upload massimo"), fmtNum(max(ul), 0), "Mbps"),
+      stat(t("Latenza media"), fmtNum(avg(lat), 0), "ms"),
+      stat(t("Misure"), String(rows.length), "", down ? t("{p0} con connessione assente", { p0: down }) : t("nessuna interruzione")),
     );
     const labels = rows.map((r) => fmtDateTime(r.iso));
     const meta = { times: rows.map((r) => r.ts), events: state.data.events };
     drawChart("chart-conn-speed", labels, [
       ds("Download", rows.map((r) => r.download), DOWN, { pointRadius: 2, tension: 0 }),
       ds("Upload", rows.map((r) => r.upload), UP, { pointRadius: 2, tension: 0 }),
-      constLine(`Soglia download ${t.download_warning}`, t.download_warning, rows.length, DOWN),
-      constLine(`Soglia upload ${t.upload_warning}`, t.upload_warning, rows.length, UP),
+      constLine(t("Soglia download {p0}", { p0: th.download_warning }), th.download_warning, rows.length, DOWN),
+      constLine(t("Soglia upload {p0}", { p0: th.upload_warning }), th.upload_warning, rows.length, UP),
     ], {}, meta);
-    drawChart("chart-conn-latency", labels, [ds("Latenza", rows.map((r) => r.latency), C("--warn"), { pointRadius: 2, tension: 0 })], {}, meta);
+    drawChart("chart-conn-latency", labels, [ds(t("Latenza"), rows.map((r) => r.latency), C("--warn"), { pointRadius: 2, tension: 0 })], {}, meta);
 
     const last = [...rows].reverse().slice(0, 200);
     $("#conn-table tbody").replaceChildren(...last.map((r) => row([
-      { text: fmtFull(r.iso), label: "Quando" },
-      { text: fmtNum(r.download, 0), cls: `num ${r.download !== null && r.download < t.download_warning ? "warn" : ""}`, label: "Download" },
-      { text: fmtNum(r.upload, 0), cls: `num ${r.upload !== null && r.upload < t.upload_warning ? "warn" : ""}`, label: "Upload" },
-      { text: fmtNum(r.latency, 0), cls: "num", label: "Latenza" },
-      { label: "Esito", text: r.status || (r.provider === "legacy" ? "storico 1.x" : "–"),
+      { text: fmtFull(r.iso), label: t("Quando") },
+      { text: fmtNum(r.download, 0), cls: `num ${r.download !== null && r.download < th.download_warning ? "warn" : ""}`, label: "Download" },
+      { text: fmtNum(r.upload, 0), cls: `num ${r.upload !== null && r.upload < th.upload_warning ? "warn" : ""}`, label: "Upload" },
+      { text: fmtNum(r.latency, 0), cls: "num", label: t("Latenza") },
+      { label: t("Esito"), text: r.status || (r.provider === "legacy" ? "storico 1.x" : "–"),
         cls: r.status === "OK" ? "" : r.status === "WARNING" ? "warn" : r.status ? "alert" : "" },
     ])));
   }
@@ -94,29 +94,29 @@
       };
       const longest = d.outages.reduce((m, o) => (o.minutes > m ? o.minutes : m), 0);
       $("#avail-stats").replaceChildren(
-        stat("Disponibilità", d.availability === null ? "–" : fmtNum(d.availability, 2), d.availability === null ? "" : "%",
-             d.samples ? `${d.samples} controlli` : "nessun dato nel periodo"),
-        stat("Interruzioni", String(d.outages.length), "", d.down_minutes ? `${fmtDuration(d.down_minutes * 60000)} in totale` : "nessuna"),
-        stat("Più lunga", longest ? fmtDuration(longest * 60000) : "–", ""),
-        stat("Latenza router", fmtNum(avgOf("gateway"), 1), "ms"),
-        stat("Latenza Internet", fmtNum(avgOf("internet"), 1), "ms", `soglia ${d.thresholds.rtt_warning} ms`),
+        stat(t("Disponibilità"), d.availability === null ? "–" : fmtNum(d.availability, 2), d.availability === null ? "" : "%",
+             d.samples ? `${d.samples} controlli` : t("nessun dato nel periodo")),
+        stat(t("Interruzioni"), String(d.outages.length), "", d.down_minutes ? t("{p0} in totale", { p0: fmtDuration(d.down_minutes * 60000) }) : t("nessuna")),
+        stat(t("Più lunga"), longest ? fmtDuration(longest * 60000) : "–", ""),
+        stat(t("Latenza router"), fmtNum(avgOf("gateway"), 1), "ms"),
+        stat(t("Latenza Internet"), fmtNum(avgOf("internet"), 1), "ms", t("soglia {p0} ms", { p0: d.thresholds.rtt_warning })),
       );
       const labels = d.labels.map(fmtDateTime);
       const pal = window.AM.PALETTE;
       const meta = { times: d.labels.map((x) => Date.parse(x)), events: (state.data && state.data.events) || [] };
-      drawChart("chart-avail-rtt", labels, series.map(([t, x], i) =>
-        ds(x.role === "gateway" ? `${t} (router)` : t, x.rtt, pal[i % pal.length])), {}, meta);
+      drawChart("chart-avail-rtt", labels, series.map(([tgt, x], i) =>
+        ds(x.role === "gateway" ? `${tgt} (router)` : tgt, x.rtt, pal[i % pal.length])), {}, meta);
       drawChart("chart-avail-loss", labels, [
-        ...series.map(([t, x], i) => ds(x.role === "gateway" ? `${t} (router)` : t, x.loss, pal[i % pal.length])),
-        constLine(`Soglia ${d.thresholds.loss_warning}%`, d.thresholds.loss_warning, labels.length, C("--warn")),
+        ...series.map(([tgt, x], i) => ds(x.role === "gateway" ? `${tgt} (router)` : tgt, x.loss, pal[i % pal.length])),
+        constLine(t("Soglia {p0}%", { p0: d.thresholds.loss_warning }), d.thresholds.loss_warning, labels.length, C("--warn")),
       ], { max: 100 }, meta);
       $("#avail-outages tbody").replaceChildren(...[...d.outages].reverse().map((o) => row([
-        { text: fmtFull(o.start), label: "Inizio" }, { text: fmtFull(o.end), label: "Fine" },
-        { text: fmtDuration(o.minutes * 60000), cls: "num alert", label: "Durata" },
+        { text: fmtFull(o.start), label: t("Inizio") }, { text: fmtFull(o.end), label: t("Fine") },
+        { text: fmtDuration(o.minutes * 60000), cls: "num alert", label: t("Durata") },
       ])));
       $("#avail-empty").hidden = d.outages.length > 0;
     } catch (e) {
-      $("#avail-stats").replaceChildren(stat("Disponibilità", "–", "", `dati non disponibili: ${e.message}`));
+      $("#avail-stats").replaceChildren(stat(t("Disponibilità"), "–", "", t("dati non disponibili: {p0}", { p0: e.message })));
     }
   }
 
@@ -155,21 +155,22 @@
   function qualityBlock(target, title, key, thr) {
     const q = episodes(state.data.rows, key, thr);
     const box = $(target);
-    box.replaceChildren(el("h3", { class: "sub-title" }, `${title}: soglia ${thr} Mbps`));
-    if (!q) { box.append(el("p", { class: "hint" }, "Nessuna misura valida nel periodo.")); return; }
+    box.replaceChildren(el("h3", { class: "sub-title" }, t("{p0}: soglia {p1} Mbps", { p0: title, p1: thr })));
+    if (!q) { box.append(el("p", { class: "hint" }, t("Nessuna misura valida nel periodo."))); return; }
     const stats = el("div", { class: "stats" });
     stats.append(
-      stat("Episodi sotto soglia", String(q.list.length), "", q.list.length ? "" : "nessun calo"),
-      stat("Tempo sotto soglia", fmtDuration(q.sotto), "", `${q.nSotto} ${q.nSotto === 1 ? "misura" : "misure"} su ${q.n}`),
-      stat("Disponibilità", fmtNum(q.disponibilita, 1), "%"),
-      stat("Episodio più lungo", q.longest ? fmtDuration(q.longest.durata) : "–", "",
-           q.longest ? `dal ${fmtDateTime(new Date(q.longest.start).toISOString())}` : ""),
+      stat(t("Episodi sotto soglia"), String(q.list.length), "", q.list.length ? "" : t("nessun calo")),
+      stat(t("Tempo sotto soglia"), fmtDuration(q.sotto), "", t(q.nSotto === 1 ? "{p0} misura su {p1}" : "{p0} misure su {p1}", { p0: q.nSotto, p1: q.n })),
+      stat(t("Disponibilità"), fmtNum(q.disponibilita, 1), "%"),
+      stat(t("Episodio più lungo"), q.longest ? fmtDuration(q.longest.durata) : "–", "",
+           q.longest ? t("dal {p0}", { p0: fmtDateTime(new Date(q.longest.start).toISOString()) }) : ""),
     );
     box.append(stats);
     if (q.list.length) {
       const wrap = el("div", { class: "scroll" });
       const table = el("table", { class: "data" });
-      table.innerHTML = "<thead><tr><th>Inizio</th><th>Fine</th><th class='num'>Durata</th><th class='num'>Minimo (Mbps)</th><th class='num'>Misure</th></tr></thead>";
+      table.innerHTML = `<thead><tr><th>${t("Inizio")}</th><th>${t("Fine")}</th><th class='num'>${t("Durata")}</th>`
+        + `<th class='num'>${t("Minimo (Mbps)")}</th><th class='num'>${t("Misure")}</th></tr></thead>`;
       const tb = el("tbody");
       [...q.list].reverse().slice(0, 100).forEach((e) => tb.append(row([
         { text: fmtFull(new Date(e.start).toISOString()) }, { text: fmtFull(new Date(e.end).toISOString()) },
@@ -182,13 +183,13 @@
   }
 
   function renderQualita() {
-    const t = state.data.thresholds;
+    const th = state.data.thresholds;
     const step = medianStep(state.data.rows);
     $("#quality-hint").textContent =
-      `Un episodio è una sequenza di misure consecutive sotto la soglia di warning. Con una misura ogni ${fmtDuration(step)}, `
-      + "ogni campione rappresenta quell'intervallo: le durate vanno lette con questa granularità.";
-    qualityBlock("#quality-download", "Download", "download", t.download_warning);
-    qualityBlock("#quality-upload", "Upload", "upload", t.upload_warning);
+      t("Un episodio è una sequenza di misure consecutive sotto la soglia di warning. Con una misura ogni {p0}, ", { p0: fmtDuration(step) })
+      + t("ogni campione rappresenta quell'intervallo: le durate vanno lette con questa granularità.");
+    qualityBlock("#quality-download", "Download", "download", th.download_warning);
+    qualityBlock("#quality-upload", "Upload", "upload", th.upload_warning);
   }
 
   // -------------------------------------------------------------- confronto
@@ -211,19 +212,19 @@
     try {
       const d = await api(`/api/v1/history/speedtest?from=${encodeURIComponent(pFrom)}&to=${encodeURIComponent(pTo)}`);
       const prev = toRows(d), cur = state.data.rows;
-      if (!prev.length) { toast("Nessuna misura nel periodo di confronto", "error"); return; }
+      if (!prev.length) { toast(t("Nessuna misura nel periodo di confronto"), "error"); return; }
       const delta = (a, b) => (a !== null && b ? `${a >= b ? "+" : ""}${fmtNum(((a - b) / b) * 100, 1)}%` : "–");
       const rowsCmp = [
-        ["Download medio (Mbps)", avg(values(cur, "download")), avg(values(prev, "download"))],
-        ["Download massimo (Mbps)", max(values(cur, "download")), max(values(prev, "download"))],
-        ["Upload medio (Mbps)", avg(values(cur, "upload")), avg(values(prev, "upload"))],
-        ["Upload massimo (Mbps)", max(values(cur, "upload")), max(values(prev, "upload"))],
-        ["Latenza media (ms)", avg(values(cur, "latency")), avg(values(prev, "latency"))],
-        ["Misure", cur.length, prev.length],
+        [t("Download medio (Mbps)"), avg(values(cur, "download")), avg(values(prev, "download"))],
+        [t("Download massimo (Mbps)"), max(values(cur, "download")), max(values(prev, "download"))],
+        [t("Upload medio (Mbps)"), avg(values(cur, "upload")), avg(values(prev, "upload"))],
+        [t("Upload massimo (Mbps)"), max(values(cur, "upload")), max(values(prev, "upload"))],
+        [t("Latenza media (ms)"), avg(values(cur, "latency")), avg(values(prev, "latency"))],
+        [t("Misure"), cur.length, prev.length],
       ];
       $("#compare-table thead").innerHTML =
         `<tr><th></th><th class="num">${fmtFull(state.data.from)} → ${fmtFull(state.data.to)}</th>`
-        + `<th class="num">${fmtFull(d.from)} → ${fmtFull(d.to)}</th><th class="num">Differenza</th></tr>`;
+        + `<th class="num">${fmtFull(d.from)} → ${fmtFull(d.to)}</th><th class="num">${t("Differenza")}</th></tr>`;
       $("#compare-table tbody").replaceChildren(...rowsCmp.map(([l, a, b], i) => row([
         { text: l }, { text: fmtNum(a, i === 5 ? 0 : 1), cls: "num" }, { text: fmtNum(b, i === 5 ? 0 : 1), cls: "num" },
         { text: i === 5 ? "" : delta(a, b), cls: `num ${a !== null && b && a < b ? "warn" : ""}` },
@@ -232,21 +233,21 @@
       const labels = Array.from({ length: N }, (_, i) => fmtDateTime(new Date(start + (i + 0.5) * (span / N)).toISOString()));
       const pS = start - shift;
       drawChart("chart-cmp-down", labels, [
-        ds("Periodo selezionato", buckets(cur, start, span, N, "download"), DOWN),
-        ds("Periodo di confronto", buckets(prev, pS, span, N, "download"), C("--off"), { borderDash: [4, 3] }),
+        ds(t("Periodo selezionato"), buckets(cur, start, span, N, "download"), DOWN),
+        ds(t("Periodo di confronto"), buckets(prev, pS, span, N, "download"), C("--off"), { borderDash: [4, 3] }),
       ]);
       drawChart("chart-cmp-up", labels, [
-        ds("Periodo selezionato", buckets(cur, start, span, N, "upload"), UP),
-        ds("Periodo di confronto", buckets(prev, pS, span, N, "upload"), C("--off"), { borderDash: [4, 3] }),
+        ds(t("Periodo selezionato"), buckets(cur, start, span, N, "upload"), UP),
+        ds(t("Periodo di confronto"), buckets(prev, pS, span, N, "upload"), C("--off"), { borderDash: [4, 3] }),
       ]);
       $("#compare-result").hidden = false;
       Object.values(window.AM.charts).forEach((c) => c.resize());
-    } catch (e) { toast(`Confronto non riuscito: ${e.message}`, "error"); }
+    } catch (e) { toast(t("Confronto non riuscito: {p0}", { p0: e.message }), "error"); }
   }
 
   // ------------------------------------------------------------------- CSV
   function exportCsv() {
-    if (!state.data || !state.data.rows.length) { toast("Nessuna misura da esportare", "error"); return; }
+    if (!state.data || !state.data.rows.length) { toast(t("Nessuna misura da esportare"), "error"); return; }
     const n = (v) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
     const lines = ["timestamp;download_mbps;upload_mbps;latenza_ms;esito;origine"];
     state.data.rows.forEach((r) => lines.push([r.iso.replace("T", " "), n(r.download), n(r.upload), n(r.latency), r.status || "", r.provider].join(";")));
@@ -265,7 +266,7 @@
     $("#conn-custom").addEventListener("submit", (ev) => {
       ev.preventDefault();
       const f = new FormData(ev.target);
-      if (f.get("from") >= f.get("to")) { toast("La data di fine deve essere successiva a quella di inizio", "error"); return; }
+      if (f.get("from") >= f.get("to")) { toast(t("La data di fine deve essere successiva a quella di inizio"), "error"); return; }
       buttons.forEach((x) => x.classList.remove("active"));
       state.custom = { from: f.get("from"), to: f.get("to") }; load();
     });

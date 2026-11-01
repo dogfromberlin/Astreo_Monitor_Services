@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Astreo">
-  <title>Astreo Monitor</title>
+  <title>{{ _("Astreo Monitor") }}</title>
   <link rel="icon" href="{{ url_for('favicon') }}" sizes="any">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/icon-192.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
@@ -31,115 +31,115 @@
     <img class="logo-full" src="{{ url_for('static', filename='img/logo-full.png') }}" alt="Astreo Monitor" width="390" height="80">
     <img class="logo-mark" src="{{ url_for('static', filename='img/logo-mark.png') }}" alt="Astreo Monitor" width="52" height="36">
     <p class="host-meta">
-      <span>Server <strong id="hostname">–</strong></span>
-      <span>acceso da <strong id="uptime">–</strong></span>
-      <span>aggiornato alle <strong id="last-update">–</strong></span>
+      <span>{{ _("Server") }} <strong id="hostname">–</strong></span>
+      <span>{{ _("acceso da") }} <strong id="uptime">–</strong></span>
+      <span>{{ _("aggiornato alle") }} <strong id="last-update">–</strong></span>
     </p>
   </div>
   <div class="net">
     <div class="net-item">
-      <span class="net-label">IP pubblico</span>
+      <span class="net-label">{{ _("IP pubblico") }}</span>
       <strong id="public-ip">–</strong>
       <small id="public-ip-since"></small>
     </div>
     <div class="net-item">
-      <span class="net-label">Ultimo speedtest</span>
+      <span class="net-label">{{ _("Ultimo speedtest") }}</span>
       <strong id="speed-latest">–</strong>
       <small id="speed-latest-when"></small>
     </div>
     <div class="net-item">
-      <span class="net-label">Ultimo backup</span>
+      <span class="net-label">{{ _("Ultimo backup") }}</span>
       <strong id="backup-latest">–</strong>
       <small id="backup-latest-when"></small>
     </div>
   </div>
   <button type="button" class="svc-summary" id="svc-summary" aria-expanded="false" aria-controls="leds">
-    <span class="led" id="svc-summary-led" aria-hidden="true"></span><span id="svc-summary-text">Servizi</span>
+    <span class="led" id="svc-summary-led" aria-hidden="true"></span><span id="svc-summary-text">{{ _("Servizi") }}</span>
   </button>
-  <ul class="leds" id="leds" aria-label="Stato servizi"></ul>
-  <nav class="views" aria-label="Sezioni">
-    <a href="#server" data-view-link="server"><svg class="icon"><use href="#i-server"/></svg><span>Server</span></a>
-    <a href="#connessione" data-view-link="connessione"><svg class="icon"><use href="#i-net"/></svg><span>Connessione</span></a>
-    <a href="#impostazioni" data-view-link="impostazioni"><svg class="icon"><use href="#i-settings"/></svg><span>Impostazioni</span></a>
-    <a href="#terminale" data-view-link="terminale"><svg class="icon"><use href="#i-terminal"/></svg><span>Terminale</span></a>
+  <ul class="leds" id="leds" aria-label="{{ _("Stato servizi") }}"></ul>
+  <nav class="views" aria-label="{{ _("Sezioni") }}">
+    <a href="#server" data-view-link="server"><svg class="icon"><use href="#i-server"/></svg><span>{{ _("Server") }}</span></a>
+    <a href="#connessione" data-view-link="connessione"><svg class="icon"><use href="#i-net"/></svg><span>{{ _("Connessione") }}</span></a>
+    <a href="#impostazioni" data-view-link="impostazioni"><svg class="icon"><use href="#i-settings"/></svg><span>{{ _("Impostazioni") }}</span></a>
+    <a href="#terminale" data-view-link="terminale"><svg class="icon"><use href="#i-terminal"/></svg><span>{{ _("Terminale") }}</span></a>
   </nav>
 </header>
 
 <main>
 <div class="banner" id="schema-banner" role="alert" hidden></div>
 <div class="view" data-view="server">
-  <section class="gauges" aria-label="Risorse in tempo reale">
+  <section class="gauges" aria-label="{{ _("Risorse in tempo reale") }}">
     <article class="gauge" id="g-cpu">
-      <h2>CPU</h2><p class="value"><span>–</span>%</p>
-      <div class="bar"><i></i></div><p class="sub" id="g-cpu-sub">load –</p>
+      <h2>{{ _("CPU") }}</h2><p class="value"><span>–</span>%</p>
+      <div class="bar"><i></i></div><p class="sub" id="g-cpu-sub">{{ _("load –") }}</p>
     </article>
     <article class="gauge" id="g-mem">
-      <h2>Memoria</h2><p class="value"><span>–</span>%</p>
+      <h2>{{ _("Memoria") }}</h2><p class="value"><span>–</span>%</p>
       <div class="bar"><i></i></div><p class="sub" id="g-mem-sub">–</p>
     </article>
     <article class="gauge" id="g-disk">
-      <h2>Disco /</h2><p class="value"><span>–</span>%</p>
+      <h2>{{ _("Disco /") }}</h2><p class="value"><span>–</span>%</p>
       <div class="bar"><i></i></div><p class="sub" id="g-disk-sub">–</p>
     </article>
     <article class="gauge" id="g-temp">
-      <h2>Temperatura max</h2><p class="value"><span>–</span>°C</p>
+      <h2>{{ _("Temperatura max") }}</h2><p class="value"><span>–</span>°C</p>
       <div class="bar"><i></i></div><p class="sub" id="g-temp-sub">–</p>
     </article>
   </section>
 
   <section class="panel services-panel">
     <div class="panel-head">
-      <h2>Servizi</h2>
-      <button type="button" class="ghost" id="services-refresh">Aggiorna</button>
+      <h2>{{ _("Servizi") }}</h2>
+      <button type="button" class="ghost" id="services-refresh">{{ _("Aggiorna") }}</button>
     </div>
     <ul class="services" id="services"></ul>
   </section>
 
   <section class="panel">
-    <div class="panel-head"><h2>Controlli</h2><small>connessione, dischi, aggiornamenti, backup e scadenze</small></div>
+    <div class="panel-head"><h2>{{ _("Controlli") }}</h2><small>{{ _("connessione, dischi, aggiornamenti, backup e scadenze") }}</small></div>
     <ul class="checks" id="checks"></ul>
   </section>
 
   <section class="panel module" id="mod-docker" hidden>
-    <div class="panel-head"><h2>Docker</h2><small id="docker-info"></small></div>
+    <div class="panel-head"><h2>{{ _("Docker") }}</h2><small id="docker-info"></small></div>
     <div class="scroll">
       <table class="data" id="docker-table">
-        <thead><tr><th>Container</th><th>Immagine</th><th>Stato</th><th class="num">CPU</th><th>Memoria</th><th class="num">Riavvii</th></tr></thead>
+        <thead><tr><th>{{ _("Container") }}</th><th>{{ _("Immagine") }}</th><th>{{ _("Stato") }}</th><th class="num">{{ _("CPU") }}</th><th>{{ _("Memoria") }}</th><th class="num">{{ _("Riavvii") }}</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
-    <p class="hint" id="docker-empty" hidden>Nessun container su questo server.</p>
+    <p class="hint" id="docker-empty" hidden>{{ _("Nessun container su questo server.") }}</p>
   </section>
 
   <section class="panel module" id="mod-pihole" hidden>
-    <div class="panel-head"><h2>Pi-hole</h2><small id="pihole-info"></small></div>
+    <div class="panel-head"><h2>{{ _("Pi-hole") }}</h2><small id="pihole-info"></small></div>
     <div class="stats" id="pihole-stats"></div>
     <p class="hint" id="pihole-msg" hidden></p>
   </section>
 
   <div class="columns">
     <section class="panel">
-      <div class="panel-head"><h2>Processi</h2><small>ordinati per CPU, ogni 10 s</small></div>
+      <div class="panel-head"><h2>{{ _("Processi") }}</h2><small>{{ _("ordinati per CPU, ogni 10 s") }}</small></div>
       <div class="scroll">
         <table class="data" id="processes">
-          <thead><tr><th>PID</th><th>Utente</th><th class="num">CPU %</th><th class="num">RAM %</th><th class="num">RSS MB</th><th>Comando</th></tr></thead>
+          <thead><tr><th>{{ _("PID") }}</th><th>{{ _("Utente") }}</th><th class="num">{{ _("CPU %") }}</th><th class="num">{{ _("RAM %") }}</th><th class="num">{{ _("RSS MB") }}</th><th>{{ _("Comando") }}</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
     </section>
     <div class="stack">
       <section class="panel">
-        <div class="panel-head"><h2>Sensori</h2></div>
+        <div class="panel-head"><h2>{{ _("Sensori") }}</h2></div>
         <table class="data" id="temperatures">
-          <thead><tr><th>Sensore</th><th class="num">°C</th><th class="num">Max</th></tr></thead>
+          <thead><tr><th>{{ _("Sensore") }}</th><th class="num">°C</th><th class="num">{{ _("Max") }}</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>
       <section class="panel">
-        <div class="panel-head"><h2>Partizioni</h2></div>
+        <div class="panel-head"><h2>{{ _("Partizioni") }}</h2></div>
         <div class="scroll">
           <table class="data" id="disks">
-            <thead><tr><th>Mount</th><th class="num">Usato</th><th class="num">Libero</th><th class="num">%</th></tr></thead>
+            <thead><tr><th>{{ _("Mount") }}</th><th class="num">{{ _("Usato") }}</th><th class="num">{{ _("Libero") }}</th><th class="num">%</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -149,35 +149,35 @@
 
   <section class="panel history">
     <div class="panel-head">
-      <h2>Storico</h2>
-      <div class="period" role="group" aria-label="Periodo">
-        <button type="button" data-range="24h" class="active">24 ore</button>
-        <button type="button" data-range="7d">7 giorni</button>
-        <button type="button" data-range="30d">30 giorni</button>
-        <button type="button" data-range="90d">90 giorni</button>
-        <button type="button" data-range="365d">1 anno</button>
+      <h2>{{ _("Storico") }}</h2>
+      <div class="period" role="group" aria-label="{{ _("Periodo") }}">
+        <button type="button" data-range="24h" class="active">{{ _("24 ore") }}</button>
+        <button type="button" data-range="7d">{{ _("7 giorni") }}</button>
+        <button type="button" data-range="30d">{{ _("30 giorni") }}</button>
+        <button type="button" data-range="90d">{{ _("90 giorni") }}</button>
+        <button type="button" data-range="365d">{{ _("1 anno") }}</button>
       </div>
       <form class="custom-range" id="custom-range">
-        <label>Dal <input type="datetime-local" name="from" required></label>
-        <label>al <input type="datetime-local" name="to" required></label>
-        <button type="submit" class="ghost">Mostra</button>
+        <label>{{ _("Dal") }} <input type="datetime-local" name="from" required></label>
+        <label>{{ _("al") }} <input type="datetime-local" name="to" required></label>
+        <button type="submit" class="ghost">{{ _("Mostra") }}</button>
       </form>
     </div>
     <p class="history-error" id="history-error" hidden></p>
     <div class="charts">
-      <figure><figcaption>CPU e load</figcaption><canvas id="chart-cpu"></canvas></figure>
-      <figure><figcaption>Memoria e disco</figcaption><canvas id="chart-mem"></canvas></figure>
-      <figure><figcaption>Temperature</figcaption><canvas id="chart-temp"></canvas></figure>
-      <figure><figcaption>Velocità connessione</figcaption><canvas id="chart-speed"></canvas></figure>
+      <figure><figcaption>{{ _("CPU e load") }}</figcaption><canvas id="chart-cpu"></canvas></figure>
+      <figure><figcaption>{{ _("Memoria e disco") }}</figcaption><canvas id="chart-mem"></canvas></figure>
+      <figure><figcaption>{{ _("Temperature") }}</figcaption><canvas id="chart-temp"></canvas></figure>
+      <figure><figcaption>{{ _("Velocità connessione") }}</figcaption><canvas id="chart-speed"></canvas></figure>
     </div>
     <div class="events-panel" id="server-events" hidden>
-      <div class="panel-head"><h3 class="sub-title">Eventi del periodo</h3><div class="event-filters" data-events-filters></div></div>
+      <div class="panel-head"><h3 class="sub-title">{{ _("Eventi del periodo") }}</h3><div class="event-filters" data-events-filters></div></div>
       <ul class="event-list" data-events-list></ul>
     </div>
     <details class="ip-history">
-      <summary>Variazioni dell'IP pubblico</summary>
+      <summary>{{ _("Variazioni dell'IP pubblico") }}</summary>
       <table class="data" id="ip-history">
-        <thead><tr><th>Quando</th><th>Nuovo IP</th><th>Precedente</th></tr></thead>
+        <thead><tr><th>{{ _("Quando") }}</th><th>{{ _("Nuovo IP") }}</th><th>{{ _("Precedente") }}</th></tr></thead>
         <tbody></tbody>
       </table>
     </details>
@@ -188,18 +188,20 @@
 {% include "_terminale.html" %}
 </main>
 
-<footer><span>Astreo Monitor {{ version }}</span> <a href="{{ url_for('ca_cert') }}">certificato CA</a> <a href="{{ url_for('api_health') }}">stato API</a></footer>
+<footer><span>Astreo Monitor {{ version }}</span> <a href="{{ url_for('ca_cert') }}">{{ _("certificato CA") }}</a> <a href="{{ url_for('api_health') }}">{{ _("stato API") }}</a>
+  <span class="lang-switch">{% for code, name in languages.items() %}<button type="button" data-lang="{{ code }}" class="{{ 'active' if code == lang }}" title="{{ name }}">{{ code|upper }}</button>{% endfor %}</span></footer>
 
 <dialog id="service-dialog">
   <form method="dialog" class="dialog-head">
-    <h2 id="service-dialog-title">Servizio</h2>
-    <button type="submit" class="ghost" aria-label="Chiudi">Chiudi</button>
+    <h2 id="service-dialog-title">{{ _("Servizio") }}</h2>
+    <button type="submit" class="ghost" aria-label="{{ _("Chiudi") }}">{{ _("Chiudi") }}</button>
   </form>
-  <pre id="service-dialog-body">Caricamento…</pre>
+  <pre id="service-dialog-body">{{ _("Caricamento…") }}</pre>
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script>window.LANG = {{ lang|tojson }}; window.I18N = {{ catalog|tojson }};</script>
 <script src="{{ url_for('static', filename='js/core.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/moduli.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/server.js') }}?v={{ version }}"></script>
