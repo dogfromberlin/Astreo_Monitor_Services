@@ -142,8 +142,8 @@ def send_channel(conn, cfg, values: dict, channel: str, source: str, subject: st
     return ok, err
 
 
-def _fmt(when: dt.datetime) -> str:
-    return when.strftime("%H:%M del %d/%m/%Y")
+def _fmt(when: dt.datetime, lang: str = "it") -> str:
+    return when.strftime("%H:%M on %d/%m/%Y" if lang == "en" else "%H:%M del %d/%m/%Y")
 
 
 def dispatch(conn, cfg, source: str, subject: str, body: str, detected_at: dt.datetime | None = None) -> bool:
@@ -210,6 +210,9 @@ def flush_queue(conn, cfg) -> int:
     rows = _db.rows(conn, q)
     if not rows:
         return 0
+    from . import i18n
+    lang = i18n.lang_of(values)
+    _ = i18n.translator(lang)
     window = f"{values['quiet.start']}–{values['quiet.end']}"
     sent = 0
     by_channel: dict[str, list[dict]] = {}
@@ -219,18 +222,20 @@ def flush_queue(conn, cfg) -> int:
     for channel, items in by_channel.items():
         if not values.get(f"notify.{channel}.enabled"):
             continue  # canale disattivato nel frattempo: resta in coda finché non lo riattivi
-        nota = f"Inviato alle {_fmt(now)}, posticipato per la fascia di silenzio {window}."
+        nota = _("Inviato alle {quando}, posticipato per la fascia di silenzio {fascia}.", quando=_fmt(now, lang), fascia=window)
         if len(items) == 1:
             r = items[0]
-            subject = f"{r['subject']} (posticipato)"
-            body = f"{r['body'].rstrip()}\n\nRilevato alle {_fmt(_db.as_datetime(r['created_at']))}.\n{nota}"
+            subject = _("{oggetto} (posticipato)", oggetto=r["subject"])
+            body = r["body"].rstrip() + "\n\n" + _("Rilevato alle {quando}.", quando=_fmt(_db.as_datetime(r["created_at"]), lang)) \
+                + f"\n{nota}"
             source = r["source"]
         else:
-            subject = f"{len(items)} avvisi posticipati"
-            parts = [f"Avvisi trattenuti durante la fascia di silenzio {window}, in ordine di rilevamento.", ""]
+            subject = _("{n} avvisi posticipati", n=len(items))
+            parts = [_("Avvisi trattenuti durante la fascia di silenzio {fascia}, in ordine di rilevamento.", fascia=window), ""]
             for r in items:
-                label = settings_mod.SOURCES.get(r["source"], r["source"])
-                parts += [f"■ {r['subject']}  [{label}, rilevato alle {_fmt(_db.as_datetime(r['created_at']))}]",
+                label = _(settings_mod.SOURCES.get(r["source"], r["source"]))
+                parts += [f"■ {r['subject']}  [" + _("{fonte}, rilevato alle {quando}", fonte=label,
+                                                       quando=_fmt(_db.as_datetime(r["created_at"]), lang)) + "]",
                           r["body"].rstrip(), ""]
             parts.append(nota)
             body = "\n".join(parts)
@@ -309,15 +314,17 @@ class AlertState:
         db.state_set(self.conn, self.key, self.data)
 
 
-def reason_line(reason: str | None, state: "AlertState") -> str:
+def reason_line(reason: str | None, state: "AlertState", lang: str = "it") -> str:
     """Riga che spiega perché parte l'avviso."""
+    from . import i18n
+    _ = i18n.translator(lang)
     since = state.anomaly_since
     if reason == "promemoria" and since:
-        return f"Promemoria: situazione anomala ininterrotta dal {since:%d/%m/%Y %H:%M}."
+        return _("Promemoria: situazione anomala ininterrotta dal {dal}.", dal=f"{since:%d/%m/%Y %H:%M}")
     if reason == "peggioramento":
-        return "Avviso: la situazione è peggiorata."
+        return _("Avviso: la situazione è peggiorata.")
     if reason == "rientro":
-        return "La situazione è tornata nella norma."
+        return _("La situazione è tornata nella norma.")
     return ""
 
 

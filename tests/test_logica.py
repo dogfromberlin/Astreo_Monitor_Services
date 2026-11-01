@@ -128,3 +128,38 @@ def test_bucket_netpulse():
     b = netpulse_compat.bucket_series(rows, start, start + dt.timedelta(hours=24), 32)
     assert 2 <= len(b) <= 32
     assert sum(x["samples"] for x in b) == len(rows)
+
+
+# ------------------------------------------------------------- traduzioni dei messaggi
+def test_messaggi_python_tradotti():
+    """Ogni testo dei messaggi (notifiche, bot, riepilogo, testi salvati) ha la traduzione inglese."""
+    import glob
+    import re
+    from astreo_monitor import i18n, telegram_bot
+    root = os.path.join(os.path.dirname(HERE), "astreo_monitor")
+    cat = json.load(open(os.path.join(root, "i18n", "en.json"), encoding="utf-8"))
+    keys = set(i18n.STORED_TEMPLATES) | {d for _i, _e, d in telegram_bot.COMMANDS}
+    for f in glob.glob(os.path.join(root, "**", "*.py"), recursive=True):
+        src = open(f, encoding="utf-8").read()
+        for m in re.finditer(r'(?<![\w.])(?:_|tr|self\.tr|i18n\.t)\(\s*"((?:[^"\\]|\\.)*)"(?:\s*\n?\s*"((?:[^"\\]|\\.)*)")?', src):
+            keys.add((m.group(1) + (m.group(2) or "")).replace('\\"', '"'))
+    missing = sorted(k for k in keys if k not in cat)
+    assert not missing, missing[:10]
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Latenza media 12 ms, nessuna perdita significativa.", "Average latency 12 ms, no significant loss."),
+    ("Certificato HTTPS 127.0.0.1:5443", "HTTPS certificate 127.0.0.1:5443"),
+    ("Container web: exited", "Container web: exited"),
+    ("3 settori riallocati", "3 reallocated sectors"),
+    ("testo sconosciuto", "testo sconosciuto"),
+])
+def test_testi_salvati_tradotti(text, expected):
+    from astreo_monitor import i18n
+    assert i18n.translate_stored(text, "en") == expected
+    assert i18n.translate_stored(text, "it") == text
+
+
+def test_comandi_bot_in_due_lingue():
+    from astreo_monitor import telegram_bot
+    assert telegram_bot.ALIASES["status"] == "stato" and telegram_bot.ALIASES["checks"] == "controlli"

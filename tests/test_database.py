@@ -135,7 +135,9 @@ def test_riepilogo(dbcfg):
     from astreo_monitor.jobs import weekly_summary
     with db.connect(dbcfg.database) as conn:
         subject, body = weekly_summary.build(conn, dt.datetime.now())
+        subject_en, body_en = weekly_summary.build(conn, dt.datetime.now(), {"ui.language": "en"})
     assert "Riepilogo settimanale" in subject and "CONNESSIONE" in body
+    assert "Weekly summary" in subject_en and "CONNECTION" in body_en and "CONNESSIONE" not in body_en
 
 
 @pytest.mark.skipif(not shutil.which("zstd"), reason="zstd non installato")

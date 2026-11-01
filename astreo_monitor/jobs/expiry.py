@@ -16,7 +16,7 @@ import socket
 import ssl
 import subprocess
 
-from .. import db, notifier
+from .. import db, i18n, notifier
 from .. import settings as settings_mod
 from ..config import Config
 from .base import run
@@ -106,20 +106,24 @@ def main(cfg: Config, dry_run: bool) -> int:
     with db.connect(cfg.database) as conn:
         db.state_set(conn, "expiry:last", {"time": now.isoformat(timespec="seconds"), "items": items})
         rule = settings_mod.policy(values, "expiry")
+        lang = i18n.lang_of(values)
+        tr = i18n.translator(lang)
         for it in items:
             if it["status"] == "UNKNOWN":
                 continue
             state = notifier.AlertState(conn, f"expiry:{it['key']}")
-            should_notify, reason, _ = state.evaluate(it["status"], rule)
+            should_notify, reason, _prev = state.evaluate(it["status"], rule)
             if should_notify:
+                name = i18n.translate_stored(it["name"], lang)
                 if it["status"] == "OK":
-                    subject = f"{it['name']}: rinnovato"
-                    body = f"{it['name']} ora scade il {it['expires'][:10] if it['expires'] else 'mai'}."
+                    subject = tr("{nome}: rinnovato", nome=name)
+                    body = tr("{nome} ora scade il {data}.", nome=name, data=it["expires"][:10] if it["expires"] else tr("mai"))
                 else:
-                    subject = f"{it['name']} scade tra {max(0, int(it['days']))} giorni"
-                    body = "\n".join(x for x in (notifier.reason_line(reason, state),
-                                                 f"{it['name']} scade il {it['expires'][:10]} (tra {it['days']:.0f} giorni).",
-                                                 "Procedura di rinnovo: docs/scadenze.md") if x)
+                    subject = tr("{nome} scade tra {giorni} giorni", nome=name, giorni=max(0, int(it["days"])))
+                    body = "\n".join(x for x in (notifier.reason_line(reason, state, lang),
+                                                 tr("{nome} scade il {data} (tra {giorni} giorni).", nome=name,
+                                                    data=it["expires"][:10], giorni=f"{it['days']:.0f}"),
+                                                 tr("Procedura di rinnovo: {doc}", doc="docs/scadenze.md")) if x)
                 if notifier.dispatch(conn, cfg, "expiry", subject, body, detected_at=now):
                     state.mark_notified()
             state.save()

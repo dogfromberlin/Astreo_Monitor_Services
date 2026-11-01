@@ -21,7 +21,7 @@ import shutil
 import socket
 import subprocess
 
-from .. import __version__, backends, db, notifier
+from .. import __version__, backends, db, i18n, notifier
 from ..backends import BackupError
 from .. import settings as settings_mod
 from ..config import BackupConfig, Config
@@ -169,16 +169,21 @@ def main(cfg: Config, dry_run: bool) -> int:
             "time": now.isoformat(timespec="seconds"), "status": status, "release": release_url,
             "engine": cfg.database.engine, "local_dir": run_dir if results else None, "databases": results, "errors": errors})
         state = notifier.AlertState(conn, "backup")
-        should_notify, reason, previous = state.evaluate(status, settings_mod.policy(settings_mod.load(conn, cfg), "backup"))
+        values = settings_mod.load(conn, cfg)
+        should_notify, reason, previous = state.evaluate(status, settings_mod.policy(values, "backup"))
         if should_notify:
-            intro = notifier.reason_line(reason, state)
-            lines = ([intro, ""] if intro else []) + [f"Backup del {now:%d/%m/%Y %H:%M}: {status} (precedente: {previous or 'n/d'})", ""]
+            lang = i18n.lang_of(values)
+            tr = i18n.translator(lang)
+            intro = notifier.reason_line(reason, state, lang)
+            lines = ([intro, ""] if intro else []) + [
+                tr("Backup del {quando}: {stato} (precedente: {prima})", quando=f"{now:%d/%m/%Y %H:%M}", stato=status,
+                   prima=previous or "n/d"), ""]
             lines += [f"- {r['database']}: {human(r['bak_bytes'])} -> {human(r['zst_bytes'])}" for r in results]
             if release_url:
                 lines += ["", f"Release: {release_url}"]
             if errors:
-                lines += ["", "Errori:"] + [f"- {e}" for e in errors]
-            subject = "Backup database tornato OK" if status == "OK" else "Backup database FALLITO"
+                lines += ["", tr("Errori:")] + [f"- {e}" for e in errors]
+            subject = tr("Backup database tornato OK") if status == "OK" else tr("Backup database FALLITO")
             if notifier.dispatch(conn, cfg, "backup", subject, "\n".join(lines) + "\n", detected_at=now):
                 state.mark_notified()
         state.save()

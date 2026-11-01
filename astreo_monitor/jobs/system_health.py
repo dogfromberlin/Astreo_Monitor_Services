@@ -9,7 +9,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from .. import db, notifier
+from .. import db, i18n, notifier
 from .. import settings as settings_mod
 from ..collectors import smart, updates
 from ..config import Config
@@ -49,6 +49,8 @@ def main(cfg: Config, dry_run: bool) -> int:
     with db.connect(cfg.database) as conn:
         db.state_set(conn, "health:last", {"time": now.isoformat(timespec="seconds"), "disks": disks,
                                            "updates": {**pend, "reboot": rb, "status": upd_status, "reasons": reasons}})
+        lang = i18n.lang_of(values)
+        tr = i18n.translator(lang)
         # --- dischi
         for d in disks:
             if d["status"] == "UNKNOWN":
@@ -56,15 +58,15 @@ def main(cfg: Config, dry_run: bool) -> int:
             state = notifier.AlertState(conn, f"smart:{d['device']}")
             ok, reason, _ = state.evaluate(d["status"], settings_mod.policy(values, "smart"))
             if ok:
-                name = f"Disco {d['device']} ({d.get('model') or 'sconosciuto'})"
-                subject = f"{name}: nella norma" if d["status"] == "OK" else f"{name}: {d['status']}"
+                name = tr("Disco {p0}", p0=f"{d['device']} ({d.get('model') or tr('sconosciuto')})")
+                subject = tr("{nome}: nella norma", nome=name) if d["status"] == "OK" else f"{name}: {d['status']}"
                 body = "\n".join(x for x in (
-                    notifier.reason_line(reason, state),
-                    "\n".join(f"- {r}" for r in d["reasons"]) or "Nessuna anomalia.",
-                    f"Temperatura: {d.get('temperature')} °C — ore di accensione: {d.get('power_on_hours')}"
-                    + (f" — usura: {d['wear_used_pct']}%" if d.get("wear_used_pct") is not None else ""),
-                    "Dettaglio: sudo smartctl -a /dev/" + d["device"],
-                    "Con un disco in ALERT verifica subito che i backup siano recenti (docs/backup-database.md).") if x)
+                    notifier.reason_line(reason, state, lang),
+                    "\n".join(f"- {i18n.translate_stored(r, lang)}" for r in d["reasons"]) or tr("Nessuna anomalia."),
+                    tr("Temperatura: {t} °C — ore di accensione: {ore}", t=d.get("temperature"), ore=d.get("power_on_hours"))
+                    + (tr(" — usura: {p0}%", p0=d["wear_used_pct"]) if d.get("wear_used_pct") is not None else ""),
+                    tr("Dettaglio: {comando}", comando="sudo smartctl -a /dev/" + d["device"]),
+                    tr("Con un disco in ALERT verifica subito che i backup siano recenti (docs/backup-database.md).")) if x)
                 if notifier.dispatch(conn, cfg, "smart", subject, body, detected_at=now):
                     state.mark_notified()
             state.save()
@@ -73,15 +75,16 @@ def main(cfg: Config, dry_run: bool) -> int:
         ok, reason, _ = state.evaluate(upd_status, settings_mod.policy(values, "updates"))
         if ok:
             if upd_status == "OK":
-                subject, body = "Sistema aggiornato", "Nessun aggiornamento di sicurezza in sospeso e nessun riavvio richiesto."
+                subject = tr("Sistema aggiornato")
+                body = tr("Nessun aggiornamento di sicurezza in sospeso e nessun riavvio richiesto.")
             else:
-                subject = "Aggiornamenti di sistema in sospeso"
-                lines = [notifier.reason_line(reason, state)] + [f"- {r}" for r in reasons]
+                subject = tr("Aggiornamenti di sistema in sospeso")
+                lines = [notifier.reason_line(reason, state, lang)] + [f"- {i18n.translate_stored(r, lang)}" for r in reasons]
                 if pend.get("security"):
-                    lines += ["", "Pacchetti di sicurezza: " + ", ".join(pend["security"][:25])
-                              + (" …" if len(pend["security"]) > 25 else "")]
-                lines += ["", "Per installarli (finestra SSH su astreo):", "sudo apt update && sudo apt upgrade",
-                          "e, se richiesto, sudo reboot"]
+                    lines += ["", tr("Pacchetti di sicurezza: {elenco}", elenco=", ".join(pend["security"][:25])
+                                     + (" …" if len(pend["security"]) > 25 else ""))]
+                lines += ["", tr("Per installarli (sul server):"), "sudo apt update && sudo apt upgrade",
+                          tr("e, se richiesto, sudo reboot")]
                 body = "\n".join(x for x in lines if x is not None)
             if notifier.dispatch(conn, cfg, "updates", subject, body, detected_at=now):
                 state.mark_notified()

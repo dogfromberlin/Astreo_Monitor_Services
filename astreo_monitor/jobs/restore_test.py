@@ -12,7 +12,7 @@ import glob
 import logging
 import os
 
-from .. import backends, db, notifier
+from .. import backends, db, i18n, notifier
 from .. import settings as settings_mod
 from ..config import Config
 from .base import run
@@ -84,12 +84,16 @@ def main(cfg: Config, dry_run: bool) -> int:
         state = notifier.AlertState(conn, "restoretest")
         ok, reason, _ = state.evaluate(status, settings_mod.policy(values, "restoretest"))
         if ok:
-            subject = {"OK": "Verifica del ripristino riuscita", "WARNING": "Verifica del ripristino parziale"}.get(
-                status, "Verifica del ripristino FALLITA")
-            lines = [f"Backup verificato: {source or 'nessuno'}", ""]
+            lang = i18n.lang_of(values)
+            tr = i18n.translator(lang)
+            subject = {"OK": tr("Verifica del ripristino riuscita"), "WARNING": tr("Verifica del ripristino parziale")}.get(
+                status, tr("Verifica del ripristino FALLITA"))
+            lines = [tr("Backup verificato: {nome}", nome=source or tr("nessuno")), ""]
             for r in results:
-                lines.append(f"- {r['database']}: " + (f"OK, {r['tables']} tabelle, {r['rows']} righe, {r.get('check', '')}"
-                                                     if r["status"] == "OK" else f"{r['status']}: {r.get('error')}"))
+                lines.append(f"- {r['database']}: " + (
+                    tr("OK, {tabelle} tabelle, {righe} righe, {controllo}", tabelle=r["tables"], righe=r["rows"],
+                       controllo=i18n.translate_stored(r.get("check", ""), lang))
+                    if r["status"] == "OK" else f"{r['status']}: {i18n.translate_stored(r.get('error') or '', lang)}"))
             if notifier.dispatch(conn, cfg, "restoretest", subject, "\n".join(lines), detected_at=now):
                 state.mark_notified()
         state.save()

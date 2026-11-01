@@ -11,7 +11,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from .. import db, events, heartbeat, models, notifier, services_store
+from .. import db, events, heartbeat, i18n, models, notifier, services_store
 from ..integrations import docker as docker_mod
 from ..integrations import pihole as pihole_mod
 from .. import settings as settings_mod
@@ -70,31 +70,34 @@ def main(cfg: Config, dry_run: bool) -> int:
                  cpu, ld["load1"], mem["used_pct"], disk_pct, len(temps))
 
         # --- Allarmi -------------------------------------------------------
+        values = settings_mod.load(conn, cfg)
+        lang = i18n.lang_of(values)
+        _ = i18n.translator(lang)
         checks = []
         if temps:
             hottest = max(temps, key=lambda t: t["value"])
             checks.append((
                 "temperature",
                 level(hottest["value"], cfg.metrics.temp_warning, cfg.metrics.temp_alert),
-                f"Temperatura massima {hottest['value']:.1f} °C ({hottest['adapter']} / {hottest['device']})\n"
-                f"Soglie: warning {cfg.metrics.temp_warning} °C, alert {cfg.metrics.temp_alert} °C",
+                _("Temperatura massima {t} °C ({sensore})", t=f"{hottest['value']:.1f}",
+                  sensore=f"{hottest['adapter']} / {hottest['device']}") + "\n"
+                + _("Soglie: warning {w} °C, alert {a} °C", w=cfg.metrics.temp_warning, a=cfg.metrics.temp_alert),
             ))
         checks.append((
             "disk",
             level(disk_pct, cfg.metrics.disk_warning, cfg.metrics.disk_alert),
-            f"Disco {cfg.metrics.root_disk} occupato al {disk_pct}%\n"
-            f"Soglie: warning {cfg.metrics.disk_warning}%, alert {cfg.metrics.disk_alert}%",
+            _("Disco {disco} occupato al {pct}%", disco=cfg.metrics.root_disk, pct=disk_pct) + "\n"
+            + _("Soglie: warning {w}%, alert {a}%", w=cfg.metrics.disk_warning, a=cfg.metrics.disk_alert),
         ))
 
-        values = settings_mod.load(conn, cfg)
         for key, status, text in checks:
             state = notifier.AlertState(conn, key)
             should_notify, reason, previous = state.evaluate(status, settings_mod.policy(values, key))
             if should_notify:
-                name = {"temperature": "Temperatura", "disk": "Disco"}[key]
-                subject = f"Allarme {name.lower()} rientrato" if status == "OK" else f"{name}: {status}"
-                body = "\n".join(x for x in (notifier.reason_line(reason, state), text,
-                                              f"Stato precedente: {previous or 'n/d'}") if x)
+                name = _({"temperature": "Temperatura", "disk": "Disco"}[key])
+                subject = _("Allarme {nome} rientrato", nome=name.lower()) if status == "OK" else f"{name}: {status}"
+                body = "\n".join(x for x in (notifier.reason_line(reason, state, lang), text,
+                                              _("Stato precedente: {stato}", stato=previous or "n/d")) if x)
                 if notifier.dispatch(conn, cfg, key, subject, body, detected_at=now):
                     state.mark_notified()
             state.save()
@@ -107,11 +110,13 @@ def main(cfg: Config, dry_run: bool) -> int:
             status = "OK" if s["up"] else "ALERT"
             should_notify, reason, previous = state.evaluate(status, rule)
             if should_notify:
-                subject = f"Servizio {s['label']} di nuovo attivo" if s["up"] else f"Servizio {s['label']} fermo ({s['state']})"
+                subject = _("Servizio {nome} di nuovo attivo", nome=s["label"]) if s["up"] else \
+                    _("Servizio {nome} fermo ({stato})", nome=s["label"], stato=s["state"])
                 body = "\n".join(x for x in (
-                    notifier.reason_line(reason, state),
-                    f"Servizio: {s['label']} ({s['unit']})", f"Stato: {s['state']}",
-                    f"Stato precedente: {previous or 'n/d'}", f"Dettaglio: systemctl status {s['unit']}") if x)
+                    notifier.reason_line(reason, state, lang),
+                    _("Servizio: {nome} ({unit})", nome=s["label"], unit=s["unit"]), _("Stato: {stato}", stato=s["state"]),
+                    _("Stato precedente: {stato}", stato=previous or "n/d"),
+                    _("Dettaglio: {comando}", comando=f"systemctl status {s['unit']}")) if x)
                 if notifier.dispatch(conn, cfg, "services", subject, body, detected_at=now):
                     state.mark_notified()
             state.save()
@@ -182,11 +187,14 @@ def check_docker(conn, cfg, values, now) -> None:
         state = notifier.AlertState(conn, f"docker:{c['name']}")
         should_notify, reason, previous = state.evaluate(status, rule)
         if should_notify:
-            subject = f"Container {c['name']} di nuovo regolare" if status == "OK" else f"Container {c['name']}: {c['state']}"
-            body = "\n".join(x for x in (notifier.reason_line(reason, state),
-                                          f"Container: {c['name']} ({c['image']})", f"Stato: {c['status']}",
-                                          f"Riavvii: {c['restart_count']} — politica: {c['restart_policy'] or 'nessuna'}",
-                                          f"Dettaglio: docker logs --tail 50 {c['name']}") if x)
+            lang = i18n.lang_of(values)
+            _ = i18n.translator(lang)
+            subject = _("Container {nome} di nuovo regolare", nome=c["name"]) if status == "OK" else f"Container {c['name']}: {c['state']}"
+            body = "\n".join(x for x in (notifier.reason_line(reason, state, lang),
+                                          f"Container: {c['name']} ({c['image']})", _("Stato: {stato}", stato=c["status"]),
+                                          _("Riavvii: {n} — politica: {politica}", n=c["restart_count"],
+                                            politica=c["restart_policy"] or _("nessuna")),
+                                          _("Dettaglio: {comando}", comando=f"docker logs --tail 50 {c['name']}")) if x)
             if notifier.dispatch(conn, cfg, "docker", subject, body, detected_at=now):
                 state.mark_notified()
         state.save()
@@ -206,14 +214,16 @@ def check_pihole(conn, cfg, values, now) -> None:
     finally:
         client.logout()
     status, text = pihole_mod.evaluate(ov, err)
+    lang = i18n.lang_of(values)
+    _ = i18n.translator(lang)
     state = notifier.AlertState(conn, "pihole")
     should_notify, reason, previous = state.evaluate(status, settings_mod.policy(values, "pihole"))
     if previous is not None and previous != status:
         events.record(conn, "pihole", "info" if status == "OK" else "alert", f"Pi-hole: {status}", text, when=now)
     if should_notify:
-        subject = "Pi-hole di nuovo regolare" if status == "OK" else f"Pi-hole: {status}"
-        body = "\n".join(x for x in (notifier.reason_line(reason, state), text,
-                                      "Controllo: systemctl status pihole-FTL --no-pager") if x)
+        subject = _("Pi-hole di nuovo regolare") if status == "OK" else f"Pi-hole: {status}"
+        body = "\n".join(x for x in (notifier.reason_line(reason, state, lang), events.translate(text, lang),
+                                      _("Controllo: {comando}", comando="systemctl status pihole-FTL --no-pager")) if x)
         if notifier.dispatch(conn, cfg, "pihole", subject, body, detected_at=now):
             state.mark_notified()
     state.save()

@@ -29,6 +29,12 @@ KINDS = {
 }
 
 
+def translate(text: str, lang: str) -> str:
+    """Traduce un testo salvato in italiano (vedi i18n.translate_stored)."""
+    from . import i18n
+    return i18n.translate_stored(text, lang)
+
+
 def record(conn, kind: str, severity: str, title: str, detail: str = "", ref: str | None = None,
            when: dt.datetime | None = None) -> bool:
     """Registra un evento. Con ref, un evento già presente non viene duplicato."""
@@ -61,7 +67,9 @@ def backfill_reboots(conn) -> int:
     return n
 
 
-def list_events(conn, start: dt.datetime, end: dt.datetime, outages: list[dict] | None = None) -> list[dict]:
+def list_events(conn, start: dt.datetime, end: dt.datetime, outages: list[dict] | None = None, lang: str = "it") -> list[dict]:
+    from . import i18n
+    _ = i18n.translator(lang)
     E, IP, S, N = models.events, models.public_ip_history, models.speedtest_results, models.notification_log
 
     def rng(t):
@@ -70,14 +78,14 @@ def list_events(conn, start: dt.datetime, end: dt.datetime, outages: list[dict] 
     out = []
     for r in db.rows(conn, select(E.c.timestamp, E.c.kind, E.c.severity, E.c.title, E.c.detail).where(rng(E))):
         out.append({"time": db.as_datetime(r["timestamp"]), "kind": r["kind"], "severity": r["severity"],
-                    "title": r["title"], "detail": r["detail"] or ""})
+                    "title": translate(r["title"], lang), "detail": translate(r["detail"] or "", lang)})
     for o in outages or []:
         out.append({"time": dt.datetime.fromisoformat(o["start"]), "kind": "outage", "severity": "alert",
-                    "title": f"Interruzione della connessione ({o['minutes']} min)",
-                    "detail": f"dalle {o['start'][11:16]} alle {o['end'][11:16]}"})
+                    "title": _("Interruzione della connessione ({p0} min)", p0=o["minutes"]),
+                    "detail": _("dalle {p0} alle {p1}", p0=o["start"][11:16], p1=o["end"][11:16])})
     for r in db.rows(conn, select(IP.c.timestamp, IP.c.ip, IP.c.previous_ip).where(IP.c.previous_ip.isnot(None), rng(IP))):
         out.append({"time": db.as_datetime(r["timestamp"]), "kind": "ip", "severity": "info",
-                    "title": "Cambio di IP pubblico", "detail": f"{r['previous_ip']} → {r['ip']}"})
+                    "title": _("Cambio di IP pubblico"), "detail": f"{r['previous_ip']} → {r['ip']}"})
     for r in db.rows(conn, select(S.c.timestamp, S.c.status, S.c.download_mbps, S.c.upload_mbps)
                      .where(S.c.status.in_(("WARNING", "ALERT", "DOWN")), rng(S))):
         out.append({"time": db.as_datetime(r["timestamp"]), "kind": "speedtest",

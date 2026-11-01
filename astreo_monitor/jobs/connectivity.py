@@ -18,7 +18,7 @@ import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
-from .. import db, models, notifier
+from .. import db, i18n, models, notifier
 from .. import settings as settings_mod
 from ..config import Config
 from .base import run
@@ -87,10 +87,12 @@ def classify(samples: list[dict], values: dict) -> tuple[str, str]:
     return "OK", f"Latenza media {avg_rtt:.0f} ms, nessuna perdita significativa."
 
 
-def describe(samples: list[dict]) -> str:
+def describe(samples: list[dict], lang: str = "it") -> str:
+    _ = i18n.translator(lang)
     return "\n".join(
         f"- {s['target']} ({'router' if s['role'] == 'gateway' else 'Internet'}): "
-        f"{s['received']}/{s['sent']} risposte, " + (f"{s['rtt_avg_ms']:.1f} ms" if s["rtt_avg_ms"] is not None else "nessuna risposta")
+        + _("{ok}/{tot} risposte", ok=s["received"], tot=s["sent"]) + ", "
+        + (f"{s['rtt_avg_ms']:.1f} ms" if s["rtt_avg_ms"] is not None else _("nessuna risposta"))
         for s in samples)
 
 
@@ -141,17 +143,20 @@ def main(cfg: Config, dry_run: bool) -> int:
         db.state_set(conn, "connectivity:last", {"time": now.isoformat(timespec="seconds"), "status": status,
                                                  "text": text, "samples": results})
         if should_notify:
+            lang = i18n.lang_of(values)
+            _ = i18n.translator(lang)
             if status == "OK":
                 real_now = dt.datetime.now()
-                durata = f" dopo {fmt_duration(real_now - since)}" if since else ""
-                subject = f"Connessione ripristinata{durata}"
-                body = (f"La connessione è tornata regolare alle {now:%H:%M}.\n"
-                        + (f"Situazione anomala ({previous}) dalle {since:%H:%M del %d/%m}, durata {fmt_duration(real_now - since)}.\n" if since else "")
-                        + f"\n{describe(results)}")
+                subject = _("Connessione ripristinata dopo {durata}", durata=fmt_duration(real_now - since)) if since \
+                    else _("Connessione ripristinata")
+                body = (_("La connessione è tornata regolare alle {ora}.", ora=f"{now:%H:%M}") + "\n"
+                        + (_("Situazione anomala ({stato}) dalle {inizio}, durata {durata}.", stato=previous,
+                             inizio=f"{since:%H:%M %d/%m}", durata=fmt_duration(real_now - since)) + "\n" if since else "")
+                        + "\n" + describe(results, lang))
             else:
-                subject = "Connessione assente" if status == "DOWN" else "Connessione degradata"
-                intro = notifier.reason_line(reason, state)
-                body = "\n".join(x for x in (intro, text, "", describe(results)) if x is not None)
+                subject = _("Connessione assente") if status == "DOWN" else _("Connessione degradata")
+                intro = notifier.reason_line(reason, state, lang)
+                body = "\n".join(x for x in (intro, i18n.translate_stored(text, lang), "", describe(results, lang)) if x is not None)
             if notifier.dispatch(conn, cfg, "connectivity", subject, body, detected_at=now):
                 state.mark_notified()
         state.save()

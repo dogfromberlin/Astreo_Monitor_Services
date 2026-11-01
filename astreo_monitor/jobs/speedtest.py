@@ -24,7 +24,7 @@ import requests
 
 from dataclasses import dataclass
 
-from .. import __version__, db, models, notifier
+from .. import __version__, db, i18n, models, notifier
 from .. import settings as settings_mod
 from ..config import Config
 from .base import run
@@ -181,18 +181,20 @@ def main(cfg: Config, dry_run: bool) -> int:
         state = notifier.AlertState(conn, "speedtest")
         should_notify, reason, previous = state.evaluate(status, settings_mod.policy(settings_mod.load(conn, cfg), "speedtest"))
         if should_notify:
-            subject = "Connessione internet tornata OK" if status == "OK" else f"Connessione internet: {status}"
-            intro = notifier.reason_line(reason, state)
+            lang = i18n.lang_of(settings_mod.load(conn, cfg))
+            _ = i18n.translator(lang)
+            subject = _("Connessione internet tornata OK") if status == "OK" else _("Connessione internet: {stato}", stato=status)
+            intro = notifier.reason_line(reason, state, lang)
             body = (
                 (f"{intro}\n\n" if intro else "")
-                + f"Esito speedtest delle {now:%d/%m/%Y %H:%M}\n\n"
-                f"Stato:      {status} (precedente: {previous or 'n/d'})\n"
-                f"Download:   {fmt(dl)}  (warning < {c.download_warning:g}, alert < {c.download_alert:g})\n"
-                f"Upload:     {fmt(ul)}  (warning < {c.upload_warning:g}, alert < {c.upload_alert:g})\n"
-                f"Latenza:    {lat if lat is not None else 'n/d'} ms\n"
+                + _("Esito speedtest delle {quando}", quando=f"{now:%d/%m/%Y %H:%M}") + "\n\n"
+                + _("Stato:      {stato} (precedente: {prima})", stato=status, prima=previous or "n/d") + "\n"
+                + f"Download:   {fmt(dl)}  (warning < {c.download_warning:g}, alert < {c.download_alert:g})\n"
+                + f"Upload:     {fmt(ul)}  (warning < {c.upload_warning:g}, alert < {c.upload_alert:g})\n"
+                + _("Latenza:    {ms} ms", ms=lat if lat is not None else "n/d") + "\n"
             )
             if error:
-                body += f"\nDettaglio: {error}\n"
+                body += "\n" + _("Dettaglio: {comando}", comando=error) + "\n"
             if notifier.dispatch(conn, cfg, "speedtest", subject, body, detected_at=now):
                 state.mark_notified()
         state.save()

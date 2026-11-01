@@ -22,17 +22,21 @@ def _f(v, d=0, suffix=""):
     return "n/d" if v is None else f"{float(v):.{d}f}{suffix}"
 
 
-def build(conn, now: dt.datetime) -> tuple[str, str]:
+def build(conn, now: dt.datetime, values: dict | None = None) -> tuple[str, str]:
+    from .. import i18n
+    from .. import settings as settings_mod
+    lang = i18n.lang_of(values or {})
+    tr = i18n.translator(lang)
     start = now - dt.timedelta(days=7)
-    lines = [f"Settimana dal {start:%d/%m} al {now:%d/%m/%Y}", ""]
+    lines = [tr("Settimana dal {inizio} al {fine}", inizio=f"{start:%d/%m}", fine=f"{now:%d/%m/%Y}"), ""]
 
     # --- connessione
     c = history.connectivity(conn, start, now)
-    lines.append("CONNESSIONE")
+    lines.append(tr("CONNESSIONE"))
     if c["samples"]:
         longest = max((o["minutes"] for o in c["outages"]), default=0)
-        lines.append(f"- Disponibilità {c['availability']:.2f}% — interruzioni: {len(c['outages'])}"
-                     + (f", in tutto {c['down_minutes']} min, la più lunga {longest} min" if c["outages"] else ""))
+        lines.append(tr("- Disponibilità {pct}% — interruzioni: {n}", pct=f"{c['availability']:.2f}", n=len(c["outages"]))
+                     + (tr(", in tutto {tot} min, la più lunga {max} min", tot=c["down_minutes"], max=longest) if c["outages"] else ""))
     S = models.speedtest_results
     bad = func.sum(case((S.c.status.in_(("WARNING", "ALERT", "DOWN")), 1), else_=0))
     s = db.one(conn, select(func.count().label("n"), func.avg(S.c.download_mbps).label("dl"),
@@ -40,8 +44,9 @@ def build(conn, now: dt.datetime) -> tuple[str, str]:
                             func.avg(S.c.latency_ms).label("lat"), bad.label("bad"))
                .where(S.c.provider != "legacy", S.c.timestamp >= start, S.c.timestamp < now))
     if s and s["n"]:
-        lines.append(f"- Speedtest ({s['n']} misure): download medio {_f(s['dl'])} Mbps (minimo {_f(s['dl_min'])}), "
-                     f"upload medio {_f(s['ul'])} Mbps, latenza {_f(s['lat'])} ms; sotto soglia {s['bad']} volte")
+        lines.append(tr("- Speedtest ({n} misure): download medio {dl} Mbps (minimo {dlmin}), upload medio {ul} Mbps, "
+                        "latenza {lat} ms; sotto soglia {bad} volte", n=s["n"], dl=_f(s["dl"]), dlmin=_f(s["dl_min"]),
+                        ul=_f(s["ul"]), lat=_f(s["lat"]), bad=s["bad"]))
     lines.append("")
 
     # --- server
@@ -52,9 +57,9 @@ def build(conn, now: dt.datetime) -> tuple[str, str]:
     t = db.one(conn, select(func.max(T.c.temperature).label("tmax"), func.avg(T.c.temperature).label("tavg"))
                .where(T.c.timestamp >= start, T.c.timestamp < now))
     lines += ["SERVER",
-              f"- CPU media {_f(m['cpu'], 1, '%')} (picco {_f(m['cpu_max'], 0, '%')}), RAM media {_f(m['mem'], 0, '%')}, "
-              f"disco {_f(m['disk'], 0, '%')}",
-              f"- Temperatura media {_f(t['tavg'], 0, ' °C')}, massima {_f(t['tmax'], 0, ' °C')}", ""]
+              tr("- CPU media {cpu} (picco {picco}), RAM media {ram}, disco {disco}", cpu=_f(m["cpu"], 1, "%"),
+                 picco=_f(m["cpu_max"], 0, "%"), ram=_f(m["mem"], 0, "%"), disco=_f(m["disk"], 0, "%")),
+              tr("- Temperatura media {media}, massima {max}", media=_f(t["tavg"], 0, " °C"), max=_f(t["tmax"], 0, " °C")), ""]
 
     # --- avvisi
     L = models.notification_log
@@ -62,9 +67,8 @@ def build(conn, now: dt.datetime) -> tuple[str, str]:
                 .where(L.c.status == "inviata", L.c.source.notin_(("test", "summary", "riepilogo")),
                        L.c.timestamp >= start, L.c.timestamp < now)
                 .group_by(L.c.source).order_by(func.count().desc()))
-    from .. import settings as settings_mod
-    lines.append("AVVISI INVIATI")
-    lines += [f"- {settings_mod.SOURCES.get(r['source'], r['source'])}: {r['n']}" for r in a] or ["- nessuno"]
+    lines.append(tr("AVVISI INVIATI"))
+    lines += [f"- {tr(settings_mod.SOURCES.get(r['source'], r['source']))}: {r['n']}" for r in a] or [tr("- nessuno")]
     lines.append("")
 
     # --- backup, dischi, aggiornamenti, scadenze
@@ -72,32 +76,33 @@ def build(conn, now: dt.datetime) -> tuple[str, str]:
     rt = db.state_get(conn, "restoretest:last") or {}
     health = db.state_get(conn, "health:last") or {}
     exp = db.state_get(conn, "expiry:last") or {}
-    lines.append("SICUREZZA DEI DATI E MANUTENZIONE")
+    lines.append(tr("SICUREZZA DEI DATI E MANUTENZIONE"))
     if bk:
-        lines.append(f"- Ultimo backup: {bk.get('status')} il {str(bk.get('time', ''))[:16].replace('T', ' ')}")
+        lines.append(tr("- Ultimo backup: {stato} il {quando}", stato=bk.get("status"), quando=str(bk.get("time", ""))[:16].replace("T", " ")))
     if rt:
-        lines.append(f"- Ultima verifica del ripristino: {rt.get('status')} il {str(rt.get('time', ''))[:10]}")
+        lines.append(tr("- Ultima verifica del ripristino: {stato} il {quando}", stato=rt.get("status"), quando=str(rt.get("time", ""))[:10]))
     for d in health.get("disks", []):
-        lines.append(f"- Disco {d['device']}: {d.get('status')}, {d.get('temperature')} °C"
-                     + (f", usura {d['wear_used_pct']}%" if d.get("wear_used_pct") is not None else "")
-                     + (f" ({'; '.join(d['reasons'])})" if d.get("reasons") else ""))
+        lines.append(tr("- Disco {disco}: {stato}, {t} °C", disco=d["device"], stato=d.get("status"), t=d.get("temperature"))
+                     + (tr(", usura {p0}%", p0=d["wear_used_pct"]) if d.get("wear_used_pct") is not None else "")
+                     + (f" ({'; '.join(i18n.translate_stored(r, lang) for r in d['reasons'])})" if d.get("reasons") else ""))
     u = health.get("updates") or {}
     if u:
-        lines.append(f"- Aggiornamenti: {u.get('total', 0)} in sospeso, {len(u.get('security', []))} di sicurezza"
-                     + (", riavvio richiesto" if (u.get("reboot") or {}).get("required") else ""))
+        lines.append(tr("- Aggiornamenti: {tot} in sospeso, {sic} di sicurezza", tot=u.get("total", 0), sic=len(u.get("security", [])))
+                     + (tr(", riavvio richiesto") if (u.get("reboot") or {}).get("required") else ""))
     for it in exp.get("items", []):
         if it.get("days") is not None:
-            lines.append(f"- {it['name']}: scade tra {int(it['days'])} giorni")
+            lines.append(tr("- {nome}: scade tra {giorni} giorni", nome=i18n.translate_stored(it["name"], lang), giorni=int(it["days"])))
 
     bad = (c["outages"] and len(c["outages"]) > 0) or bk.get("status") not in (None, "OK")
-    subject = f"Riepilogo settimanale {now:%d/%m}" + (" — con anomalie" if bad else "")
+    subject = tr("Riepilogo settimanale {data}", data=f"{now:%d/%m}") + (tr(" — con anomalie") if bad else "")
     return subject, "\n".join(lines)
 
 
 def main(cfg: Config, dry_run: bool) -> int:
     now = dt.datetime.now().replace(second=0, microsecond=0)
     with db.connect(cfg.database) as conn:
-        subject, body = build(conn, now)
+        from .. import settings as settings_mod
+        subject, body = build(conn, now, settings_mod.load(conn, cfg))
         if dry_run:
             print(subject, "\n", body, sep="")
             return 0

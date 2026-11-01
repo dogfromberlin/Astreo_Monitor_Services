@@ -17,33 +17,36 @@ import time
 import psutil
 import requests
 
-from . import __version__, config as config_mod, db, logging_setup, services_store
+from . import __version__, config as config_mod, db, i18n, logging_setup, services_store
 from . import settings as settings_mod
 from .collectors import sensors, services, system, units
 
 log = logging.getLogger("telegram")
 API = "https://api.telegram.org/bot{token}/{method}"
+# (comando italiano, comando inglese, descrizione): entrambi i comandi funzionano sempre;
+# il menu di Telegram mostra quelli della lingua scelta nella dashboard.
 COMMANDS = [
-    ("stato", "Riepilogo del server"),
-    ("connessione", "Connessione: ping, ultimo speedtest, disponibilità"),
-    ("speedtest", "Avvia uno speedtest e mostra il risultato"),
-    ("servizi", "Stato dei servizi monitorati"),
-    ("controlli", "Dischi, aggiornamenti, scadenze, backup"),
-    ("aiuto", "Elenco dei comandi"),
+    ("stato", "status", "Riepilogo del server"),
+    ("connessione", "connection", "Connessione: ping, ultimo speedtest, disponibilità"),
+    ("speedtest", "speedtest", "Avvia uno speedtest e mostra il risultato"),
+    ("servizi", "services", "Stato dei servizi monitorati"),
+    ("controlli", "checks", "Dischi, aggiornamenti, scadenze, backup"),
+    ("aiuto", "help", "Elenco dei comandi"),
 ]
+ALIASES = {en: it for it, en, _d in COMMANDS}
 ICON = {"OK": "🟢", "WARNING": "🟡", "ALERT": "🔴", "DOWN": "🔴", "UNKNOWN": "⚪"}
 
 
-def alert_name(key: str) -> str:
+def alert_name(key: str, tr=lambda s, **kw: s.format(**kw)) -> str:
     """Nome leggibile di un allarme (chiave di monitor_state senza 'alert:')."""
     kind, _, rest = key.partition(":")
     if kind == "service":
-        return f"Servizio {rest.removesuffix('.service')}"
+        return tr("Servizio {p0}", p0=rest.removesuffix(".service"))
     if kind == "expiry":
-        return "Token GitHub" if rest == "github-token" else f"Certificato {rest.removeprefix('cert:')}"
+        return tr("Token GitHub (gh)") if rest == "github-token" else tr("Certificato HTTPS {p0}", p0=rest.removeprefix("cert:"))
     if kind == "smart":
-        return f"Disco {rest}"
-    return settings_mod.SOURCES.get(kind, kind)
+        return tr("Disco {p0}", p0=rest)
+    return tr(settings_mod.SOURCES.get(kind, kind))
 
 
 class Bot:
@@ -54,6 +57,7 @@ class Bot:
         self.chat_id = ""
         self.session = requests.Session()
         self.commands_set_for = None
+        self.lang = "it"
 
     # ------------------------------------------------------------- API
     def call(self, method: str, timeout_s: int = 20, **params):
@@ -81,11 +85,13 @@ class Bot:
             return False
         self.token = v["notify.telegram.bot_token"]
         self.chat_id = str(v["notify.telegram.chat_id"]).strip()
+        self.lang = i18n.lang_of(v)
         active = bool(v["telegram.commands"] and self.token and self.chat_id)
-        if active and self.commands_set_for != self.token:
+        if active and self.commands_set_for != (self.token, self.lang):
             try:
-                self.call("setMyCommands", commands=[{"command": c, "description": d} for c, d in COMMANDS])
-                self.commands_set_for = self.token
+                self.call("setMyCommands", commands=[{"command": en if self.lang == "en" else it,
+                                                      "description": i18n.t(d, self.lang)} for it, en, d in COMMANDS])
+                self.commands_set_for = (self.token, self.lang)
                 log.info("Menu dei comandi registrato su Telegram")
             except Exception as exc:  # noqa: BLE001
                 log.warning("Menu dei comandi non registrato: %s", str(exc).replace(self.token, "***"))
@@ -122,17 +128,22 @@ class Bot:
                 threading.Thread(target=self.handle, args=(chat, cmd), daemon=True).start()
 
     # -------------------------------------------------------- comandi
+    def tr(self, text, **kw):
+        return i18n.t(text, self.lang, **kw)
+
     def handle(self, chat, cmd: str) -> None:
+        cmd = ALIASES.get(cmd, cmd)
         try:
             handler = {"stato": self.cmd_stato, "connessione": self.cmd_connessione, "speedtest": self.cmd_speedtest,
                        "servizi": self.cmd_servizi, "controlli": self.cmd_controlli}.get(cmd, self.cmd_aiuto)
             handler(chat)
         except Exception as exc:  # noqa: BLE001
             log.exception("Errore nel comando /%s", cmd)
-            self.send(chat, f"Errore nel comando /{cmd}: {exc}")
+            self.send(chat, self.tr("Errore nel comando /{cmd}: {err}", cmd=cmd, err=exc))
 
     def cmd_aiuto(self, chat) -> None:
-        self.send(chat, "Comandi di Astreo Monitor:\n" + "\n".join(f"/{c} — {d}" for c, d in COMMANDS))
+        self.send(chat, self.tr("Comandi di Astreo Monitor:") + "\n" + "\n".join(
+            f"/{en if self.lang == 'en' else it} — {self.tr(d)}" for it, en, d in COMMANDS))
 
     def cmd_stato(self, chat) -> None:
         snap = system.snapshot(self.cfg.metrics.root_disk)
@@ -151,16 +162,19 @@ class Bot:
             except ValueError:
                 continue
             if v.get("status") not in (None, "OK"):
-                active.append(f"{ICON.get(v['status'], '•')} {alert_name(r['key'][6:])}: {v['status']}")
+                active.append(f"{ICON.get(v['status'], '•')} {alert_name(r['key'][6:], self.tr)}: {v['status']}")
         up = dt.timedelta(seconds=snap["uptime"]["uptime_s"])
         lines = [
-            f"🖥 {snap['hostname']} — acceso da {up.days} g {up.seconds // 3600} h",
-            f"CPU {snap['cpu_pct']:.0f}% · load {snap['load']['load1']} · RAM {snap['memory']['used_pct']:.0f}% · disco {snap['root_disk_pct']:.0f}%"
+            "🖥 " + self.tr("{host} — acceso da {g} g {h} h", host=snap["hostname"], g=up.days, h=up.seconds // 3600),
+            self.tr("CPU {cpu}% · load {load} · RAM {ram}% · disco {disco}%", cpu=f"{snap['cpu_pct']:.0f}",
+                    load=snap["load"]["load1"], ram=f"{snap['memory']['used_pct']:.0f}", disco=f"{snap['root_disk_pct']:.0f}")
             + (f" · {hot:.0f} °C" if hot is not None else ""),
-            f"{ICON.get(con.get('status'), '⚪')} Connessione: {con.get('status', 'n/d')} — {con.get('text', '')}",
-            ("🟢 Servizi: tutti attivi (" + str(len(st)) + ")") if not down else f"🔴 Servizi fermi: {', '.join(down)}",
+            f"{ICON.get(con.get('status'), '⚪')} " + self.tr("Connessione: {stato} — {testo}", stato=con.get("status", "n/d"),
+                                                               testo=i18n.translate_stored(con.get("text", ""), self.lang)),
+            ("🟢 " + self.tr("Servizi: tutti attivi ({n})", n=len(st))) if not down
+            else "🔴 " + self.tr("Servizi fermi: {elenco}", elenco=", ".join(down)),
         ]
-        lines += ["", "Allarmi attivi:"] + active if active else ["", "Nessun allarme attivo."]
+        lines += ["", self.tr("Allarmi attivi:")] + active if active else ["", self.tr("Nessun allarme attivo.")]
         self.send(chat, "\n".join(lines))
 
     def cmd_connessione(self, chat) -> None:
@@ -170,14 +184,16 @@ class Bot:
             con = db.state_get(conn, "connectivity:last") or {}
             last = history.latest_speedtest(conn)
             day = history.connectivity(conn, now - dt.timedelta(hours=24), now)
-        lines = [f"{ICON.get(con.get('status'), '⚪')} Ping: {con.get('status', 'n/d')} — {con.get('text', '')}"]
+        lines = [f"{ICON.get(con.get('status'), '⚪')} Ping: {con.get('status', 'n/d')} — "
+                 + i18n.translate_stored(con.get("text", ""), self.lang)]
         for s in con.get("samples", []):
             lines.append(f"   {s['target']}: {s['received']}/{s['sent']}" + (f", {s['rtt_avg_ms']:.0f} ms" if s.get("rtt_avg_ms") else ""))
         if day.get("availability") is not None:
-            lines.append(f"Ultime 24 ore: disponibilità {day['availability']:.2f}%, interruzioni {len(day['outages'])}")
+            lines.append(self.tr("Ultime 24 ore: disponibilità {pct}%, interruzioni {n}", pct=f"{day['availability']:.2f}",
+                                 n=len(day["outages"])))
         if last:
-            lines.append(f"Speedtest {last['status']} alle {last['timestamp'][11:16]}: ↓ {last['download_mbps'] or 0:.0f} ↑ "
-                         f"{last['upload_mbps'] or 0:.0f} Mbps, {last['latency_ms'] or 0:.0f} ms")
+            lines.append(self.tr("Speedtest {stato} alle {ora}", stato=last["status"], ora=last["timestamp"][11:16])
+                         + f": ↓ {last['download_mbps'] or 0:.0f} ↑ {last['upload_mbps'] or 0:.0f} Mbps, {last['latency_ms'] or 0:.0f} ms")
         self.send(chat, "\n".join(lines))
 
     def cmd_speedtest(self, chat) -> None:
@@ -187,23 +203,24 @@ class Bot:
         try:
             units.control("astreo-speedtest.service", "start")
         except units.UnitControlError as exc:
-            self.send(chat, f"Speedtest non avviato: {exc}")
+            self.send(chat, self.tr("Speedtest non avviato: {err}", err=exc))
             return
-        self.send(chat, "⏱ Speedtest avviato, il risultato arriva tra circa un minuto…")
+        self.send(chat, "⏱ " + self.tr("Speedtest avviato, il risultato arriva tra circa un minuto…"))
         for _ in range(36):
             time.sleep(5)
             with db.connect(self.cfg.database) as conn:
                 last = history.latest_speedtest(conn)
             if last and last["timestamp"] != before:
                 self.send(chat, f"{ICON.get(last['status'], '•')} Speedtest {last['status']}: ↓ {last['download_mbps'] or 0:.0f} Mbps"
-                                f" ↑ {last['upload_mbps'] or 0:.0f} Mbps, latenza {last['latency_ms'] or 0:.0f} ms")
+                                f" ↑ {last['upload_mbps'] or 0:.0f} Mbps, "
+                                + self.tr("latenza {ms} ms", ms=f"{last['latency_ms'] or 0:.0f}"))
                 return
-        self.send(chat, "Nessun risultato dopo 3 minuti: lo speedtest potrebbe essere sospeso (Impostazioni → Speedtest).")
+        self.send(chat, self.tr("Nessun risultato dopo 3 minuti: lo speedtest potrebbe essere sospeso (Impostazioni → Speedtest)."))
 
     def cmd_servizi(self, chat) -> None:
         with db.connect(self.cfg.database) as conn:
             st = services.statuses(services_store.monitored(conn, self.cfg))
-        self.send(chat, "Servizi monitorati:\n" + "\n".join(f"{'🟢' if s['up'] else '🔴'} {s['label']} ({s['state']})" for s in st))
+        self.send(chat, self.tr("Servizi monitorati:") + "\n" + "\n".join(f"{'🟢' if s['up'] else '🔴'} {s['label']} ({s['state']})" for s in st))
 
     def cmd_controlli(self, chat) -> None:
         with db.connect(self.cfg.database) as conn:
@@ -214,22 +231,30 @@ class Bot:
             hb = db.state_get(conn, "heartbeat:last") or {}
         lines = []
         for d in health.get("disks", []):
-            lines.append(f"{ICON.get(d.get('status'), '⚪')} Disco {d['device']}: {d.get('status')} — {d.get('temperature')} °C"
-                         + (f", usura {d['wear_used_pct']}%" if d.get("wear_used_pct") is not None else "")
-                         + (f" ({'; '.join(d['reasons'])})" if d.get("reasons") else ""))
+            lines.append(f"{ICON.get(d.get('status'), '⚪')} " + self.tr("Disco {p0}", p0=d["device"])
+                         + f": {d.get('status')} — {d.get('temperature')} °C"
+                         + (self.tr(", usura {p0}%", p0=d["wear_used_pct"]) if d.get("wear_used_pct") is not None else "")
+                         + (f" ({'; '.join(i18n.translate_stored(r, self.lang) for r in d['reasons'])})" if d.get("reasons") else ""))
         u = health.get("updates") or {}
         if u:
-            lines.append(f"{ICON.get(u.get('status'), '⚪')} Aggiornamenti: {u.get('total', 0)} in sospeso, "
-                         f"{len(u.get('security', []))} di sicurezza" + (", riavvio richiesto" if (u.get("reboot") or {}).get("required") else ""))
+            lines.append(f"{ICON.get(u.get('status'), '⚪')} " + self.tr("Aggiornamenti: {tot} in sospeso, {sic} di sicurezza",
+                                                                         tot=u.get("total", 0), sic=len(u.get("security", [])))
+                         + (self.tr(", riavvio richiesto") if (u.get("reboot") or {}).get("required") else ""))
         for it in exp.get("items", []):
-            lines.append(f"{ICON.get(it.get('status'), '⚪')} {it['name']}: " + (it.get("note") or (f"{int(it['days'])} giorni" if it.get("days") is not None else it.get("error", "n/d"))))
+            lines.append(f"{ICON.get(it.get('status'), '⚪')} {i18n.translate_stored(it['name'], self.lang)}: "
+                         + (i18n.translate_stored(it.get("note") or "", self.lang)
+                            or (self.tr("{p0} giorni", p0=int(it["days"])) if it.get("days") is not None else it.get("error", "n/d"))))
         if bk:
-            lines.append(f"{ICON.get(bk.get('status'), '⚪')} Backup: {bk.get('status')} alle {str(bk.get('time', ''))[:16].replace('T', ' ')}")
+            lines.append(f"{ICON.get(bk.get('status'), '⚪')} Backup: " + self.tr("{p0} alle {p1}", p0=bk.get("status"),
+                                                                                    p1=str(bk.get("time", ""))[:16].replace("T", " ")))
         if rt:
-            lines.append(f"{ICON.get(rt.get('status'), '⚪')} Verifica ripristino: {rt.get('status')} il {str(rt.get('time', ''))[:10]}")
+            lines.append(f"{ICON.get(rt.get('status'), '⚪')} " + self.tr("Verifica ripristino: {stato} il {data}",
+                                                                          stato=rt.get("status"), data=str(rt.get("time", ""))[:10]))
         if hb:
-            lines.append(f"{'🟢' if hb.get('ok') else '🔴'} Heartbeat: {'inviato' if hb.get('ok') else 'non inviato'} alle {str(hb.get('time', ''))[11:16]}")
-        self.send(chat, "\n".join(lines) or "Nessun dato ancora raccolto.")
+            lines.append(f"{'🟢' if hb.get('ok') else '🔴'} Heartbeat: "
+                         + self.tr("{p0} alle {p1}", p0=self.tr("inviato") if hb.get("ok") else self.tr("non inviato"),
+                                   p1=str(hb.get("time", ""))[11:16]))
+        self.send(chat, "\n".join(lines) or self.tr("Nessun dato ancora raccolto."))
 
 
 def main() -> None:

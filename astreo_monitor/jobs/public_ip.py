@@ -69,12 +69,15 @@ def main(cfg: Config, dry_run: bool) -> int:
                 log.info("Primo rilevamento IP pubblico: %s", ip)
             else:
                 log.warning("IP pubblico cambiato: %s -> %s", previous, ip)
+                from .. import i18n
+                from .. import settings as settings_mod
+                _ = i18n.translator(i18n.lang_of(settings_mod.load(conn, cfg)))
                 notifier.dispatch(
                     conn, cfg, "publicip",
-                    f"IP pubblico cambiato in {ip}",
-                    f"L'IP pubblico di astreo è cambiato alle {now:%d/%m/%Y %H:%M}.\n\n"
-                    f"Precedente: {previous}\nAttuale:    {ip}\n\n"
-                    "Aggiorna eventuali DNS, client VPN o regole che usano l'indirizzo.",
+                    _("IP pubblico cambiato in {ip}", ip=ip),
+                    _("L'IP pubblico del server è cambiato alle {quando}.", quando=f"{now:%d/%m/%Y %H:%M}") + "\n\n"
+                    + _("Precedente: {ip}", ip=previous) + "\n" + _("Attuale:    {ip}", ip=ip) + "\n\n"
+                    + _("Aggiorna eventuali DNS, client VPN o regole che usano l'indirizzo."),
                 )
         db.state_set(conn, STATE_KEY, current)
     return 0

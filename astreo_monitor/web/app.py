@@ -183,12 +183,13 @@ def create_app(cfg: Config) -> Flask:
     @app.errorhandler(HTTPException)
     def http_error(exc: HTTPException):
         if request.path.startswith("/api/"):
-            return jsonify({"error": exc.name, "detail": exc.description}), exc.code
+            return jsonify({"error": exc.name, "detail": i18n.translate_stored(exc.description or "", current_language())}), exc.code
         return exc
 
     @app.errorhandler(settings_mod.SettingsError)
     def settings_error(exc):
-        return jsonify({"error": "Valore non valido", "detail": str(exc)}), 400
+        lang = current_language()
+        return jsonify({"error": i18n.t("Valore non valido", lang), "detail": i18n.translate_stored(str(exc), lang)}), 400
 
     @app.errorhandler(units.UnitControlError)
     def unit_error(exc):
@@ -340,10 +341,11 @@ def create_app(cfg: Config) -> Flask:
             abort(400, description="Canale non valido")
         with db.connect(cfg.database) as conn:
             values = settings_mod.load(conn, cfg)
+            _ = i18n.translator(i18n.lang_of(values))
             ok, err = notifier.send_channel(
-                conn, cfg, values, channel, "test", "Messaggio di prova",
-                f"Messaggio di prova inviato dalla dashboard di Astreo Monitor {__version__} "
-                f"alle {dt.datetime.now():%d/%m/%Y %H:%M}.")
+                conn, cfg, values, channel, "test", _("Messaggio di prova"),
+                _("Messaggio di prova inviato dalla dashboard di Astreo Monitor {versione} alle {quando}.",
+                  versione=__version__, quando=f"{dt.datetime.now():%d/%m/%Y %H:%M}"))
         return jsonify({"ok": ok, "error": err})
 
     @app.get("/api/v1/notify/log")
@@ -431,20 +433,22 @@ def create_app(cfg: Config) -> Flask:
     @app.get("/api/v1/expiry")
     def api_expiry():
         with db.connect(cfg.database) as conn:
-            return jsonify(db.state_get(conn, "expiry:last") or {"items": []})
+            return jsonify(i18n.translate_fields(db.state_get(conn, "expiry:last") or {"items": []}, current_language()))
 
     @app.get("/api/v1/health-checks")
     def api_health_checks():
         with db.connect(cfg.database) as conn:
-            return jsonify({"health": db.state_get(conn, "health:last"), "restoretest": db.state_get(conn, "restoretest:last")})
+            return jsonify(i18n.translate_fields({"health": db.state_get(conn, "health:last"),
+                                                  "restoretest": db.state_get(conn, "restoretest:last")}, current_language()))
 
     @app.post("/api/v1/summary/test")
     def api_summary_test():
         from ..jobs import weekly_summary
         now = dt.datetime.now().replace(second=0, microsecond=0)
         with db.connect(cfg.database) as conn:
-            subject, text = weekly_summary.build(conn, now)
-            ok = notifier.dispatch(conn, cfg, "summary", f"{subject} (prova)", text, detected_at=now)
+            subject, text = weekly_summary.build(conn, now, settings_mod.load(conn, cfg))
+            _ = i18n.translator(current_language())
+            ok = notifier.dispatch(conn, cfg, "summary", _("{oggetto} (prova)", oggetto=subject), text, detected_at=now)
         if not ok:
             abort(400, description="Nessun canale attivo per il Riepilogo settimanale (tabella Quali avvisi su quali canali)")
         return jsonify({"ok": True})
@@ -495,7 +499,7 @@ def create_app(cfg: Config) -> Flask:
         start, end = parse_period()
         with db.connect(cfg.database) as conn:
             outages = history.connectivity(conn, start, end)["outages"]
-            return jsonify({"events": events.list_events(conn, start, end, outages), "kinds": {k: i18n.t(v, current_language()) for k, v in events.KINDS.items()}})
+            return jsonify({"events": events.list_events(conn, start, end, outages, current_language()), "kinds": {k: i18n.t(v, current_language()) for k, v in events.KINDS.items()}})
 
     @app.get("/api/v1/heartbeat")
     def api_heartbeat():
@@ -520,7 +524,7 @@ def create_app(cfg: Config) -> Flask:
                 "public_ip": db.state_get(conn, "publicip:current"),
                 "public_ip_history": history.public_ip_history(conn),
                 "backup": db.state_get(conn, "backup:last"),
-                "connectivity": db.state_get(conn, "connectivity:last"),
+                "connectivity": i18n.translate_fields(db.state_get(conn, "connectivity:last"), current_language()),
             })
 
     return app
