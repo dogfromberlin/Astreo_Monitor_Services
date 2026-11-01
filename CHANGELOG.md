@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.1
+
+- Installation check: waits a few seconds for the dashboard after a restart instead of reporting it as down.
+- Tests: personal-data check written so that history rewriting tools do not alter it.
+
 ## 3.0.0 — first public release
 
 - **Databases**: SQL Server, PostgreSQL or SQLite through one data layer (SQLAlchemy); automatic schema

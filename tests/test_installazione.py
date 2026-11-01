@@ -10,6 +10,9 @@ import pytest
 
 from astreo_monitor.collectors import units
 
+# Parole composte a pezzi: la riscrittura della storia del repository non deve modificarle
+PERSONAL_USER = "mar" + "co"
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -44,7 +47,7 @@ def test_nessun_valore_personale_nei_modelli():
     """Fase 2: i modelli non devono contenere utente, percorsi o indirizzi di un'installazione specifica."""
     for p in files("deploy/templates/*/*.j2"):
         text = open(p, encoding="utf-8").read()
-        for bad in ("<utente>", "/home/", "192.168.", "10.8.0.", "astreo.local"):
+        for bad in (PERSONAL_USER, "/home/", "192.168.", "10." + "8.0.", "astreo.local"):
             assert bad not in text, f"{os.path.relpath(p, ROOT)} contiene {bad}"
 
 
@@ -212,7 +215,8 @@ def test_nessun_riferimento_personale_nel_repository():
     Il nome utente GitHub è ammesso solo dove indica il repository o il titolare della licenza."""
     allowed_owner = {"README.md", "README.it.md", "LICENSE", "docs/en/installation.md", "docs/installazione-guidata.md",
                      "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", ".github/workflows/release.yml"}
-    bad = re.compile(r"\bmarco\b|/home/<utente>|192\.168\.1\.(2|25[0-9])\b|10\.8\.0\.|<altro-database>|<repository-backup>|\bastreo\.local\b", re.I)
+    bad = re.compile("|".join([rf"\b{PERSONAL_USER}\b", "192\\.168\\.1\\.(2|25[0-9])\\b", "10\\." + "8\\.0\\.",
+                               "Shobu" + "Base", "astreo-db-" + "backups", r"\bastreo\.local\b", "@" + "gmail\\.com"]), re.I)
     found = []
     for path in glob.glob(os.path.join(ROOT, "**", "*"), recursive=True):
         rel = os.path.relpath(path, ROOT)

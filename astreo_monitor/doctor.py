@@ -143,13 +143,21 @@ def check_web(rep: Report, cfg) -> None:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     urls = ([(f"https://127.0.0.1:{cfg.web.https_port}/api/v1/health", verify)] if cfg.web.https_port else []) + \
         [(f"http://127.0.0.1:{cfg.web.port}/api/v1/health", True)]
+    import time
+    deadline = time.time() + 20                      # appena riavviata, la dashboard impiega qualche secondo
     for url, v in urls:
-        try:
-            h = requests.get(url, timeout=10, verify=v).json()
-        except requests.exceptions.SSLError as exc:
-            rep.add(A, url, FAIL, _("certificato non valido: {p0}", p0=str(exc)[:120]), _("vedi docs/certificato.md"))
-            continue
-        except Exception:  # noqa: BLE001
+        h = None
+        while h is None:
+            try:
+                h = requests.get(url, timeout=10, verify=v).json()
+            except requests.exceptions.SSLError as exc:
+                rep.add(A, url, FAIL, _("certificato non valido: {p0}", p0=str(exc)[:120]), _("vedi docs/certificato.md"))
+                break
+            except Exception:  # noqa: BLE001
+                if time.time() > deadline:
+                    break
+                time.sleep(2)
+        if h is None:
             continue
         if h.get("version") != __version__:
             rep.add(A, _("versione in esecuzione"), FAIL, _("il server esegue la {p0}, il codice è la {p1}", p0=h.get('version'), p1=__version__),
@@ -160,7 +168,7 @@ def check_web(rep: Report, cfg) -> None:
             rep.add(A, _("schema visto dalla dashboard"), FAIL, ", ".join(h.get("schema_fixes", [])),
                     _("vedi la sezione Database (la dashboard ricontrolla ogni 30 secondi)"))
         return
-    rep.add(A, "risposta", FAIL, _("la dashboard non risponde"),
+    rep.add(A, _("risposta"), FAIL, _("la dashboard non risponde"),
             "systemctl status astreo-monitor-web.service nginx --no-pager")
 
 
