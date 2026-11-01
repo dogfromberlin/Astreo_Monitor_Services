@@ -109,7 +109,7 @@ def check_database(rep: Report, cfg) -> None:
     try:
         with db.connect(cfg.database) as conn:
             where = cfg.database.path if cfg.database.engine == "sqlite" else f"{cfg.database.host} ({cfg.database.user})"
-            rep.add(A, f"connessione {cfg.database.engine}: {where}", OK)
+            rep.add(A, _("connessione {p0}: {p1}", p0=cfg.database.engine, p1=where), OK)
             problems = schema.check(conn, cfg.backup.databases if cfg.backup and cfg.database.engine == "mssql" else None)
             if not problems:
                 rep.add(A, _("schema (tabelle, colonne, procedure, permessi)"), OK)
@@ -117,7 +117,7 @@ def check_database(rep: Report, cfg) -> None:
                 rep.add(A, p["item"], FAIL, p["problem"], p["fix"])
             state = {r["key"]: r for r in db.state_rows(conn)}
     except Exception as exc:  # noqa: BLE001
-        rep.add(A, "connessione", FAIL, str(exc)[:200], "systemctl status mssql-server --no-pager\nverifica [database] nel config")
+        rep.add(A, _("connessione"), FAIL, str(exc)[:200], "systemctl status mssql-server --no-pager\nverifica [database] nel config")
         return
 
     B = _("Dati recenti (i job girano?)")
@@ -163,7 +163,7 @@ def check_web(rep: Report, cfg) -> None:
             rep.add(A, _("versione in esecuzione"), FAIL, _("il server esegue la {p0}, il codice è la {p1}", p0=h.get('version'), p1=__version__),
                     "sudo systemctl restart astreo-monitor-web.service")
         else:
-            rep.add(A, _("risponde su {p0}", p0=url.rsplit('/api', 1)[0]), OK, f"versione {__version__}")
+            rep.add(A, _("risponde su {p0}", p0=url.rsplit('/api', 1)[0]), OK, _("versione {p0}", p0=__version__))
         if h.get("schema_ok") is False:
             rep.add(A, _("schema visto dalla dashboard"), FAIL, ", ".join(h.get("schema_fixes", [])),
                     _("vedi la sezione Database (la dashboard ricontrolla ogni 30 secondi)"))
@@ -230,7 +230,7 @@ def main() -> None:
     args = parser.parse_args()
     rep = Report()
     print(_("Astreo Monitor {p0} — diagnosi dell'installazione ({p1})", p0=__version__, p1=f"{dt.datetime.now():%d/%m/%Y %H:%M}"))
-    print(f"Progetto: {ROOT}" + ("" if os.geteuid() == 0 else _("   (senza sudo: alcuni file non sono verificabili)")))
+    print(_("Progetto: {p0}", p0=ROOT) + ("" if os.geteuid() == 0 else _("   (senza sudo: alcuni file non sono verificabili)")))
     try:
         cfg = config_mod.load(args.config)
     except config_mod.ConfigError as exc:

@@ -30,6 +30,20 @@ done
 m "== 1. Codice" "== 1. Code"
 if [ -n "$ZIP" ]; then
   sudo -u "$OWNER" python3 -m zipfile -e "$ZIP" .
+  # File tolti dalla nuova versione: lo zip non li cancella, li rimuove questo passo
+  # (solo file tracciati da git e solo con un pacchetto completo)
+  if [ -d .git ]; then
+    sudo -u "$OWNER" python3 - "$ZIP" <<'PY'
+import os, subprocess, sys, zipfile
+names = set(zipfile.ZipFile(sys.argv[1]).namelist())
+if {"astreo_monitor/__init__.py", "update.sh", "requirements.txt"} <= names:
+    tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split("\n")
+    for f in tracked:
+        if f and f not in names and os.path.isfile(f):
+            os.remove(f)
+            print("   -", f)
+PY
+  fi
 elif [ "$CMD" = update ] && [ -d .git ]; then
   sudo -u "$OWNER" git pull --ff-only
 else

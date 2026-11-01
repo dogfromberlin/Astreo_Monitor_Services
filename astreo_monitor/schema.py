@@ -45,7 +45,7 @@ def check(conn, backup_databases: list[str] | None = None) -> list[dict]:
         if current != head:
             problems.append({"item": _("versione dello schema"), "problem": _("{p0} invece di {p1}", p0=current, p1=head), "fix": MIGRATE})
 
-    if db.dialect(conn) == "mssql":                   # backup e verifica del ripristino di SQL Server
+    if db.dialect(conn) == "mssql" and backup_databases:   # solo con il backup attivo (SQL Server)
         for proc in ("master.dbo.astreo_restoretest_check", "master.dbo.astreo_restoretest_drop"):
             if db.scalar(conn, text("SELECT HAS_PERMS_BY_NAME(:p, 'OBJECT', 'EXECUTE')"), {"p": proc}) != 1:
                 problems.append({"item": proc, "problem": _("procedura mancante o senza permesso di esecuzione"),

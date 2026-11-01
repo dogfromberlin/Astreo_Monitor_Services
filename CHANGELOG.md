@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.2
+
+- Schema check: SQL Server restore-test procedures are required only when the backup is enabled (fixes the SQL Server test in CI).
+- `update.sh` with a zip package also removes files that the new version no longer contains.
+- Installation check: remaining texts translated.
+
 ## 3.0.1
 
 - Installation check: waits a few seconds for the dashboard after a restart instead of reporting it as down.
