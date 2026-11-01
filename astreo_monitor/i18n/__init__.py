@@ -116,3 +116,17 @@ def translate_fields(obj, lang: str, fields=("text", "name", "note", "error", "c
                 out[k] = translate_fields(v, lang, fields)
         return out
     return obj
+
+
+def cli_language(config_dir: str = "/etc/astreo-monitor") -> str:
+    """Lingua dei comandi da terminale: ASTREO_LANG, poi install.ini, poi la lingua del sistema (LANG)."""
+    import configparser
+    if os.environ.get("ASTREO_LANG"):
+        return normalize(os.environ["ASTREO_LANG"])
+    cp = configparser.ConfigParser()
+    try:
+        if cp.read(os.path.join(config_dir, "install.ini"), encoding="utf-8") and cp.has_option("install", "language"):
+            return normalize(cp["install"]["language"])
+    except (configparser.Error, OSError):
+        pass
+    return normalize(os.environ.get("LANG", ""))

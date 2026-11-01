@@ -1,14 +1,21 @@
 #!/bin/bash
-# Astreo Monitor - aggiornamento in un comando.
-# Uso, dalla cartella del progetto:
-#   sudo bash update.sh                    # aggiorna da git (git pull)
-#   sudo bash update.sh /tmp/pacchetto.zip # aggiorna da uno zip scaricato
-#   sudo bash update.sh --enable-https     # aggiunge nginx, certificato e terminale a un'installazione HTTP
-# Passi: codice -> verifiche -> librerie -> file di sistema -> schema del database -> riavvio -> diagnosi.
-# Se le verifiche falliscono si ferma PRIMA di toccare servizi e database.
+# Astreo Monitor - aggiornamento in un comando / one-command update.
+#   sudo bash update.sh                    # da git / from git
+#   sudo bash update.sh /tmp/pacchetto.zip # da uno zip / from a zip
+#   sudo bash update.sh --enable-https     # aggiunge nginx, certificato e terminale / adds nginx, certificate, terminal
+# Passi / steps: codice -> librerie -> verifiche -> file di sistema -> schema -> riavvio -> diagnosi.
 set -euo pipefail
-cd "$(dirname "$(readlink -f "$0")")"
+PROJECT=${ASTREO_PROJECT:-$(dirname "$(readlink -f "$0")")}
 [ "$(id -u)" -eq 0 ] || exec sudo bash "$0" "$@"
+# Lo zip sovrascrive anche questo script: per sicurezza si prosegue da una copia temporanea
+if [ -z "${ASTREO_UPDATE_COPY:-}" ]; then
+  COPY=$(mktemp /tmp/astreo-update.XXXXXX.sh)
+  cp "$0" "$COPY"
+  exec env ASTREO_UPDATE_COPY="$COPY" ASTREO_PROJECT="$PROJECT" bash "$COPY" "$@"
+fi
+trap 'rm -f "$ASTREO_UPDATE_COPY"' EXIT
+cd "$PROJECT"
+. scripts/lingua.sh
 OWNER=$(stat -c %U .)
 CMD=update
 ZIP=""
@@ -16,25 +23,25 @@ for a in "$@"; do
   case "$a" in
     --enable-https) CMD=enable-https ;;
     *.zip) ZIP="$a" ;;
-    *) echo "Argomento non riconosciuto: $a"; exit 2 ;;
+    *) m "Argomento non riconosciuto: $a" "Unknown argument: $a"; exit 2 ;;
   esac
 done
 
-echo "== 1. Codice"
+m "== 1. Codice" "== 1. Code"
 if [ -n "$ZIP" ]; then
   sudo -u "$OWNER" python3 -m zipfile -e "$ZIP" .
 elif [ "$CMD" = update ] && [ -d .git ]; then
   sudo -u "$OWNER" git pull --ff-only
 else
-  echo "   nessun aggiornamento del codice richiesto"
+  m "   nessun aggiornamento del codice richiesto" "   no code update requested"
 fi
 grep -h "__version__" astreo_monitor/__init__.py
 
-echo "== 2. Librerie"
+m "== 2. Librerie" "== 2. Libraries"
 sudo -u "$OWNER" .venv/bin/python -m pip install -q -r requirements.txt
 
-echo "== 3. Verifiche"
-sudo -u "$OWNER" bash scripts/verifica.sh
+m "== 3. Verifiche" "== 3. Checks"
+sudo -u "$OWNER" ASTREO_LANG="$ASTREO_LANG" bash scripts/verifica.sh
 
-echo "== 4. Installazione"
-exec .venv/bin/python -m astreo_monitor.installer "$CMD"
+m "== 4. Installazione" "== 4. Installation"
+env ASTREO_LANG="$ASTREO_LANG" .venv/bin/python -m astreo_monitor.installer "$CMD"

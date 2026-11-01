@@ -131,8 +131,17 @@ class Bot:
     def tr(self, text, **kw):
         return i18n.t(text, self.lang, **kw)
 
+    def refresh_language(self) -> None:
+        """Lingua letta a ogni comando: vale subito dopo il cambio nella dashboard."""
+        try:
+            with db.connect(self.cfg.database) as conn:
+                self.lang = i18n.lang_of(settings_mod.load(conn, self.cfg))
+        except db.DatabaseError:
+            pass
+
     def handle(self, chat, cmd: str) -> None:
         cmd = ALIASES.get(cmd, cmd)
+        self.refresh_language()
         try:
             handler = {"stato": self.cmd_stato, "connessione": self.cmd_connessione, "speedtest": self.cmd_speedtest,
                        "servizi": self.cmd_servizi, "controlli": self.cmd_controlli}.get(cmd, self.cmd_aiuto)
@@ -142,8 +151,13 @@ class Bot:
             self.send(chat, self.tr("Errore nel comando /{cmd}: {err}", cmd=cmd, err=exc))
 
     def cmd_aiuto(self, chat) -> None:
-        self.send(chat, self.tr("Comandi di Astreo Monitor:") + "\n" + "\n".join(
-            f"/{en if self.lang == 'en' else it} — {self.tr(d)}" for it, en, d in COMMANDS))
+        lines = [self.tr("Comandi di Astreo Monitor:"), ""]
+        for it, en, d in COMMANDS:
+            main, other = (en, it) if self.lang == "en" else (it, en)
+            lines.append(f"/{main} — {self.tr(d)}" + (f"  (/{other})" if other != main else ""))
+        lines += ["", self.tr("Ogni comando funziona anche nell'altra lingua (tra parentesi). "
+                              "La lingua delle risposte si sceglie nella dashboard (IT / EN in fondo alla pagina).")]
+        self.send(chat, "\n".join(lines))
 
     def cmd_stato(self, chat) -> None:
         snap = system.snapshot(self.cfg.metrics.root_disk)

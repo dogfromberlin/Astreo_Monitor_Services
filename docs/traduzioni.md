@@ -16,6 +16,11 @@ Impostazioni, chiave `ui.language`); vale per tutti gli utenti della dashboard.
   restano in italiano nel database e vengono tradotti quando si leggono: i modelli sono in
   `i18n.STORED_TEMPLATES`.
 - Gli avvisi già inviati restano nel registro nella lingua in cui sono partiti.
+- **Comandi da terminale** (installatore, `update.sh`, `install.sh`, verifiche, diagnosi, migrazione):
+  lingua da `ASTREO_LANG`, poi `language` in `install.ini`, poi `LANG` del sistema. L'installatore chiede
+  la lingua come prima domanda e la imposta anche per dashboard e notifiche.
+- README in inglese (`README.md`) e italiano (`README.it.md`); guida di installazione anche in inglese
+  (`docs/en/installation.md`). Il resto della documentazione è in italiano.
 - I log tecnici (journal) restano in italiano.
 
 ## Aggiungere o modificare un testo

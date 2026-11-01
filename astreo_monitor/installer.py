@@ -34,6 +34,14 @@ from dataclasses import asdict, dataclass, field, fields
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from . import __version__
+from . import i18n as _i18n
+
+LANG = _i18n.cli_language()
+
+
+def _(text: str, **values) -> str:
+    """Traduzione dei messaggi a terminale (lingua: ASTREO_LANG, install.ini o LANG)."""
+    return _i18n.t(text, LANG, **values)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES = os.path.join(ROOT, "deploy", "templates")
@@ -82,6 +90,7 @@ class Answers:
     netpulse: bool = False
     netpulse_port: int = 8081
     netpulse_name: str = "netpulse.local"
+    language: str = "it"
 
     # ---------------------------------------------------------------- file
     @staticmethod
@@ -192,7 +201,7 @@ class System:
         res = subprocess.run(list(args), capture_output=True, text=True, input=input_text, check=False)
         if check and res.returncode != 0:
             shown = re.sub(r"PASSWORD '[^']*'", "PASSWORD '***'", " ".join(args))     # mai le password a schermo
-            raise SystemExit(f"Comando non riuscito: {shown}\n{(res.stderr or res.stdout).strip()}")
+            raise SystemExit(_("Comando non riuscito: {p0}\n{p1}", p0=shown, p1=(res.stderr or res.stdout).strip()))
         if not quiet and res.stdout.strip():
             print(res.stdout.strip())
         return res.stdout
@@ -201,7 +210,7 @@ class System:
         missing = [p for p in packages if not self.enabled or subprocess.run(
             ["dpkg-query", "-W", "-f=${Status}", p], capture_output=True, text=True).stdout != "install ok installed"]
         if missing and self.enabled:
-            print(f"  installo: {' '.join(missing)}")
+            print(_("  installo: {p0}", p0=" ".join(missing)))
             self.run("apt-get", "install", "-y", "-q", *missing, quiet=True)
 
     def write(self, path: str, content: str, mode: int = 0o644, owner: str | None = None) -> None:
@@ -220,21 +229,21 @@ class System:
 def apply(ans: Answers, sysm: System, verbose: bool = True) -> list[str]:
     """Scrive i file generati dai modelli; ritorna quelli cambiati."""
     changed = []
-    for path, status, _ in diff(ans, sysm.root):
+    for path, status, _diff in diff(ans, sysm.root):
         if status == "uguale":
             continue
         mode = 0o755 if path.endswith("astreo-smart-collect") else 0o644
         sysm.write(path, render(ans)[path], mode)
         changed.append(path)
         if verbose:
-            print(f"  {'creato' if status == 'nuovo' else 'aggiornato'}: {path}")
+            print(_("  creato: {p0}", p0=path) if status == "nuovo" else _("  aggiornato: {p0}", p0=path))
     # unit non più previste (modulo disattivato): fermate e rimosse
     for old in sorted(os.listdir(sysm.p("/etc/systemd/system")) if os.path.isdir(sysm.p("/etc/systemd/system")) else []):
         if old.startswith("astreo-") and old not in ans.units() and (old.endswith(".service") or old.endswith(".timer")):
             sysm.systemctl("disable", "--now", old, check=False)
             os.remove(sysm.p(f"/etc/systemd/system/{old}"))
             changed.append(f"/etc/systemd/system/{old}")
-            print(f"  rimosso: /etc/systemd/system/{old} (modulo disattivato)")
+            print(_("  rimosso: /etc/systemd/system/{p0} (modulo disattivato)", p0=old))
     if ans.https:
         enabled = sysm.p("/etc/nginx/sites-enabled")
         os.makedirs(enabled, exist_ok=True)
@@ -322,11 +331,11 @@ class Asker:
             if not a and allow_empty:
                 return ""
             if len(a) < 8 and not allow_empty:
-                print("  almeno 8 caratteri")
+                print(_("  almeno 8 caratteri"))
                 continue
             if not confirm or getpass.getpass("  ripeti: ") == a:
                 return a
-            print("  le due password non coincidono")
+            print(_("  le due password non coincidono"))
 
 
 def as_list(v: str) -> list[str]:
@@ -337,16 +346,16 @@ def as_list(v: str) -> list[str]:
 def setup_database(ans: Answers, ask: Asker, sysm: System) -> tuple[dict, tuple[str | None, str | None]]:
     """Prepara il database. Ritorna (sezione [database] del config, credenziali admin per migrate)."""
     if ans.db_engine == "sqlite":
-        path = ask.ask("db_path", "File del database SQLite", "/var/lib/astreo-monitor/astreo_monitor.db")
+        path = ask.ask("db_path", _("File del database SQLite"), "/var/lib/astreo-monitor/astreo_monitor.db")
         os.makedirs(os.path.dirname(sysm.p(path)), exist_ok=True)
         if sysm.enabled:
             shutil.chown(os.path.dirname(path), ans.user, ans.group)
         return {"engine": "sqlite", "path": path}, (None, None)
 
     if ans.db_engine == "postgresql":
-        host = ask.ask("db_host", "Server PostgreSQL (127.0.0.1 = installalo qui)", "127.0.0.1")
-        name = ask.ask("db_name", "Nome del database", "astreo_monitor")
-        user = ask.ask("db_user", "Utente dell'applicazione", "astreo_app")
+        host = ask.ask("db_host", _("Server PostgreSQL (127.0.0.1 = installalo qui)"), "127.0.0.1")
+        name = ask.ask("db_name", _("Nome del database"), "astreo_monitor")
+        user = ask.ask("db_user", _("Utente dell'applicazione"), "astreo_app")
         password = ask.ask("db_password", "", "") or secrets.token_urlsafe(18)
         if host in ("127.0.0.1", "localhost") and sysm.enabled:
             sysm.apt("postgresql", "postgresql-client")
@@ -358,22 +367,22 @@ def setup_database(ans: Answers, ask: Asker, sysm: System) -> tuple[dict, tuple[
                               quiet=True).strip()
             if exists != "1":
                 sysm.run("runuser", "-u", "postgres", "--", "psql", "-q", "-c", f'CREATE DATABASE "{name}" OWNER "{user}"', quiet=True)
-            print(f"  PostgreSQL: database {name}, utente {user} (proprietario: crea lui le tabelle)")
+            print(_("  PostgreSQL: database {p0}, utente {p1} (proprietario: crea lui le tabelle)", p0=name, p1=user))
             admin = (user, password)        # proprietario del database: nessun amministratore necessario
         else:
-            admin = (ask.ask("db_admin_user", "Amministratore PostgreSQL per creare le tabelle", "postgres"),
-                     ask.secret("db_admin_password", "Password dell'amministratore", confirm=False))
+            admin = (ask.ask("db_admin_user", _("Amministratore PostgreSQL per creare le tabelle"), "postgres"),
+                     ask.secret("db_admin_password", _("Password dell'amministratore"), confirm=False))
         return {"engine": "postgresql", "host": host, "port": "5432", "database": name, "user": user,
                 "password": password}, admin
 
     # SQL Server (deve già esistere)
-    host = ask.ask("db_host", "Server SQL Server", "127.0.0.1")
-    port = ask.ask("db_port", "Porta", "1433")
-    name = ask.ask("db_name", "Nome del database (creato se manca)", "astreo_monitor")
-    user = ask.ask("db_user", "Login dell'applicazione (creato se manca)", "astreo_monitor_app")
+    host = ask.ask("db_host", _("Server SQL Server"), "127.0.0.1")
+    port = ask.ask("db_port", _("Porta"), "1433")
+    name = ask.ask("db_name", _("Nome del database (creato se manca)"), "astreo_monitor")
+    user = ask.ask("db_user", _("Login dell'applicazione (creato se manca)"), "astreo_monitor_app")
     password = ask.ask("db_password", "", "") or (secrets.token_urlsafe(14) + "Aa1!")
-    admin_user = ask.ask("db_admin_user", "Amministratore SQL Server", "sa")
-    admin_password = ask.secret("db_admin_password", f"Password di {admin_user}", confirm=False)
+    admin_user = ask.ask("db_admin_user", _("Amministratore SQL Server"), "sa")
+    admin_password = ask.secret("db_admin_password", _("Password di {p0}", p0=admin_user), confirm=False)
     if sysm.enabled or ask.preset is not None:
         mssql_prepare(host, int(port), name, user, password, admin_user, admin_password, ans.backup)
     return {"engine": "mssql", "host": host, "port": port, "database": name, "user": user, "password": password}, \
@@ -406,7 +415,7 @@ def mssql_prepare(host, port, name, user, password, admin_user, admin_password, 
                 while cur.nextset():
                     pass
     c.close()
-    print(f"  SQL Server: database {name}, login {user}" + (" con permessi di backup" if backup else ""))
+    print(f"  SQL Server: database {name}, login {user}" + (_(" con permessi di backup") if backup else ""))
 
 
 # =============================================================================== HTTPS e terminale
@@ -423,9 +432,9 @@ def setup_https(ans: Answers, sysm: System) -> None:
             os.chmod(ans.key_file, 0o600)
             shutil.copy(os.path.join(ca_dir, "rootCA.pem"), os.path.join(ans.config_dir, "astreo-ca.crt"))
             os.chmod(os.path.join(ans.config_dir, "astreo-ca.crt"), 0o644)
-        print(f"  certificato creato per: {', '.join(dict.fromkeys(names))}")
+        print(_("  certificato creato per: {p0}", p0=', '.join(dict.fromkeys(names))))
     else:
-        print(f"  certificato esistente mantenuto: {ans.cert_file}")
+        print(_("  certificato esistente mantenuto: {p0}", p0=ans.cert_file))
 
 
 def setup_terminal(ans: Answers, sysm: System) -> None:
@@ -439,7 +448,7 @@ def setup_terminal(ans: Answers, sysm: System) -> None:
         cred = f"astreo:{secrets.token_hex(24)}"
         sysm.write(env_file, f"TTYD_CREDENTIAL={cred}\n", 0o600)
         sysm.write(snippet, f'proxy_set_header Authorization "Basic {base64.b64encode(cred.encode()).decode()}";\n', 0o600)
-        print("  credenziale interna nginx ↔ ttyd creata")
+        print(_("  credenziale interna nginx ↔ ttyd creata"))
 
 
 # =============================================================================== configurazione
@@ -483,7 +492,7 @@ def write_config(ans: Answers, sysm: System, dbsec: dict, web_password: str, ter
     from io import StringIO
     buf = StringIO()
     cp.write(buf)
-    sysm.write(path, f"# Astreo Monitor {__version__} - generato dall'installatore. Guida: docs/configurazione.md\n"
+    sysm.write(path, _("# Astreo Monitor {p0} - generato dall'installatore. Guida: docs/configurazione.md\n", p0=__version__)
                + buf.getvalue(), 0o600, owner=ans.user)
     return path
 
@@ -496,51 +505,54 @@ def cmd_install(args, sysm: System) -> None:
         cp.read(args.answers, encoding="utf-8")
         preset = dict(cp["answers"])
     ask = Asker(preset)
+    global LANG
+    LANG = _i18n.normalize(ask.ask("language", "Lingua / Language (it, en)", LANG))
+    os.environ["ASTREO_LANG"] = LANG                  # vale anche per migrate e diagnosi lanciati da qui
     user, group, home = detect_user()
     ips, names, nets = detect_network()
-    print(f"\n=== Astreo Monitor {__version__} — installazione ===\n")
-    a = Answers()
-    a.user = ask.ask("user", "Utente con cui girano i servizi", user)
+    print(_("\n=== Astreo Monitor {p0} — installazione ===\n", p0=__version__))
+    a = Answers(language=LANG)
+    a.user = ask.ask("user", _("Utente con cui girano i servizi"), user)
     pw = pwd.getpwnam(a.user) if sysm.enabled else None
-    a.group = grp.getgrgid(pw.pw_gid).gr_name if pw else ask.ask("group", "Gruppo", group)
-    a.home = pw.pw_dir if pw else ask.ask("home", "Cartella home", home)
-    a.config_dir = ask.ask("config_dir", "Cartella della configurazione", "/etc/astreo-monitor")
-    a.web_port = int(ask.ask("web_port", "Porta interna della dashboard", "5025"))
-    a.db_engine = ask.ask("db_engine", "Database: sqlite, postgresql o mssql", "sqlite").lower()
+    a.group = grp.getgrgid(pw.pw_gid).gr_name if pw else ask.ask("group", _("Gruppo"), group)
+    a.home = pw.pw_dir if pw else ask.ask("home", _("Cartella home"), home)
+    a.config_dir = ask.ask("config_dir", _("Cartella della configurazione"), "/etc/astreo-monitor")
+    a.web_port = int(ask.ask("web_port", _("Porta interna della dashboard"), "5025"))
+    a.db_engine = ask.ask("db_engine", _("Database: sqlite, postgresql o mssql"), "sqlite").lower()
     if a.db_engine not in ("sqlite", "postgresql", "mssql"):
-        raise SystemExit("Database non valido")
-    a.https = ask.yes("https", "Dashboard in HTTPS con nginx (consigliato; necessario per il terminale)", True)
+        raise SystemExit(_("Database non valido"))
+    a.https = ask.yes("https", _("Dashboard in HTTPS con nginx (consigliato; necessario per il terminale)"), True)
     if a.https:
-        a.https_port = int(ask.ask("https_port", "Porta HTTPS", "5443"))
-        a.server_ips = as_list(ask.ask("server_ips", "IP del server (per il certificato)", ", ".join(ips)))
-        a.server_names = as_list(ask.ask("server_names", "Nomi del server", ", ".join(names)))
-        a.terminal = ask.yes("terminal", "Terminale web (shell nel browser, con password separata)", True)
-    a.allowed_networks = as_list(ask.ask("allowed_networks", "Reti ammesse al terminale (LAN, VPN)", ", ".join(nets))) \
+        a.https_port = int(ask.ask("https_port", _("Porta HTTPS"), "5443"))
+        a.server_ips = as_list(ask.ask("server_ips", _("IP del server (per il certificato)"), ", ".join(ips)))
+        a.server_names = as_list(ask.ask("server_names", _("Nomi del server"), ", ".join(names)))
+        a.terminal = ask.yes("terminal", _("Terminale web (shell nel browser, con password separata)"), True)
+    a.allowed_networks = as_list(ask.ask("allowed_networks", _("Reti ammesse al terminale (LAN, VPN)"), ", ".join(nets))) \
         if a.terminal else []
-    a.speedtest = ask.yes("speedtest", "Speedtest periodico", True)
-    a.backup = ask.yes("backup", "Backup notturno del database (con copia facoltativa su GitHub)", True)
-    a.netpulse = a.https and ask.yes("netpulse", "Compatibilità con il widget Windows NetPulse", False)
-    services = as_list(ask.ask("services", "Servizi da monitorare", ", ".join(detect_services())))
+    a.speedtest = ask.yes("speedtest", _("Speedtest periodico"), True)
+    a.backup = ask.yes("backup", _("Backup notturno del database (con copia facoltativa su GitHub)"), True)
+    a.netpulse = a.https and ask.yes("netpulse", _("Compatibilità con il widget Windows NetPulse"), False)
+    services = as_list(ask.ask("services", _("Servizi da monitorare"), ", ".join(detect_services())))
 
-    print("\n--- Database")
+    print("\n--- " + _("Database"))
     if sysm.enabled and a.db_engine != "sqlite":
         sysm.apt("zstd")
     dbsec, admin = setup_database(a, ask, sysm)
     backup_extra = {}
     if a.backup:
-        backup_extra = {"local_dir": ask.ask("backup_dir", "Cartella dei backup", os.path.join(a.home, "backups", "astreo")),
-                        "github_repo": ask.ask("github_repo", "Repository GitHub privato per i backup (vuoto = nessuno)", ""),
+        backup_extra = {"local_dir": ask.ask("backup_dir", _("Cartella dei backup"), os.path.join(a.home, "backups", "astreo")),
+                        "github_repo": ask.ask("github_repo", _("Repository GitHub privato per i backup (vuoto = nessuno)"), ""),
                         "databases": dbsec.get("database", "astreo_monitor")}
         if a.db_engine == "mssql":
-            backup_extra["sql_dir"] = ask.ask("sql_dir", "Cartella condivisa con SQL Server per i file .bak", "/srv/sqlbackup")
+            backup_extra["sql_dir"] = ask.ask("sql_dir", _("Cartella condivisa con SQL Server per i file .bak"), "/srv/sqlbackup")
         os.makedirs(sysm.p(backup_extra["local_dir"]), exist_ok=True)
         if sysm.enabled:
             shutil.chown(backup_extra["local_dir"], a.user, a.group)
             sysm.apt("zstd")
 
-    print("\n--- Accesso")
-    web_password = ask.secret("web_password", f"Password della dashboard (utente {a.user})")
-    term_password = ask.secret("terminal_password", "Password del terminale (diversa dalla precedente)") if a.terminal else ""
+    print("\n--- " + _("Accesso"))
+    web_password = ask.secret("web_password", _("Password della dashboard (utente {p0})", p0=a.user))
+    term_password = ask.secret("terminal_password", _("Password del terminale (diversa dalla precedente)")) if a.terminal else ""
     os.makedirs(sysm.p(a.config_dir), exist_ok=True)
     if a.https:
         print("\n--- HTTPS")
@@ -549,13 +561,17 @@ def cmd_install(args, sysm: System) -> None:
             setup_terminal(a, sysm)
     cfg_path = write_config(a, sysm, dbsec, web_password, term_password, services, backup_extra)
     a.save(sysm.root)
-    print(f"  configurazione: {cfg_path}")
+    print(_("  configurazione: {p0}", p0=cfg_path))
 
-    print("\n--- Schema del database")
+    print(_("\n--- Schema del database"))
     from . import config as config_mod, migrate
-    migrate.run(config_mod.load(sysm.p(cfg_path)), *admin)
+    loaded = config_mod.load(sysm.p(cfg_path))
+    migrate.run(loaded, *admin, out=print)
+    from . import db, settings as settings_mod
+    with db.connect(loaded.database) as conn:            # lingua di dashboard, notifiche e bot
+        settings_mod.save(conn, loaded, {"ui.language": LANG})
 
-    print("\n--- Servizi")
+    print("\n--- " + _("Servizi"))
     if sysm.enabled:
         sysm.apt("smartmontools", "iputils-ping")
     apply(a, sysm)
@@ -563,11 +579,11 @@ def cmd_install(args, sysm: System) -> None:
         enable_units(a, sysm)
     url = f"https://{(a.server_ips or ['IP-del-server'])[0]}:{a.https_port}/" if a.https else \
         f"http://{(ips or ['IP-del-server'])[0]}:{a.web_port}/"
-    print(f"\nInstallazione completata. Dashboard: {url}  (utente {a.user})")
+    print(_("\nInstallazione completata. Dashboard: {p0}  (utente {p1})", p0=url, p1=a.user))
     if not a.https:
-        print("ATTENZIONE: connessione NON cifrata (HTTP). Per HTTPS e terminale: sudo bash update.sh --enable-https")
+        print(_("ATTENZIONE: connessione NON cifrata (HTTP). Per HTTPS e terminale: sudo bash update.sh --enable-https"))
     elif a.https:
-        print(f"Per evitare gli avvisi del browser installa la CA sui dispositivi: {url}astreo-ca.crt (docs/certificato.md)")
+        print(_("Per evitare gli avvisi del browser installa la CA sui dispositivi: {p0}astreo-ca.crt (docs/certificato.md)", p0=url))
     if sysm.enabled:
         subprocess.run([sys.executable, "-m", "astreo_monitor.doctor", "-c", cfg_path, "--no-color"])
 
@@ -575,8 +591,7 @@ def cmd_install(args, sysm: System) -> None:
 def load_answers(args, sysm: System) -> Answers:
     p = Answers.path(args.config_dir, sysm.root)
     if not os.path.exists(p):
-        raise SystemExit(f"{p} non trovato: per un'installazione esistente lancia prima "
-                         "'sudo .venv/bin/python -m astreo_monitor.installer adopt'")
+        raise SystemExit(_("{p0} non trovato: per un'installazione esistente lancia prima 'sudo .venv/bin/python -m astreo_monitor.installer adopt'", p0=p))
     return Answers.load(p)
 
 
@@ -599,48 +614,48 @@ def cmd_update(args, sysm: System, enable_https: bool = False) -> None:
         ask = Asker()
         ips, names, nets = detect_network()
         ans.https = True
-        ans.https_port = int(ask.ask("https_port", "Porta HTTPS", "5443"))
-        ans.server_ips = as_list(ask.ask("server_ips", "IP del server", ", ".join(ips)))
-        ans.server_names = as_list(ask.ask("server_names", "Nomi del server", ", ".join(names)))
-        ans.terminal = ask.yes("terminal", "Attivare il terminale web", True)
+        ans.https_port = int(ask.ask("https_port", _("Porta HTTPS"), "5443"))
+        ans.server_ips = as_list(ask.ask("server_ips", _("IP del server"), ", ".join(ips)))
+        ans.server_names = as_list(ask.ask("server_names", _("Nomi del server"), ", ".join(names)))
+        ans.terminal = ask.yes("terminal", _("Attivare il terminale web"), True)
         setup_https(ans, sysm)
         cp = configparser.ConfigParser(interpolation=None)
         cp.read(sysm.p(cfg_path), encoding="utf-8")
         cp["web"]["host"], cp["web"]["trusted_proxy"], cp["web"]["https_port"] = "127.0.0.1", "127.0.0.1", str(ans.https_port)
         if ans.terminal:
             from werkzeug.security import generate_password_hash
-            ans.allowed_networks = as_list(ask.ask("allowed_networks", "Reti ammesse al terminale", ", ".join(nets)))
+            ans.allowed_networks = as_list(ask.ask("allowed_networks", _("Reti ammesse al terminale"), ", ".join(nets)))
             setup_terminal(ans, sysm)
             cp["terminal"] = {"enabled": "true", "session_minutes": "15", "allowed_networks": ", ".join(ans.allowed_networks),
-                              "password_hash": generate_password_hash(ask.secret("terminal_password", "Password del terminale"))}
+                              "password_hash": generate_password_hash(ask.secret("terminal_password", _("Password del terminale")))}
         from io import StringIO
         buf = StringIO()
         cp.write(buf)
         sysm.write(cfg_path, buf.getvalue(), 0o600, owner=ans.user)
         ans.save(sysm.root)
-    print("--- File di sistema")
+    print(_("--- File di sistema"))
     changed = apply(ans, sysm)
     if not changed:
-        print("  nessuna modifica")
-    print("--- Schema del database")
+        print(_("  nessuna modifica"))
+    print(_("--- Schema del database"))
     cfg = config_mod.load(sysm.p(cfg_path))
     from . import db
     with db.connect(cfg.database) as conn:
         st = migrate.status(conn)
     if st["current"] == st["head"] and not st["legacy_2x"]:
-        print(f"  già aggiornato (revisione {st['head']})")
+        print(_("  già aggiornato (revisione {p0})", p0=st['head']))
     else:
         admin = (None, None)
         if cfg.database.engine == "mssql" or (cfg.database.engine == "postgresql" and cfg.database.host not in ("127.0.0.1", "localhost")):
             default = "sa" if cfg.database.engine == "mssql" else "postgres"
-            admin = (default, getpass.getpass(f"Password di {default} per aggiornare lo schema: "))
+            admin = (default, getpass.getpass(_("Password di {p0} per aggiornare lo schema: ", p0=default)))
         elif cfg.database.engine == "postgresql":
             admin = (cfg.database.user, cfg.database.password)
         migrate.run(cfg, *admin)
     if sysm.enabled:
         enable_units(ans, sysm)
         sysm.systemctl("restart", *[u for u in ans.units() if u in LONG_RUNNING])
-        print("--- Diagnosi")
+        print("--- " + _("Diagnosi"))
         subprocess.run([sys.executable, "-m", "astreo_monitor.doctor", "-c", sysm.p(cfg_path), "--no-color"])
 
 
@@ -661,6 +676,12 @@ def cmd_adopt(args, sysm: System) -> None:
     a.project_dir = m.group(1) if m else ROOT
     a.web_port = cfg.web.port
     a.db_engine = cfg.database.engine
+    try:                                               # lingua già scelta nella dashboard
+        from . import db, settings as settings_mod
+        with db.connect(cfg.database) as conn:
+            a.language = _i18n.normalize(settings_mod.load(conn, cfg)["ui.language"])
+    except Exception:  # noqa: BLE001
+        a.language = LANG
     site = sysm.p("/etc/nginx/sites-available/astreo-monitor")
     if os.path.exists(site):
         s = open(site, encoding="utf-8").read()
@@ -684,9 +705,9 @@ def cmd_adopt(args, sysm: System) -> None:
         a.server_ips = [x for x in re.findall(r"IP Address:([\d.]+)", san) if x != "127.0.0.1"]
         a.server_names = [x for x in re.findall(r"DNS:([^,\s]+)", san) if x not in ("localhost", a.netpulse_name)]
     p = a.save(sysm.root)
-    print(f"Risposte ricavate dall'installazione esistente e salvate in {p}:\n")
+    print(_("Risposte ricavate dall'installazione esistente e salvate in {p0}:\n", p0=p))
     print(open(p, encoding="utf-8").read())
-    print("Confronto tra i file installati e quelli generati dai modelli:\n")
+    print(_("Confronto tra i file installati e quelli generati dai modelli:\n"))
     for path, status, d in diff(a, sysm.root):
         print(f"{status:>14}  {path}")
         if d:
@@ -694,17 +715,17 @@ def cmd_adopt(args, sysm: System) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="astreo_monitor.installer", description="Installatore di Astreo Monitor")
+    parser = argparse.ArgumentParser(prog="astreo_monitor.installer", description=_("Installatore di Astreo Monitor"))
     parser.add_argument("command", choices=["install", "update", "enable-https", "adopt", "diff", "apply"])
     parser.add_argument("--config-dir", default="/etc/astreo-monitor")
-    parser.add_argument("--answers", help="file con le risposte (sezione [answers]): nessuna domanda")
-    parser.add_argument("--root", default="", help="prefisso dei percorsi di sistema (test)")
-    parser.add_argument("--no-system", action="store_true", help="niente apt, systemctl, nginx, chown (test)")
+    parser.add_argument("--answers", help=_("file con le risposte (sezione [answers]): nessuna domanda"))
+    parser.add_argument("--root", default="", help=_("prefisso dei percorsi di sistema (test)"))
+    parser.add_argument("--no-system", action="store_true", help=_("niente apt, systemctl, nginx, chown (test)"))
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     sysm = System(args.root.rstrip("/"), enabled=not args.no_system)
     if sysm.enabled and os.geteuid() != 0:
-        raise SystemExit("Va eseguito con sudo: sudo .venv/bin/python -m astreo_monitor.installer " + args.command)
+        raise SystemExit(_("Va eseguito con sudo: sudo .venv/bin/python -m astreo_monitor.installer ") + args.command)
     if args.command == "install":
         cmd_install(args, sysm)
     elif args.command == "update":

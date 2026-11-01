@@ -182,8 +182,9 @@ services = ssh, docker
 web_password = Password123
 """, encoding="utf-8")
     root = tmp_path / "root"
+    env = {**os.environ, "ASTREO_LANG": "it"}
     res = subprocess.run([sys.executable, "-m", "astreo_monitor.installer", "install", "--root", str(root), "--no-system",
-                          "--answers", str(ans)], capture_output=True, text=True, cwd=ROOT)
+                          "--answers", str(ans)], capture_output=True, text=True, cwd=ROOT, env=env)
     assert res.returncode == 0, res.stderr + res.stdout
     assert "NON cifrata" in res.stdout                                   # avviso HTTP
     cfg_text = (root / "etc/astreo-monitor/config.ini").read_text(encoding="utf-8")
@@ -194,3 +195,13 @@ web_password = Password123
     res = subprocess.run([sys.executable, "-m", "astreo_monitor.installer", "diff", "--root", str(root), "--no-system"],
                          capture_output=True, text=True, cwd=ROOT)
     assert res.returncode == 0 and "diverso" not in res.stdout and "nuovo" not in res.stdout
+
+
+@pytest.mark.parametrize("env,expected", [({}, "it"), ({"LANG": "en_US.UTF-8"}, "en"), ({"ASTREO_LANG": "en", "LANG": "it_IT"}, "en")])
+def test_lingua_degli_script(env, expected):
+    """3.0.0b5: gli script usano set -u; senza LANG la lettura della lingua non deve fallire."""
+    import subprocess
+    res = subprocess.run(["bash", "-c", "set -euo pipefail; . scripts/lingua.sh; echo $_L"], cwd=ROOT,
+                         capture_output=True, text=True, env={"PATH": "/usr/bin:/bin", **env})
+    assert res.returncode == 0, res.stderr
+    assert res.stdout.strip() == expected

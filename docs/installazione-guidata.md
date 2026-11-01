@@ -16,6 +16,7 @@ Python e avvia le domande:
 
 | Domanda | Predefinito | Note |
 |---|---|---|
+| Lingua | da `LANG` | dashboard, notifiche, bot e messaggi a terminale |
 | Utente dei servizi | chi lancia `sudo` | i servizi non girano come root |
 | Database | `sqlite` | `postgresql` (installato via apt se locale) o `mssql` (istanza esistente: crea database e login) |
 | HTTPS con nginx | sì | certificato con CA privata (mkcert); senza HTTPS la dashboard funziona in HTTP, con un avviso, e senza terminale |

@@ -142,7 +142,7 @@ def test_messaggi_python_tradotti():
     for f in glob.glob(os.path.join(root, "**", "*.py"), recursive=True):
         src = open(f, encoding="utf-8").read()
         for m in re.finditer(r'(?<![\w.])(?:_|tr|self\.tr|i18n\.t)\(\s*"((?:[^"\\]|\\.)*)"(?:\s*\n?\s*"((?:[^"\\]|\\.)*)")?', src):
-            keys.add((m.group(1) + (m.group(2) or "")).replace('\\"', '"'))
+            keys.add((m.group(1) + (m.group(2) or "")).replace('\\"', '"').replace("\\n", "\n"))
     missing = sorted(k for k in keys if k not in cat)
     assert not missing, missing[:10]
 
