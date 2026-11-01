@@ -464,3 +464,7 @@ td.warn { color: var(--warn); }
 .lang-switch { margin-left: auto; display: inline-flex; gap: .25rem; }
 .lang-switch button { padding: .1rem .45rem; font-size: .75rem; border: 1px solid var(--line); background: transparent; color: var(--off); border-radius: 4px; }
 .lang-switch button.active { color: var(--strong); border-color: var(--ok); }
+
+/* 3.1 - utente in sola lettura: niente impostazioni, terminale, processi e comandi */
+body[data-role="viewer"] .admin-only { display: none !important; }
+.role-badge { font-size: .75rem; color: var(--warn); border: 1px solid var(--warn); border-radius: 4px; padding: .05rem .4rem; }

@@ -108,6 +108,61 @@ def send_whatsapp(phone: str, apikey: str, subject: str, body: str) -> tuple[boo
         return False, str(exc).replace(apikey, "***")
 
 
+def _post(url: str, secrets_: tuple, **kw) -> tuple[bool, str]:
+    """POST con gestione degli errori; i segreti non compaiono mai nei messaggi."""
+    try:
+        r = requests.post(url, timeout=20, **kw)
+        if r.ok:
+            return True, ""
+        detail = r.text.strip()[:200]
+        out = f"HTTP {r.status_code}" + (f": {detail}" if detail else "")
+    except requests.RequestException as exc:
+        out = str(exc)
+    for sec in secrets_:
+        if sec:
+            out = out.replace(sec, "***")
+    return False, out[:300]
+
+
+def send_ntfy(server: str, topic: str, token: str, subject: str, body: str) -> tuple[bool, str]:
+    """ntfy (https://ntfy.sh o server proprio): pubblicazione JSON, quindi titoli con accenti senza problemi."""
+    if not server or not topic:
+        return False, "server o argomento mancanti"
+    priority = 4 if any(w in subject for w in ("ALERT", "DOWN", "FALLIT", "FAILED", "fermo", "stopped")) else 3
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    return _post(server.rstrip("/"), (token,), headers=headers,
+                 json={"topic": topic, "title": f"[Astreo] {subject}", "message": body.strip()[:4000],
+                       "priority": priority, "tags": ["computer"]})
+
+
+def send_gotify(server: str, token: str, subject: str, body: str) -> tuple[bool, str]:
+    if not server or not token:
+        return False, "server o token mancanti"
+    priority = 8 if any(w in subject for w in ("ALERT", "DOWN", "FALLIT", "FAILED")) else 5
+    return _post(f"{server.rstrip('/')}/message", (token,), headers={"X-Gotify-Key": token},
+                 json={"title": f"[Astreo] {subject}", "message": body.strip()[:4000], "priority": priority})
+
+
+def send_discord(webhook: str, subject: str, body: str) -> tuple[bool, str]:
+    if not webhook:
+        return False, "URL del webhook mancante"
+    text = f"**[Astreo] {subject}**\n{body.strip()}"
+    return _post(webhook, (webhook,), json={"content": text[:1990] + ("…" if len(text) > 1990 else ""),
+                                            "allowed_mentions": {"parse": []}})
+
+
+def send_webhook(url: str, secret: str, source: str, subject: str, body: str) -> tuple[bool, str]:
+    """Webhook generico: JSON con evento, oggetto e testo (per Home Assistant, n8n, script propri…)."""
+    if not url:
+        return False, "URL mancante"
+    import socket
+    from . import __version__
+    payload = {"source": source, "subject": subject, "body": body.strip(), "host": socket.gethostname(),
+               "time": dt.datetime.now().isoformat(timespec="seconds"), "version": __version__}
+    headers = {"Authorization": f"Bearer {secret}"} if secret else {}
+    return _post(url, (url, secret), json=payload, headers=headers)
+
+
 # --------------------------------------------------------------------------
 # Invio su tutti i canali abilitati per una sorgente
 # --------------------------------------------------------------------------
@@ -132,6 +187,14 @@ def send_channel(conn, cfg, values: dict, channel: str, source: str, subject: st
         ok, err = send_telegram(values["notify.telegram.bot_token"], values["notify.telegram.chat_id"], subject, body)
     elif channel == "whatsapp":
         ok, err = send_whatsapp(values["notify.whatsapp.phone"], values["notify.whatsapp.apikey"], subject, body)
+    elif channel == "ntfy":
+        ok, err = send_ntfy(values["notify.ntfy.url"], values["notify.ntfy.topic"], values["notify.ntfy.token"], subject, body)
+    elif channel == "gotify":
+        ok, err = send_gotify(values["notify.gotify.url"], values["notify.gotify.token"], subject, body)
+    elif channel == "discord":
+        ok, err = send_discord(values["notify.discord.webhook"], subject, body)
+    elif channel == "webhook":
+        ok, err = send_webhook(values["notify.webhook.url"], values["notify.webhook.secret"], source, subject, body)
     else:
         return False, f"canale sconosciuto {channel}"
     if ok:

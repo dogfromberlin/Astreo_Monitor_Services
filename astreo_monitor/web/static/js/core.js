@@ -5,6 +5,7 @@
   // La chiave è il testo italiano; segnaposto {nome}. Senza traduzione resta l'italiano.
   const LANG = window.LANG || "it";
   const LOCALE = LANG === "en" ? "en-GB" : "it-IT";
+  const IS_VIEWER = document.body.dataset.role === "viewer";   // utente in sola lettura
   function t(text, vars) {
     let out = (window.I18N && window.I18N[text]) || text;
     if (vars) out = out.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
@@ -58,10 +59,10 @@
     if (text !== undefined) n.textContent = text;
     return n;
   }
-  function row(cells) {
+  function row(cells, tag = "td") {
     const tr = document.createElement("tr");
     for (const c of cells) {
-      const td = el("td", { class: c.cls || null, "data-label": c.label || null });
+      const td = el(tag, { class: c.cls || null, "data-label": c.label || null });
       if (c.node) td.appendChild(c.node); else td.textContent = c.text ?? "";
       if (c.title) td.title = c.title;
       tr.appendChild(td);
@@ -191,7 +192,8 @@
   function onView(name, fn) { viewHandlers[name] = fn; if (currentView === name) fn(); }
   function showView() {
     const name = (location.hash || "#server").slice(1).split("/")[0] || "server";
-    const valid = $$(".view[data-view]").map((v) => v.dataset.view);
+    const viewerHidden = IS_VIEWER ? ["impostazioni", "terminale"] : [];
+    const valid = $$(".view[data-view]").map((v) => v.dataset.view).filter((v) => !viewerHidden.includes(v));
     const view = valid.includes(name) ? name : "server";
     $$(".view[data-view]").forEach((v) => { v.hidden = v.dataset.view !== view; });
     $$("[data-view-link]").forEach((a) => a.classList.toggle("active", a.dataset.viewLink === view));
@@ -233,7 +235,7 @@
     catch (e) { toast(e.message, "error"); }
   });
 
-  window.AM = { t, LANG, LOCALE, $, $$, api, el, row, toast, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtFull, fmtDuration, fmtUptime,
+  window.AM = { t, LANG, LOCALE, IS_VIEWER, $, $$, api, el, row, toast, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtFull, fmtDuration, fmtUptime,
                 level, toLocalInput, C, PALETTE, drawChart, ds, constLine, charts, onView, every, isView,
                 loadEvents, eventState, visibleEvents, redrawEvents, EVENT_COLOR };
   // Avvisi di installazione: database incompleto o pagina di una versione diversa dal server

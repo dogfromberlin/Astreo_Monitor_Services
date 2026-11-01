@@ -7,7 +7,7 @@ import secrets
 import time
 from urllib.parse import urlparse
 
-from flask import Flask, Response, abort, jsonify, redirect, render_template, request, url_for
+from flask import Flask, Response, abort, g, jsonify, redirect, render_template, request, url_for
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
@@ -127,6 +127,15 @@ def create_app(cfg: Config) -> Flask:
                       SESSION_COOKIE_SECURE=bool(cfg.web.trusted_proxy))
 
     # ------------------------------------------------------------ sicurezza
+    # Utente in sola lettura: solo letture, e non quelle che espongono configurazione, comandi o log
+    VIEWER_DENIED = ("/api/v1/settings", "/api/v1/terminal", "/api/v1/notify", "/api/v1/processes",
+                     "/api/v1/services/", "/api/v1/schema", "/terminal")
+
+    def viewer_allowed() -> bool:
+        if request.method not in ("GET", "HEAD"):
+            return request.path == "/api/v1/terminal/lock"
+        return not request.path.startswith(VIEWER_DENIED)
+
     @app.before_request
     def require_auth():
         if request.endpoint in PUBLIC_ENDPOINTS or request.path.startswith("/api/netpulse/"):
@@ -138,6 +147,18 @@ def create_app(cfg: Config) -> Flask:
             and auth.username == cfg.web.username
             and check_password_hash(cfg.web.password_hash, auth.password or "")
         ):
+            g.role = "admin"
+            return None
+        if (
+            auth
+            and cfg.web.viewer_username and cfg.web.viewer_password_hash
+            and auth.username == cfg.web.viewer_username
+            and check_password_hash(cfg.web.viewer_password_hash, auth.password or "")
+        ):
+            g.role = "viewer"
+            if not viewer_allowed():
+                return jsonify({"error": "Forbidden", "detail": i18n.t("Non consentito all'utente in sola lettura",
+                                                                        current_language())}), 403
             return None
         if auth:
             log.warning("Autenticazione fallita da %s (utente %r)", request.remote_addr, auth.username)
@@ -210,7 +231,7 @@ def create_app(cfg: Config) -> Flask:
     def dashboard():
         lang = current_language()
         return render_template("index.html", version=__version__, lang=lang, languages=i18n.LANGUAGES,
-                               catalog=i18n.catalog(lang), service_user=service_user())
+                               catalog=i18n.catalog(lang), service_user=service_user(), role=g.get("role", "admin"))
 
     @app.get("/astreomonitor")  # vecchio indirizzo, mantenuto per i preferiti
     def legacy_dashboard():

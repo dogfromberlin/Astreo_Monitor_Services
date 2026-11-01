@@ -15,9 +15,10 @@ insieme a mano.
 | **Connessione** | Ping verso router e Internet ogni minuto (interruzioni, disponibilità), speedtest periodico con soglie, cambi di IP pubblico |
 | **Salute** | Stato SMART dei dischi, aggiornamenti di sicurezza in sospeso e riavvii richiesti, scadenze di certificati e token |
 | **Sicurezza dei dati** | Backup notturno del database (con copia facoltativa su un repository GitHub privato) e **verifica mensile del ripristino** |
-| **Avvisi** | Email, Telegram, WhatsApp (CallMeBot); regole per controllo (solo se peggiora / a ogni cambio, promemoria, rientro), fascia di silenzio, heartbeat esterno (healthchecks.io) |
+| **Avvisi** | Email, Telegram, WhatsApp (CallMeBot), ntfy, Gotify, Discord, webhook; regole per controllo (solo se peggiora / a ogni cambio, promemoria, rientro), fascia di silenzio, heartbeat esterno (healthchecks.io) |
 | **Bot Telegram** | `/stato`, `/connessione`, `/speedtest`, `/servizi`, `/controlli`, `/aiuto` (anche in inglese) |
 | **Moduli** | Container Docker e Pi-hole (v6): compaiono solo se presenti sul server |
+| **Utenti** | Amministratore e un utente facoltativo in sola lettura ([utenti.md](docs/utenti.md)) |
 | **Terminale web** | Shell nel browser protetta da una password separata (solo HTTPS) |
 | **Riepilogo settimanale** | Ogni lunedì mattina |
 | **Lingue** | Italiano e inglese (dashboard, notifiche, bot, installatore) |

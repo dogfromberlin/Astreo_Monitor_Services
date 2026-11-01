@@ -15,9 +15,10 @@ nightly database backups with restore checks, and a few extras you usually have 
 | **Connection** | Ping to router and Internet every minute (outages, availability), periodic speedtest with thresholds, public IP changes |
 | **Health** | Disk SMART status, pending security updates and required reboots, certificate and token expirations |
 | **Data safety** | Nightly database backup (optional copy to a private GitHub repository) and **monthly restore test** |
-| **Alerts** | Email, Telegram, WhatsApp (CallMeBot); per-check rules (only when it gets worse / every change, reminders, recovery), quiet hours, external heartbeat (healthchecks.io) |
+| **Alerts** | Email, Telegram, WhatsApp (CallMeBot), ntfy, Gotify, Discord, webhook; per-check rules (only when it gets worse / every change, reminders, recovery), quiet hours, external heartbeat (healthchecks.io) |
 | **Telegram bot** | `/status`, `/connection`, `/speedtest`, `/services`, `/checks`, `/help` |
 | **Modules** | Docker containers and Pi-hole (v6): shown only if present on the server |
+| **Users** | Administrator and an optional read-only user ([docs](docs/en/notifications-and-users.md)) |
 | **Web terminal** | Shell in the browser behind a separate password (HTTPS only) |
 | **Weekly summary** | Every Monday morning |
 | **Languages** | English and Italian (dashboard, notifications, bot, installer) |

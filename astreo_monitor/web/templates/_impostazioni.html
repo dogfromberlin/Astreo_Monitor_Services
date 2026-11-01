@@ -44,11 +44,7 @@
         </fieldset>
         <fieldset>
           <legend>{{ _("Avvisi") }}</legend>
-          <div class="toggles">
-            <label class="switch"><input type="checkbox" data-key="route.speedtest.email"><span>{{ _("Email") }}</span></label>
-            <label class="switch"><input type="checkbox" data-key="route.speedtest.telegram"><span>{{ _("Telegram") }}</span></label>
-            <label class="switch"><input type="checkbox" data-key="route.speedtest.whatsapp"><span>{{ _("WhatsApp") }}</span></label>
-          </div>
+          <div class="toggles" id="st-routes"></div>
           <div class="grid-fields">
             <label>{{ _("Quando avvisare") }}
               <select data-key="alert.speedtest.mode">
@@ -116,6 +112,35 @@
             <label>{{ _("API key CallMeBot") }}<input type="password" autocomplete="off" data-key="notify.whatsapp.apikey"></label>
             <button type="button" class="ghost" data-test="whatsapp">{{ _("Invia prova") }}</button>
           </fieldset>
+          <fieldset class="channel">
+            <legend>ntfy</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.ntfy.enabled"><span>{{ _("Attiva") }}</span></label>
+            <label>{{ _("Server") }}<input type="text" data-key="notify.ntfy.url" placeholder="https://ntfy.sh"></label>
+            <label>{{ _("Argomento (topic)") }}<input type="text" data-key="notify.ntfy.topic" placeholder="astreo-…"></label>
+            <label>{{ _("Token di accesso (facoltativo)") }}<input type="password" autocomplete="off" data-key="notify.ntfy.token"></label>
+            <button type="button" class="ghost" data-test="ntfy">{{ _("Invia prova") }}</button>
+          </fieldset>
+          <fieldset class="channel">
+            <legend>Gotify</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.gotify.enabled"><span>{{ _("Attiva") }}</span></label>
+            <label>{{ _("Server") }}<input type="text" data-key="notify.gotify.url" placeholder="https://gotify.example.org"></label>
+            <label>{{ _("Token dell'applicazione") }}<input type="password" autocomplete="off" data-key="notify.gotify.token"></label>
+            <button type="button" class="ghost" data-test="gotify">{{ _("Invia prova") }}</button>
+          </fieldset>
+          <fieldset class="channel">
+            <legend>Discord</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.discord.enabled"><span>{{ _("Attiva") }}</span></label>
+            <label>{{ _("URL del webhook") }}<input type="password" autocomplete="off" data-key="notify.discord.webhook" placeholder="https://discord.com/api/webhooks/…"></label>
+            <button type="button" class="ghost" data-test="discord">{{ _("Invia prova") }}</button>
+          </fieldset>
+          <fieldset class="channel">
+            <legend>Webhook</legend>
+            <label class="switch"><input type="checkbox" data-key="notify.webhook.enabled"><span>{{ _("Attiva") }}</span></label>
+            <label>{{ _("URL") }}<input type="password" autocomplete="off" data-key="notify.webhook.url" placeholder="https://…"></label>
+            <label>{{ _("Segreto (facoltativo)") }}<input type="password" autocomplete="off" data-key="notify.webhook.secret"></label>
+            <p class="hint">{{ _("Riceve un POST JSON con source, subject, body, host, time e version.") }}</p>
+            <button type="button" class="ghost" data-test="webhook">{{ _("Invia prova") }}</button>
+          </fieldset>
         </div>
         <p class="hint">{{ _("Il valore dei campi segreti non viene mai mostrato: lascia il campo com'è per mantenerlo, scrivi un nuovo valore per sostituirlo. La procedura per ottenere token e API key è in docs/notifiche.md.") }}</p>
 
@@ -176,7 +201,7 @@
           <legend>{{ _("Quali avvisi su quali canali") }}</legend>
           <div class="scroll">
             <table class="data routes" id="routes">
-              <thead><tr><th>{{ _("Evento") }}</th><th>{{ _("Email") }}</th><th>{{ _("Telegram") }}</th><th>{{ _("WhatsApp") }}</th></tr></thead>
+              <thead></thead>
               <tbody></tbody>
             </table>
           </div>

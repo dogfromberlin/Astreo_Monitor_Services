@@ -66,6 +66,8 @@ class WebConfig:
     trusted_proxy: str = ""     # es. 127.0.0.1 quando la dashboard è dietro nginx (HTTPS)
     ca_cert: str = "/etc/astreo-monitor/astreo-ca.crt"   # certificato pubblico della CA (mkcert) da scaricare
     https_port: int = 0         # porta HTTPS di nginx (0 = dashboard solo in HTTP, senza terminale)
+    viewer_username: str = ""   # utente in sola lettura (vuoto = nessuno)
+    viewer_password_hash: str = ""
 
 
 @dataclass
@@ -213,6 +215,8 @@ def load(path: str | None = None) -> Config:
             trusted_proxy=w.get("trusted_proxy", "").strip(),
             ca_cert=w.get("ca_cert", "/etc/astreo-monitor/astreo-ca.crt").strip(),
             https_port=w.getint("https_port", 5443 if w.get("trusted_proxy", "").strip() else 0),
+            viewer_username=w.get("viewer_username", "").strip(),
+            viewer_password_hash=w.get("viewer_password_hash", "").strip(),
         )
 
         m = sec("metrics")

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.1.0
+
+- New notification channels: **ntfy**, **Gotify**, **Discord** and a generic **webhook** (JSON POST), routable per event like the others.
+- **Read-only user**: Server and Connection views only; settings, terminal, processes, service details and every change are blocked (HTTP 403).
+- `python -m astreo_monitor.users`: change the administrator password, create or remove the read-only user.
+
 ## 3.0.2
 
 - Schema check: SQL Server restore-test procedures are required only when the backup is enabled (fixes the SQL Server test in CI).

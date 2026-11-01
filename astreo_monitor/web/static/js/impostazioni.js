@@ -2,7 +2,8 @@
 (() => {
   "use strict";
   const { t, $, $$, api, el, row, toast, fmtFull, fmtDateTime, fmtNum } = window.AM;
-  const CHANNEL_LABEL = { email: "Email", telegram: "Telegram", whatsapp: "WhatsApp" };
+  const CHANNEL_LABEL = { email: "Email", telegram: "Telegram", whatsapp: "WhatsApp", ntfy: "ntfy", gotify: "Gotify",
+                          discord: "Discord", webhook: "Webhook" };
   const MODE_LABEL = { escalation: t("Solo se peggiora"), change: t("A ogni cambio") };
   let settings = null;      // { values, meta, sources, channels, policy_sources }
   let catalog = [];
@@ -105,6 +106,15 @@
 
   // ------------------------------------------------------------ notifiche
   function renderRoutes() {
+    $("#routes thead").replaceChildren(row([{ text: t("Evento") }, ...settings.channels.map((ch) => ({ text: CHANNEL_LABEL[ch] || ch }))], "th"));
+    // interruttori dei canali per lo speedtest (scheda Speedtest)
+    $("#st-routes").replaceChildren(...settings.channels.map((ch) => {
+      const lab = el("label", { class: "switch" });
+      const cb = el("input", { type: "checkbox", "data-key": `route.speedtest.${ch}` });
+      cb.checked = Boolean(settings.values[`route.speedtest.${ch}`]);
+      lab.append(cb, el("span", {}, CHANNEL_LABEL[ch] || ch));
+      return lab;
+    }));
     const tb = $("#routes tbody");
     tb.replaceChildren(...Object.entries(settings.sources).map(([src, label]) => {
       const tr = el("tr");

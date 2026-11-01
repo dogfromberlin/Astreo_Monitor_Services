@@ -37,6 +37,7 @@
   }
 
   async function loadProcesses() {
+    if (window.AM.IS_VIEWER) return;              // processi non visibili all'utente in sola lettura
     try {
       const list = await api("/api/v1/processes?limit=15");
       $("#processes tbody").replaceChildren(...list.map((p) => row([
@@ -92,6 +93,7 @@
   }
 
   async function openService(s) {
+    if (window.AM.IS_VIEWER) return;              // dettaglio (systemctl status) non visibile in sola lettura
     const dlg = $("#service-dialog");
     $("#service-dialog-title").textContent = `${s.label} (${s.unit})`;
     $("#service-dialog-body").textContent = "Caricamento…";

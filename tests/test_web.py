@@ -86,3 +86,32 @@ def test_pagina_in_inglese(cfg):
         app.testing = True
         html = app.test_client().get("/", headers=AUTH).get_data(as_text=True)
     assert 'lang="en"' in html and 'aria-label="Real-time resources"' in html and '<h2>Processes</h2>' in html
+
+
+# ----------------------------------------------------------------------- utente in sola lettura
+VIEWER = {"Authorization": "Basic ZmFtaWdsaWE6c29sb2xldHR1cmE="}    # famiglia:sololettura
+
+
+@pytest.fixture()
+def viewer_client(cfg):
+    import dataclasses
+    from werkzeug.security import generate_password_hash
+    web = dataclasses.replace(cfg.web, viewer_username="famiglia", viewer_password_hash=generate_password_hash("sololettura"))
+    with mock.patch.object(db, "connect", side_effect=db.DatabaseError("db di prova assente")):
+        app = webapp.create_app(dataclasses.replace(cfg, web=web))
+        app.testing = True
+        yield app.test_client()
+
+
+def test_sola_lettura(viewer_client):
+    c = viewer_client
+    html = c.get("/", headers=VIEWER).get_data(as_text=True)
+    assert 'data-role="viewer"' in html
+    assert c.get("/api/v1/system", headers=VIEWER).status_code == 200
+    for path in ("/api/v1/settings", "/api/v1/processes", "/api/v1/notify/log", "/api/v1/services/nginx.service",
+                 "/api/v1/terminal/status"):
+        assert c.get(path, headers=VIEWER).status_code == 403, path
+    assert c.put("/api/v1/settings", json={}, headers=VIEWER).status_code == 403
+    assert c.post("/api/v1/speedtest/run", json={}, headers=VIEWER).status_code == 403
+    assert c.get("/api/v1/settings", headers=AUTH).status_code != 403        # l'amministratore sì
+    assert 'data-role="admin"' in c.get("/", headers=AUTH).get_data(as_text=True)

@@ -75,6 +75,7 @@ STORED_TEMPLATES = [
     "{p0}: massimo {p1}", "{p0}: minimo {p1}", "{p0}: orario non valido, usa il formato HH:MM", "Destinatari non validi: {p0}",
     "Impostazione sconosciuta: {p0}", "{p0}: valore troppo lungo", "{p0}: valore non valido ({p1})", "{p0}: valori ammessi {p1}",
     "{p0}: la soglia di alert deve essere minore o uguale a quella di warning",
+    "{p0}: l'indirizzo deve iniziare con http:// o https://",
     # backup e ripristino
     "DBCC CHECKDB pulito", "pg_restore completato", "integrity_check ok", "hash diverso da SHA256SUMS: file danneggiato",
     "nessun backup in {p0}", "verifica parziale (solo lettura dell'archivio): concedi CREATEDB a {p0}",

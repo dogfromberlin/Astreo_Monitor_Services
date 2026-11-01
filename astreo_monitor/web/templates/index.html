@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ version }}">
 </head>
-<body data-version="{{ version }}">
+<body data-version="{{ version }}" data-role="{{ role }}">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6"/></symbol>
   <symbol id="i-net" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><path d="M12 19h.01"/></symbol>
@@ -32,6 +32,7 @@
     <img class="logo-mark" src="{{ url_for('static', filename='img/logo-mark.png') }}" alt="Astreo Monitor" width="52" height="36">
     <p class="host-meta">
       <span>{{ _("Server") }} <strong id="hostname">–</strong></span>
+      {% if role == "viewer" %}<span class="role-badge">{{ _("sola lettura") }}</span>{% endif %}
       <span>{{ _("acceso da") }} <strong id="uptime">–</strong></span>
       <span>{{ _("aggiornato alle") }} <strong id="last-update">–</strong></span>
     </p>
@@ -60,8 +61,8 @@
   <nav class="views" aria-label="{{ _("Sezioni") }}">
     <a href="#server" data-view-link="server"><svg class="icon"><use href="#i-server"/></svg><span>{{ _("Server") }}</span></a>
     <a href="#connessione" data-view-link="connessione"><svg class="icon"><use href="#i-net"/></svg><span>{{ _("Connessione") }}</span></a>
-    <a href="#impostazioni" data-view-link="impostazioni"><svg class="icon"><use href="#i-settings"/></svg><span>{{ _("Impostazioni") }}</span></a>
-    <a href="#terminale" data-view-link="terminale"><svg class="icon"><use href="#i-terminal"/></svg><span>{{ _("Terminale") }}</span></a>
+    <a href="#impostazioni" data-view-link="impostazioni" class="admin-only"><svg class="icon"><use href="#i-settings"/></svg><span>{{ _("Impostazioni") }}</span></a>
+    <a href="#terminale" data-view-link="terminale" class="admin-only"><svg class="icon"><use href="#i-terminal"/></svg><span>{{ _("Terminale") }}</span></a>
   </nav>
 </header>
 
@@ -118,7 +119,7 @@
   </section>
 
   <div class="columns">
-    <section class="panel">
+    <section class="panel admin-only">
       <div class="panel-head"><h2>{{ _("Processi") }}</h2><small>{{ _("ordinati per CPU, ogni 10 s") }}</small></div>
       <div class="scroll">
         <table class="data" id="processes">

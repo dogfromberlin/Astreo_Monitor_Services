@@ -18,7 +18,7 @@ from sqlalchemy import select
 from . import db, models
 from .config import Config, EmailConfig
 
-CHANNELS = ("email", "telegram", "whatsapp")
+CHANNELS = ("email", "telegram", "whatsapp", "ntfy", "gotify", "discord", "webhook")
 SOURCES = {
     "connectivity": "Connessione (ping)",
     "speedtest": "Speedtest",
@@ -131,6 +131,18 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "notify.whatsapp.enabled": Spec(bool, False, label="WhatsApp"),
         "notify.whatsapp.phone": Spec(str, "", label="Numero (con prefisso, senza +)"),
         "notify.whatsapp.apikey": Spec(str, "", secret=True, label="API key CallMeBot"),
+        "notify.ntfy.enabled": Spec(bool, False, label="ntfy"),
+        "notify.ntfy.url": Spec(str, "https://ntfy.sh", label="Server ntfy"),
+        "notify.ntfy.topic": Spec(str, "", label="Argomento (topic)"),
+        "notify.ntfy.token": Spec(str, "", secret=True, label="Token di accesso (facoltativo)"),
+        "notify.gotify.enabled": Spec(bool, False, label="Gotify"),
+        "notify.gotify.url": Spec(str, "", label="Server Gotify"),
+        "notify.gotify.token": Spec(str, "", secret=True, label="Token dell'applicazione"),
+        "notify.discord.enabled": Spec(bool, False, label="Discord"),
+        "notify.discord.webhook": Spec(str, "", secret=True, label="URL del webhook"),
+        "notify.webhook.enabled": Spec(bool, False, label="Webhook"),
+        "notify.webhook.url": Spec(str, "", secret=True, label="URL"),
+        "notify.webhook.secret": Spec(str, "", secret=True, label="Segreto (header Authorization: Bearer)"),
     }
     # --- instradamento: quale evento va su quale canale
     email_default = {
@@ -161,8 +173,8 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         spec[f"alert.{src}.reminder_hours"] = Spec(float, float(rem), 0, 720)
     for src in SOURCES:
         spec[f"route.{src}.email"] = Spec(bool, email_default[src])
-        spec[f"route.{src}.telegram"] = Spec(bool, False)
-        spec[f"route.{src}.whatsapp"] = Spec(bool, False)
+        for ch in CHANNELS[1:]:
+            spec[f"route.{src}.{ch}"] = Spec(bool, False)
     return spec
 
 
@@ -242,6 +254,9 @@ def save(conn, cfg: Config, changes: dict[str, Any]) -> dict[str, Any]:
         raise SettingsError("Scadenze: i giorni di ALERT devono essere minori o uguali a quelli di WARNING")
     if clean.get("heartbeat.url") and not str(clean["heartbeat.url"]).startswith(("https://", "http://")):
         raise SettingsError("Heartbeat: l'URL deve iniziare con https://")
+    for key in ("notify.ntfy.url", "notify.gotify.url", "notify.discord.webhook", "notify.webhook.url"):
+        if clean.get(key) and not str(clean[key]).startswith(("https://", "http://")):
+            raise SettingsError(f"{key}: l'indirizzo deve iniziare con http:// o https://")
     if clean.get("pihole.url") and not str(clean["pihole.url"]).startswith(("http://", "https://")):
         raise SettingsError("Pi-hole: l'indirizzo deve iniziare con http:// o https://")
     if clean.get("email.recipients") is not None:

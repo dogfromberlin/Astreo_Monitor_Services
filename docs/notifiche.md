@@ -113,6 +113,22 @@ ma non ha garanzie di servizio: tieni Telegram o l'email come canale principale.
 3. In **Impostazioni → Notifiche**: numero con prefisso internazionale **senza +**
    (es. `39333…`), API key, attiva WhatsApp, **Salva notifiche**, **Invia prova**.
 
+## ntfy, Gotify, Discord, webhook
+
+| Canale | Cosa serve | Note |
+|---|---|---|
+| **ntfy** | server (`https://ntfy.sh` o il proprio) e un **argomento** (topic); token facoltativo per server o argomenti protetti | sul telefono: app ntfy, *Iscriviti all'argomento*. Su ntfy.sh pubblico l'argomento è l'unica protezione: sceglilo lungo e difficile da indovinare |
+| **Gotify** | indirizzo del server e **token di un'applicazione** (Gotify → Apps → Create application) | priorità alta per ALERT, DOWN e backup falliti |
+| **Discord** | **URL del webhook** del canale (Impostazioni del canale → Integrazioni → Webhook → Nuovo webhook → Copia URL) | messaggi oltre 2000 caratteri vengono troncati |
+| **Webhook** | URL che riceve un `POST` JSON; segreto facoltativo inviato come `Authorization: Bearer …` | per Home Assistant, n8n, Node-RED o script propri |
+
+Corpo del webhook generico:
+```json
+{"source": "disk", "subject": "Disco: WARNING", "body": "…", "host": "server", "time": "2026-11-01T10:00:00", "version": "3.1.0"}
+```
+Ogni canale si attiva e si prova da **Impostazioni → Notifiche**, e si sceglie per quali eventi usarlo nella
+tabella *Quali avvisi su quali canali*. URL dei webhook e token sono trattati come segreti.
+
 ## Comandi dal bot Telegram
 
 Con **Rispondi ai comandi** attivo (riquadro Telegram), il servizio `astreo-telegram.service`
