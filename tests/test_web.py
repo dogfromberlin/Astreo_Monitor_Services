@@ -115,3 +115,40 @@ def test_sola_lettura(viewer_client):
     assert c.post("/api/v1/speedtest/run", json={}, headers=VIEWER).status_code == 403
     assert c.get("/api/v1/settings", headers=AUTH).status_code != 403        # l'amministratore sì
     assert 'data-role="admin"' in c.get("/", headers=AUTH).get_data(as_text=True)
+
+
+# ----------------------------------------------------------------------- integrazioni e log
+def test_token_delle_integrazioni(cfg):
+    import contextlib
+    from astreo_monitor import exporter
+    with mock.patch.object(db, "connect", return_value=contextlib.nullcontext(None)), \
+         mock.patch("astreo_monitor.schema.check", return_value=[]), \
+         mock.patch("astreo_monitor.settings.load", return_value={"api.token": "segreto123", "ui.language": "it"}), \
+         mock.patch.object(exporter, "metrics", return_value="astreo_info 1\n"), \
+         mock.patch.object(exporter, "status", return_value={"version": "x"}):
+        app = webapp.create_app(cfg)
+        app.testing = True
+        c = app.test_client()
+        ok = {"Authorization": "Bearer segreto123"}
+        assert c.get("/metrics").status_code == 401
+        assert c.get("/metrics", headers={"Authorization": "Bearer sbagliato"}).status_code == 401
+        r = c.get("/metrics", headers=ok)
+        assert r.status_code == 200 and r.mimetype == "text/plain" and r.data == b"astreo_info 1\n"
+        assert c.get("/api/v1/status", headers=ok).get_json() == {"version": "x"}
+        assert c.get("/api/v1/settings", headers=ok).status_code == 401        # il token non apre altro
+        assert c.get("/", headers=ok).status_code == 401
+
+
+def test_lettura_del_journal():
+    from astreo_monitor.collectors import logs
+    out = "\n".join([
+        '{"__REALTIME_TIMESTAMP":"1793500000000000","PRIORITY":"3","_SYSTEMD_UNIT":"nginx.service","SYSLOG_IDENTIFIER":"nginx","MESSAGE":"errore grave"}',
+        '{"__REALTIME_TIMESTAMP":"1793500001000000","PRIORITY":"6","_SYSTEMD_UNIT":"nginx.service","MESSAGE":[104,105]}',
+        'riga non json'])
+    with mock.patch.object(logs.subprocess, "run", return_value=mock.Mock(stdout=out, stderr="", returncode=0)) as run:
+        e = logs.read(["nginx.service"], "6h", "warning", "", 100)
+        args = run.call_args[0][0]
+    assert ["-u", "nginx.service"] == args[args.index("-u"):args.index("-u") + 2] and "-p" in args and args[args.index("-p") + 1] == "4"
+    assert [x["message"] for x in e] == ["errore grave", "hi"] and e[0]["priority"] == 3
+    with mock.patch.object(logs.subprocess, "run", return_value=mock.Mock(stdout=out, stderr="", returncode=0)):
+        assert [x["message"] for x in logs.read(["nginx.service"], grep="GRAVE")] == ["errore grave"]

@@ -129,7 +129,7 @@ def create_app(cfg: Config) -> Flask:
 
     # ------------------------------------------------------------ sicurezza
     # Utente in sola lettura: solo letture, e non quelle che espongono configurazione, comandi o log
-    VIEWER_DENIED = ("/api/v1/backup", "/api/v1/settings", "/api/v1/terminal", "/api/v1/notify", "/api/v1/processes",
+    VIEWER_DENIED = ("/api/v1/logs", "/api/v1/api-token", "/api/v1/backup", "/api/v1/settings", "/api/v1/terminal", "/api/v1/notify", "/api/v1/processes",
                      "/api/v1/services/", "/api/v1/schema", "/terminal")
 
     def viewer_allowed() -> bool:
@@ -137,10 +137,33 @@ def create_app(cfg: Config) -> Flask:
             return request.path == "/api/v1/terminal/lock"
         return not request.path.startswith(VIEWER_DENIED)
 
+    # Integrazioni (Prometheus, Home Assistant): token dedicato, solo questi due indirizzi, solo lettura
+    TOKEN_PATHS = ("/metrics", "/api/v1/status")
+    token_state = {"checked": 0.0, "token": ""}
+
+    def api_token() -> str:
+        if time.time() - token_state["checked"] > 30:
+            try:
+                with db.connect(cfg.database) as conn:
+                    token_state["token"] = settings_mod.load(conn, cfg)["api.token"]
+            except Exception:  # noqa: BLE001
+                pass
+            token_state["checked"] = time.time()
+        return token_state["token"]
+
+    def bearer_ok() -> bool:
+        import hmac
+        h = request.headers.get("Authorization", "")
+        tok = api_token()
+        return bool(tok) and h.startswith("Bearer ") and hmac.compare_digest(h[7:].strip(), tok)
+
     @app.before_request
     def require_auth():
         if request.endpoint in PUBLIC_ENDPOINTS or request.path.startswith("/api/netpulse/"):
             return None  # /api/netpulse usa il proprio token (widget Windows)
+        if request.path in TOKEN_PATHS and request.method == "GET" and bearer_ok():
+            g.role = "integration"
+            return None
         auth = request.authorization
         if (
             auth
@@ -637,6 +660,63 @@ def create_app(cfg: Config) -> Flask:
     def api_backup_run():
         units.control("astreo-backup.service", "start")
         return jsonify({"started": True})
+
+    # ------------------------------------------------------------ integrazioni
+    from .. import exporter
+
+    @app.get("/metrics")
+    def prometheus_metrics():
+        with db.connect(cfg.database) as conn:
+            text = exporter.metrics(conn, cfg)
+        return Response(text, mimetype="text/plain; version=0.0.4; charset=utf-8")
+
+    @app.get("/api/v1/status")
+    def api_status():
+        with db.connect(cfg.database) as conn:
+            return jsonify(exporter.status(conn, cfg))
+
+    @app.post("/api/v1/api-token")
+    def api_token_new():
+        import secrets as _secrets
+        tok = _secrets.token_urlsafe(32)
+        with db.connect(cfg.database) as conn:
+            settings_mod.save(conn, cfg, {"api.token": tok})
+        token_state.update(token=tok, checked=time.time())
+        return jsonify({"token": tok})                 # mostrato una sola volta
+
+    @app.delete("/api/v1/api-token")
+    def api_token_delete():
+        with db.connect(cfg.database) as conn:
+            settings_mod.save(conn, cfg, {"api.token": ""})
+        token_state.update(token="", checked=time.time())
+        return jsonify({"deleted": True})
+
+    # --------------------------------------------------------------------- log
+    from ..collectors import logs as logs_mod
+
+    def log_units() -> list[dict]:
+        with db.connect(cfg.database) as conn:
+            mon = [{"unit": s["unit"], "label": s["label"]} for s in services_store.monitored(conn, cfg)]
+        own = sorted({u for u in units.CONTROLLABLE if u.endswith(".service")} |
+                     {"astreo-monitor-web.service", "astreo-telegram.service", "astreo-terminal.service"})
+        return mon + [{"unit": u, "label": u.removesuffix(".service")} for u in own if u not in {m["unit"] for m in mon}]
+
+    @app.get("/api/v1/logs/units")
+    def api_log_units():
+        return jsonify({"units": log_units()})
+
+    @app.get("/api/v1/logs")
+    def api_logs():
+        allowed = {u["unit"] for u in log_units()}
+        chosen = [u for u in request.args.get("units", "").split(",") if u]
+        if not chosen or any(u not in allowed for u in chosen):
+            abort(400, description="Servizio non consentito")
+        try:
+            entries = logs_mod.read(chosen, request.args.get("since", "1h"), request.args.get("priority", "info"),
+                                    request.args.get("grep", "")[:200], int(request.args.get("lines", 500)))
+        except logs_mod.LogError as exc:
+            return jsonify({"error": i18n.translate_stored(str(exc), current_language()), "entries": []}), 200
+        return jsonify({"entries": entries})
 
     @app.get("/api/v1/heartbeat")
     def api_heartbeat():

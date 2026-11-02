@@ -19,6 +19,8 @@ insieme a mano.
 | **Avvisi** | Email, Telegram, WhatsApp (CallMeBot), ntfy, Gotify, Discord, webhook; regole per controllo (solo se peggiora / a ogni cambio, promemoria, rientro), fascia di silenzio, heartbeat esterno (healthchecks.io) |
 | **Bot Telegram** | `/stato`, `/connessione`, `/speedtest`, `/servizi`, `/controlli`, `/aiuto` (anche in inglese) |
 | **Moduli** | Container Docker e Pi-hole (v6): compaiono solo se presenti sul server |
+| **Integrazioni** | `/metrics` per Prometheus e stato JSON per Home Assistant, con token dedicato ([integrazioni.md](docs/integrazioni.md)) |
+| **Log** | Journal dei servizi monitorati nella dashboard, con filtri |
 | **Utenti** | Amministratore e un utente facoltativo in sola lettura ([utenti.md](docs/utenti.md)) |
 | **Terminale web** | Shell nel browser protetta da una password separata (solo HTTPS) |
 | **Riepilogo settimanale** | Ogni lunedì mattina |

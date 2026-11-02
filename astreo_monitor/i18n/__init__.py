@@ -81,6 +81,7 @@ STORED_TEMPLATES = [
     "{p0}: la soglia di alert deve essere minore o uguale a quella di warning",
     "{p0}: l'indirizzo deve iniziare con http:// o https://",
     # backup e ripristino
+    "permesso di leggere il journal mancante: aggiungi l'utente dei servizi al gruppo systemd-journal (sudo usermod -aG systemd-journal UTENTE) e riavvia la dashboard",
     "raggiungibile e scrivibile, {p0} backup presenti", "rclone non installato (sudo apt install rclone)",
     "Destinazione non valida: {p0} (usa remote:percorso oppure un percorso assoluto)",
     "Destinazione non valida: {p0} (gli indirizzi come ftp:// o smb:// vanno configurati come remote con «rclone config», poi si indica remote:percorso)",

@@ -318,6 +318,16 @@
           <button type="button" class="ghost" id="pihole-test">{{ _("Prova la connessione") }}</button>
         </fieldset>
         <fieldset>
+          <legend>{{ _("Integrazioni (Prometheus, Home Assistant)") }}</legend>
+          <p class="hint">{{ _("Due indirizzi in sola lettura, protetti da un token dedicato (diverso dalla password): /metrics nel formato di Prometheus e /api/v1/status in JSON per Home Assistant. Esempi di configurazione in docs/integrazioni.md.") }}</p>
+          <p id="api-token-state" class="hint"></p>
+          <pre class="token-box" id="api-token-box" hidden></pre>
+          <div class="form-actions left">
+            <button type="button" class="ghost" id="api-token-new">{{ _("Genera un nuovo token") }}</button>
+            <button type="button" class="ghost danger" id="api-token-del">{{ _("Revoca il token") }}</button>
+          </div>
+        </fieldset>
+        <fieldset>
           <legend>{{ _("Eventi sui grafici") }}</legend>
           <label class="switch"><input type="checkbox" data-key="ui.events"><span>{{ _("Mostra gli eventi sui grafici (riavvii, interruzioni, cambi di IP, servizi, avvisi)") }}</span></label>
         </fieldset>

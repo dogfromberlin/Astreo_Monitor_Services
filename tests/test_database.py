@@ -179,3 +179,18 @@ def test_controlli_job_e_storico(dbcfg):
         assert db.state_get(conn, f"check:{nas_id}")["status"] == "DOWN"
         subject, body = __import__("astreo_monitor.jobs.weekly_summary", fromlist=["x"]).build(conn, dt.datetime.now() + dt.timedelta(minutes=1))
         assert "NAS: disponibilità 0.00%" in body
+
+
+def test_esportazione_prometheus_e_stato(dbcfg):
+    from astreo_monitor import exporter
+    with db.connect(dbcfg.database) as conn:
+        conn.execute(models.speedtest_results.insert().values(timestamp=dt.datetime.now(), download_mbps=600.0,
+                                                              upload_mbps=200.0, latency_ms=9.0, status="OK", provider="cloudflare"))
+        db.state_set(conn, "connectivity:last", {"status": "WARNING", "samples": [
+            {"target": "1.1.1.1", "role": "internet", "rtt_avg_ms": 12.5, "loss_pct": 0.0}]})
+        text = exporter.metrics(conn, dbcfg)
+        st = exporter.status(conn, dbcfg)
+    assert exporter.valid_metric_text(text), text
+    assert "astreo_speedtest_download_mbps 600" in text and "astreo_connectivity_status 1" in text
+    assert 'astreo_connectivity_rtt_ms{target="1.1.1.1",role="internet"} 12.5' in text
+    assert st["speedtest"]["download_mbps"] == 600.0 and st["connection"] == "WARNING"

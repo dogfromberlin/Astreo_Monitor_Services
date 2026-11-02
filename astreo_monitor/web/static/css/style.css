@@ -486,3 +486,22 @@ dialog.wide canvas { max-height: 14rem; }
 .bk-dest li.ko::before { content: "✘ "; color: var(--alert); }
 #form-backup textarea { width: 100%; font-family: var(--font-mono, monospace); }
 label.narrow { max-width: 22rem; }
+
+/* 3.4 - log e integrazioni */
+.log-filters { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: flex-end; margin-bottom: .8rem; }
+.log-filters label { display: flex; flex-direction: column; gap: .2rem; font-size: .85rem; }
+.log-filters .grow { flex: 1 1 14rem; }
+.log-filters label.switch { flex-direction: row; align-items: center; }
+.log-box { font-family: var(--font-mono, monospace); font-size: .8rem; background: var(--raised); border-radius: 6px;
+           max-height: 65vh; overflow: auto; padding: .4rem .6rem; }
+.log-line { display: grid; grid-template-columns: 8.5rem 11rem minmax(0, 1fr); gap: .6rem; padding: .12rem 0;
+            border-bottom: 1px solid rgb(255 255 255 / .04); }
+.log-line time { color: var(--off); }
+.log-line .src { color: var(--accent2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-line .msg { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+.log-line.p3 .msg, .log-line.p2 .msg, .log-line.p1 .msg, .log-line.p0 .msg { color: var(--alert); }
+.log-line.p4 .msg { color: var(--warn); }
+.log-empty { color: var(--off); padding: 1rem 0; }
+.token-box { background: var(--raised); padding: .6rem .8rem; border-radius: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.form-actions.left { justify-content: flex-start; }
+@media (max-width: 760px) { .log-line { grid-template-columns: 1fr; gap: 0; } }

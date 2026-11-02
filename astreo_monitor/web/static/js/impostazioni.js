@@ -205,6 +205,36 @@
     } catch (e) { toast(e.message, "error"); }
   }
 
+  // ------------------------------------------------- token per le integrazioni
+  function renderToken() {
+    const set = Boolean(settings && settings.values["api.token"]);
+    $("#api-token-state").textContent = set ? t("Token attivo: /metrics e /api/v1/status rispondono a chi lo presenta.")
+      : t("Nessun token: le integrazioni sono disattivate.");
+    $("#api-token-del").hidden = !set;
+  }
+  async function newToken() {
+    if (settings.values["api.token"] && !confirm(t("Il token attuale smetterà di funzionare. Generarne uno nuovo?"))) return;
+    try {
+      const r = await api("/api/v1/api-token", { method: "POST", json: {} });
+      const box = $("#api-token-box");
+      box.textContent = t("Copia ora il token, non verrà più mostrato:") + "\n" + r.token + "\n\n"
+        + `curl -H "Authorization: Bearer ${r.token}" ${location.origin}/metrics`;
+      box.hidden = false;
+      settings.values["api.token"] = "••••";
+      renderToken();
+    } catch (e) { toast(e.message, "error"); }
+  }
+  async function delToken() {
+    if (!confirm(t("Revocare il token? Prometheus e Home Assistant non potranno più leggere i dati."))) return;
+    try {
+      await api("/api/v1/api-token", { method: "DELETE", json: {} });
+      settings.values["api.token"] = "";
+      $("#api-token-box").hidden = true;
+      renderToken();
+      toast(t("Token revocato"));
+    } catch (e) { toast(e.message, "error"); }
+  }
+
   // ------------------------------------------------------------ heartbeat
   async function loadHeartbeat() {
     try {
@@ -321,6 +351,8 @@
       window.AM.loadModules();
     });
     $("#pihole-test").addEventListener("click", testPihole);
+    $("#api-token-new").addEventListener("click", newToken);
+    $("#api-token-del").addEventListener("click", delToken);
     $("#st-run").addEventListener("click", runNow);
     $("#hb-test").addEventListener("click", testHeartbeat);
     $("#summary-test").addEventListener("click", async () => {
@@ -339,7 +371,7 @@
       if (ev.detail.sub === "notifiche") { loadLog(); loadHeartbeat(); }
       if (ev.detail.sub === "servizi") loadCatalog();
       if (ev.detail.sub === "speedtest") loadSpeedtestStatus();
-      if (ev.detail.sub === "moduli") loadModulesTab();
+      if (ev.detail.sub === "moduli") { loadModulesTab(); renderToken(); }
     });
     window.AM.onView("impostazioni", () => { loadSettings().then(() => { loadLog(); loadModulesTab(); }); loadSpeedtestStatus(); loadCatalog(); });
     window.AM.every(30_000, loadSpeedtestStatus, "impostazioni");

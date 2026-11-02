@@ -19,6 +19,8 @@ nightly database backups with restore checks, and a few extras you usually have 
 | **Alerts** | Email, Telegram, WhatsApp (CallMeBot), ntfy, Gotify, Discord, webhook; per-check rules (only when it gets worse / every change, reminders, recovery), quiet hours, external heartbeat (healthchecks.io) |
 | **Telegram bot** | `/status`, `/connection`, `/speedtest`, `/services`, `/checks`, `/help` |
 | **Modules** | Docker containers and Pi-hole (v6): shown only if present on the server |
+| **Integrations** | Prometheus `/metrics` and a JSON status for Home Assistant, protected by a dedicated token ([docs](docs/en/integrations.md)) |
+| **Logs** | Journal of the monitored services in the dashboard, with filters |
 | **Users** | Administrator and an optional read-only user ([docs](docs/en/notifications-and-users.md)) |
 | **Web terminal** | Shell in the browser behind a separate password (HTTPS only) |
 | **Weekly summary** | Every Monday morning |

@@ -192,7 +192,7 @@
   function onView(name, fn) { viewHandlers[name] = fn; if (currentView === name) fn(); }
   function showView() {
     const name = (location.hash || "#server").slice(1).split("/")[0] || "server";
-    const viewerHidden = IS_VIEWER ? ["impostazioni", "terminale"] : [];
+    const viewerHidden = IS_VIEWER ? ["impostazioni", "terminale", "log"] : [];
     const valid = $$(".view[data-view]").map((v) => v.dataset.view).filter((v) => !viewerHidden.includes(v));
     const view = valid.includes(name) ? name : "server";
     $$(".view[data-view]").forEach((v) => { v.hidden = v.dataset.view !== view; });

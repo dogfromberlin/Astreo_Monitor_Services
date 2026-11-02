@@ -1,0 +1,23 @@
+<div class="view" data-view="log" hidden>
+  <section class="panel">
+    <div class="panel-head"><h2>{{ _("Log dei servizi") }}</h2><small id="log-count"></small></div>
+    <form class="log-filters" id="log-filters">
+      <label>{{ _("Servizio") }}<select name="unit" id="log-unit"></select></label>
+      <label>{{ _("Periodo") }}
+        <select name="since">
+          <option value="15m">{{ _("15 minuti") }}</option><option value="1h" selected>{{ _("1 ora") }}</option>
+          <option value="6h">{{ _("6 ore") }}</option><option value="24h">{{ _("24 ore") }}</option><option value="7d">{{ _("7 giorni") }}</option>
+        </select></label>
+      <label>{{ _("Livello minimo") }}
+        <select name="priority">
+          <option value="err">{{ _("Errori") }}</option><option value="warning">{{ _("Avvisi") }}</option>
+          <option value="info" selected>{{ _("Informazioni") }}</option><option value="debug">{{ _("Tutto") }}</option>
+        </select></label>
+      <label class="grow">{{ _("Contiene") }}<input type="text" name="grep" maxlength="200"></label>
+      <label class="switch"><input type="checkbox" id="log-follow"><span>{{ _("Aggiorna ogni 10 s") }}</span></label>
+      <button type="submit">{{ _("Mostra") }}</button>
+    </form>
+    <p class="hint" id="log-error" hidden></p>
+    <div class="log-box" id="log-box"></div>
+  </section>
+</div>

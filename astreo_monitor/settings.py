@@ -124,6 +124,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "telegram.commands": Spec(bool, False, label="Rispondi ai comandi (/stato, /speedtest, ...)"),
         # --- moduli: visibilità nella dashboard (compaiono solo se rilevati sul server)
         "ui.language": Spec(str, "it", label="Lingua", choices=("it", "en")),
+        "api.token": Spec(str, "", secret=True, label="Token per le integrazioni (Prometheus, Home Assistant)"),
         "ui.docker": Spec(bool, True, label="Mostra la sezione Docker"),
         "ui.pihole": Spec(bool, True, label="Mostra la sezione Pi-hole"),
         "ui.events": Spec(bool, True, label="Mostra gli eventi sui grafici"),
