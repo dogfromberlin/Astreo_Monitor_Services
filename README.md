@@ -15,7 +15,7 @@ nightly database backups with restore checks, and a few extras you usually have 
 | **Devices and services** | Ping, TCP port and web page checks for other devices (router, NAS, websites…) with history and alerts ([docs](docs/en/checks.md)) |
 | **Connection** | Ping to router and Internet every minute (outages, availability), periodic speedtest with thresholds, public IP changes |
 | **Health** | Disk SMART status, pending security updates and required reboots, certificate and token expirations |
-| **Data safety** | Nightly database backup (optional copy to a private GitHub repository) and **monthly restore test** |
+| **Data safety** | Nightly database backup with verified copies to NAS, network folders or cloud (rclone) and/or a private GitHub repository, plus a **monthly restore test** ([docs](docs/en/backups.md)) |
 | **Alerts** | Email, Telegram, WhatsApp (CallMeBot), ntfy, Gotify, Discord, webhook; per-check rules (only when it gets worse / every change, reminders, recovery), quiet hours, external heartbeat (healthchecks.io) |
 | **Telegram bot** | `/status`, `/connection`, `/speedtest`, `/services`, `/checks`, `/help` |
 | **Modules** | Docker containers and Pi-hole (v6): shown only if present on the server |

@@ -1,3 +1,3 @@
 """Astreo Monitor - monitoraggio del server astreo (metriche, servizi, speedtest, IP pubblico, backup DB)."""
 
-__version__ = "3.2.0"
+__version__ = "3.3.0"

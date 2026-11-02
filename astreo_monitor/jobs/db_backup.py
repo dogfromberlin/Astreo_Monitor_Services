@@ -21,7 +21,7 @@ import shutil
 import socket
 import subprocess
 
-from .. import __version__, backends, db, i18n, notifier
+from .. import __version__, backends, db, i18n, notifier, rclone
 from ..backends import BackupError
 from .. import settings as settings_mod
 from ..config import BackupConfig, Config
@@ -128,6 +128,14 @@ def main(cfg: Config, dry_run: bool) -> int:
             except BackupError as exc:
                 log.error("Repository GitHub non utilizzabile: %s", exc)
                 problems.append(str(exc))
+        with db.connect(cfg.database) as conn:
+            dests = rclone.parse(settings_mod.load(conn, cfg)["backup.rclone_destinations"])
+        for dest in dests:
+            try:
+                log.info("Destinazione rclone %s: %s", dest, rclone.test(dest))
+            except rclone.RcloneError as exc:
+                log.error("Destinazione rclone %s non utilizzabile: %s", dest, exc)
+                problems.append(f"rclone {dest}: {exc}")
         log.info("Destinazione locale: %s (conservo %d copie), GitHub: %s (conservo %d)",
                  b.local_dir, b.local_keep, b.github_repo or "disattivato", b.github_keep)
         return 1 if problems else 0
@@ -137,6 +145,7 @@ def main(cfg: Config, dry_run: bool) -> int:
     errors = list(blocking)
     results: list[dict] = []
     release_url = None
+    destinations: list[dict] = []
     run_dir = os.path.join(b.local_dir, PREFIX + stamp)
     if not blocking:
         os.makedirs(run_dir)  # nome con i secondi: sempre nuovo
@@ -161,13 +170,28 @@ def main(cfg: Config, dry_run: bool) -> int:
                     errors.append(f"upload GitHub: {exc}")
         else:
             shutil.rmtree(run_dir, ignore_errors=True)
+        # copie con rclone (Impostazioni > Backup)
+        if results:
+            with db.connect(cfg.database) as conn:
+                values = settings_mod.load(conn, cfg)
+            for dest in rclone.parse(values["backup.rclone_destinations"]):
+                try:
+                    target = rclone.upload(run_dir, dest, b.timeout)
+                    removed = rclone.prune(dest, values["backup.rclone_keep"])
+                    destinations.append({"dest": dest, "ok": True, "path": target, "pruned": len(removed)})
+                    log.info("Copia verificata su %s (eliminati %d backup vecchi)", target, len(removed))
+                except (rclone.RcloneError, subprocess.TimeoutExpired, OSError) as exc:
+                    destinations.append({"dest": dest, "ok": False, "error": str(exc)[:300]})
+                    log.error("Copia su %s non riuscita: %s", dest, exc)
+                    errors.append(f"rclone {dest}: {exc}")
         prune_local(b)
 
     status = "OK" if not errors else "ALERT"
     with db.connect(cfg.database) as conn:
         db.state_set(conn, "backup:last", {
             "time": now.isoformat(timespec="seconds"), "status": status, "release": release_url,
-            "engine": cfg.database.engine, "local_dir": run_dir if results else None, "databases": results, "errors": errors})
+            "engine": cfg.database.engine, "local_dir": run_dir if results else None, "databases": results, "errors": errors,
+            "destinations": destinations})
         state = notifier.AlertState(conn, "backup")
         values = settings_mod.load(conn, cfg)
         should_notify, reason, previous = state.evaluate(status, settings_mod.policy(values, "backup"))
@@ -181,6 +205,9 @@ def main(cfg: Config, dry_run: bool) -> int:
             lines += [f"- {r['database']}: {human(r['bak_bytes'])} -> {human(r['zst_bytes'])}" for r in results]
             if release_url:
                 lines += ["", f"Release: {release_url}"]
+            for d in destinations:
+                lines.append(("✔ " + tr("Copia verificata su {p0}", p0=d["path"])) if d["ok"]
+                             else ("✘ " + tr("Copia su {p0} non riuscita: {p1}", p0=d["dest"], p1=d["error"])))
             if errors:
                 lines += ["", tr("Errori:")] + [f"- {e}" for e in errors]
             subject = tr("Backup database tornato OK") if status == "OK" else tr("Backup database FALLITO")

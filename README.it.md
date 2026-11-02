@@ -15,7 +15,7 @@ insieme a mano.
 | **Dispositivi e servizi** | Controlli ping, porta TCP e pagina web di altri dispositivi (router, NAS, siti…) con storico e avvisi ([controlli.md](docs/controlli.md)) |
 | **Connessione** | Ping verso router e Internet ogni minuto (interruzioni, disponibilità), speedtest periodico con soglie, cambi di IP pubblico |
 | **Salute** | Stato SMART dei dischi, aggiornamenti di sicurezza in sospeso e riavvii richiesti, scadenze di certificati e token |
-| **Sicurezza dei dati** | Backup notturno del database (con copia facoltativa su un repository GitHub privato) e **verifica mensile del ripristino** |
+| **Sicurezza dei dati** | Backup notturno del database con copie verificate su NAS, cartelle di rete o cloud (rclone) e/o su un repository GitHub privato, più la **verifica mensile del ripristino** |
 | **Avvisi** | Email, Telegram, WhatsApp (CallMeBot), ntfy, Gotify, Discord, webhook; regole per controllo (solo se peggiora / a ogni cambio, promemoria, rientro), fascia di silenzio, heartbeat esterno (healthchecks.io) |
 | **Bot Telegram** | `/stato`, `/connessione`, `/speedtest`, `/servizi`, `/controlli`, `/aiuto` (anche in inglese) |
 | **Moduli** | Container Docker e Pi-hole (v6): compaiono solo se presenti sul server |

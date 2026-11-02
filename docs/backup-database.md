@@ -66,6 +66,44 @@ per quel database il blocco 2 di `sql/mssql_permessi_backup.sql` (con il suo nom
 
 ---
 
+## Copie con rclone (NAS, cartelle di rete, cloud)
+
+Oltre alla copia locale (e a quella su GitHub, se configurata), ogni backup può essere copiato su una o più
+destinazioni con [rclone](https://rclone.org): NAS o cartella di rete, SFTP, Backblaze B2, S3, Google Drive,
+OneDrive e molte altre. Ogni copia viene **verificata** (`rclone check`) e su ciascuna destinazione si
+conservano gli ultimi N backup (predefinito 30).
+
+### 1. Installare rclone e creare un remote
+
+**SSH**, come **utente dei servizi** (lo stesso che esegue il backup):
+```bash
+sudo apt install -y rclone
+rclone config
+```
+`rclone config` è guidato: **n** (nuovo remote), un nome (es. `nas`), il tipo e i dati richiesti. Esempi:
+
+| Destinazione | Tipo in `rclone config` | Dati |
+|---|---|---|
+| NAS o cartella Windows (SMB) | `smb` | host, utente, password; poi la destinazione è `nas:CONDIVISIONE/cartella` |
+| Server via SSH | `sftp` | host, utente, chiave o password |
+| Backblaze B2 | `b2` | key ID e application key; destinazione `b2:secchio/astreo` |
+| Google Drive | `drive` | sul server senza browser: rispondi **n** a *auto config* e segui le istruzioni con `rclone authorize "drive"` sul PC |
+
+Un disco o una condivisione già montati non richiedono un remote: basta il percorso assoluto
+(es. `/mnt/disco-esterno/astreo`).
+
+La configurazione (con le credenziali) è in `~/.config/rclone/rclone.conf`: tienila leggibile solo dal suo
+proprietario (`chmod 600 ~/.config/rclone/rclone.conf`).
+
+### 2. Indicare le destinazioni
+
+**Impostazioni → Backup**: una destinazione per riga (`remote:percorso` o percorso assoluto), quanti backup
+conservare, **Prova le destinazioni** (scrive e cancella un file di prova), **Salva**. **Esegui backup ora**
+avvia subito un backup. L'esito di ogni destinazione compare nella stessa scheda e nell'avviso del backup.
+
+Una copia non riuscita rende il backup **ALERT** (avviso *Backup database*), anche se la copia locale è
+riuscita.
+
 ## Verifica mensile del ripristino
 
 Job `astreo_monitor.jobs.restore_test`, timer `astreo-restoretest.timer` (prima domenica del mese

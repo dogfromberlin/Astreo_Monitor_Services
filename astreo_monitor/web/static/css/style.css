@@ -478,3 +478,11 @@ dialog.wide canvas { max-height: 14rem; }
 #check-form [data-for][hidden] { display: none; }
 .row-actions { display: flex; gap: .3rem; justify-content: flex-end; }
 .row-actions button { padding: .2rem .55rem; font-size: .8rem; }
+
+/* 3.3 - backup */
+.bk-dest { list-style: none; padding: 0; margin: .6rem 0; }
+.bk-dest li { padding: .3rem 0; border-bottom: 1px solid var(--line); font-size: .9rem; overflow-wrap: anywhere; }
+.bk-dest li.ok::before { content: "✔ "; color: var(--ok); }
+.bk-dest li.ko::before { content: "✘ "; color: var(--alert); }
+#form-backup textarea { width: 100%; font-family: var(--font-mono, monospace); }
+label.narrow { max-width: 22rem; }

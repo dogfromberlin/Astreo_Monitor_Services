@@ -81,6 +81,9 @@ STORED_TEMPLATES = [
     "{p0}: la soglia di alert deve essere minore o uguale a quella di warning",
     "{p0}: l'indirizzo deve iniziare con http:// o https://",
     # backup e ripristino
+    "raggiungibile e scrivibile, {p0} backup presenti", "rclone non installato (sudo apt install rclone)",
+    "Destinazione non valida: {p0} (usa remote:percorso oppure un percorso assoluto)",
+    "Destinazione non valida: {p0} (gli indirizzi come ftp:// o smb:// vanno configurati come remote con «rclone config», poi si indica remote:percorso)",
     "DBCC CHECKDB pulito", "pg_restore completato", "integrity_check ok", "hash diverso da SHA256SUMS: file danneggiato",
     "nessun backup in {p0}", "verifica parziale (solo lettura dell'archivio): concedi CREATEDB a {p0}",
 ]

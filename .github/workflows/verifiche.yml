@@ -30,7 +30,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Strumenti di sistema
-        run: sudo apt-get update && sudo apt-get install -y zstd postgresql-client
+        run: sudo apt-get update && sudo apt-get install -y zstd postgresql-client rclone
       - name: Dipendenze
         run: python -m pip install -r requirements-dev.txt
       - name: Database di prova

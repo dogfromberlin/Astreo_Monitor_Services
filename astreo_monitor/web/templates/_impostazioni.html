@@ -6,6 +6,7 @@
       <button type="button" role="tab" data-sub="notifiche">{{ _("Notifiche") }}</button>
       <button type="button" role="tab" data-sub="servizi">{{ _("Servizi") }}</button>
       <button type="button" role="tab" data-sub="dispositivi">{{ _("Dispositivi") }}</button>
+      <button type="button" role="tab" data-sub="backup">{{ _("Backup") }}</button>
       <button type="button" role="tab" data-sub="moduli">{{ _("Moduli") }}</button>
     </div>
 
@@ -262,6 +263,34 @@
           <button type="button" class="ghost" id="check-cancel" hidden>{{ _("Annulla") }}</button>
           <button type="button" class="ghost" id="check-test">{{ _("Prova ora") }}</button>
           <button type="submit">{{ _("Salva controllo") }}</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ============================== BACKUP -->
+    <div data-subpanel="set:backup" hidden>
+      <div class="settings-form">
+      <fieldset>
+        <legend>{{ _("Ultimo backup") }}</legend>
+        <div class="stats" id="bk-stats"></div>
+        <ul class="bk-dest" id="bk-dest-results"></ul>
+        <p class="hint" id="bk-where"></p>
+        <button type="button" id="bk-run">{{ _("Esegui backup ora") }}</button>
+      </fieldset>
+      </div>
+      <form class="settings-form" id="form-backup" autocomplete="off">
+        <fieldset>
+          <legend>{{ _("Copie con rclone") }}</legend>
+          <p class="hint">{{ _("Oltre alla copia locale (e a quella su GitHub, se configurata), ogni backup può essere copiato e verificato su altre destinazioni: cartella di rete o NAS montati, SFTP, Backblaze B2, S3, Google Drive, OneDrive…") }}</p>
+          <label>{{ _("Destinazioni (una per riga: remote:percorso oppure un percorso assoluto)") }}
+            <textarea data-key="backup.rclone_destinations" rows="3" placeholder="nas:backup/astreo&#10;/mnt/disco-esterno/astreo"></textarea></label>
+          <label class="narrow">{{ _("Backup da conservare per destinazione") }}<input type="number" min="1" max="1000" data-key="backup.rclone_keep"></label>
+          <p class="hint" id="bk-rclone"></p>
+          <ul class="bk-dest" id="bk-test-results"></ul>
+        </fieldset>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="bk-test">{{ _("Prova le destinazioni") }}</button>
+          <button type="submit">{{ _("Salva") }}</button>
         </div>
       </form>
     </div>

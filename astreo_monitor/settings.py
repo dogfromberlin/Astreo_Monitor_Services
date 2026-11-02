@@ -93,6 +93,9 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         # --- heartbeat verso un servizio esterno (es. healthchecks.io)
         "heartbeat.enabled": Spec(bool, False, label="Heartbeat attivo"),
         "heartbeat.url": Spec(str, "", secret=True, label="URL di ping"),
+        # --- backup: copie con rclone (oltre a quella su GitHub, se configurata nel config)
+        "backup.rclone_destinations": Spec(str, "", label="Destinazioni rclone (una per riga)"),
+        "backup.rclone_keep": Spec(int, 30, 1, 1000, label="Backup da conservare per destinazione"),
         # --- scadenze
         "expiry.warning_days": Spec(int, 15, 1, 365, label="Avviso WARNING a (giorni)"),
         "expiry.alert_days": Spec(int, 3, 0, 365, label="Avviso ALERT a (giorni)"),
@@ -259,6 +262,13 @@ def save(conn, cfg: Config, changes: dict[str, Any]) -> dict[str, Any]:
     for key in ("notify.ntfy.url", "notify.gotify.url", "notify.discord.webhook", "notify.webhook.url"):
         if clean.get(key) and not str(clean[key]).startswith(("https://", "http://")):
             raise SettingsError(f"{key}: l'indirizzo deve iniziare con http:// o https://")
+    if clean.get("backup.rclone_destinations"):
+        from . import rclone
+        try:
+            for d in rclone.parse(clean["backup.rclone_destinations"]):
+                rclone.validate(d)
+        except rclone.RcloneError as exc:
+            raise SettingsError(str(exc)) from None
     if clean.get("pihole.url") and not str(clean["pihole.url"]).startswith(("http://", "https://")):
         raise SettingsError("Pi-hole: l'indirizzo deve iniziare con http:// o https://")
     if clean.get("email.recipients") is not None:

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.0
+
+- **Backup copies with rclone** to one or more destinations (NAS/SMB, SFTP, Backblaze B2, S3, Google Drive…, or a mounted path), verified with `rclone check`, with per-destination retention.
+- New **Settings → Backup** tab: last backup with the result of each destination, next run, "run backup now", destinations with a test button.
+- A failed copy turns the backup into ALERT.
+
 ## 3.2.0
 
 - **Checks of other devices and services**: ping, TCP port and web page (expected codes, text, certificate expiry), configured in Settings → Devices, with a "test now" button.

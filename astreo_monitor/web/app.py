@@ -129,7 +129,7 @@ def create_app(cfg: Config) -> Flask:
 
     # ------------------------------------------------------------ sicurezza
     # Utente in sola lettura: solo letture, e non quelle che espongono configurazione, comandi o log
-    VIEWER_DENIED = ("/api/v1/settings", "/api/v1/terminal", "/api/v1/notify", "/api/v1/processes",
+    VIEWER_DENIED = ("/api/v1/backup", "/api/v1/settings", "/api/v1/terminal", "/api/v1/notify", "/api/v1/processes",
                      "/api/v1/services/", "/api/v1/schema", "/terminal")
 
     def viewer_allowed() -> bool:
@@ -603,6 +603,40 @@ def create_app(cfg: Config) -> Flask:
         return jsonify({"labels": [db.from_bucket(r["bucket"], epoch).isoformat(timespec="seconds") for r in rows],
                         "latency": [None if r["lat"] is None else round(float(r["lat"]), 1) for r in rows],
                         "up": [round(float(r["up"]), 1) for r in rows]})
+
+    # ------------------------------------------------------------------ backup
+    @app.get("/api/v1/backup")
+    def api_backup():
+        from .. import rclone
+        b = cfg.backup
+        with db.connect(cfg.database) as conn:
+            last = db.state_get(conn, "backup:last")
+        try:
+            unit = units.info("astreo-backup.timer")
+        except Exception:  # noqa: BLE001
+            unit = None
+        return jsonify({
+            "configured": b is not None, "last": last, "timer": unit,
+            "engine": cfg.database.engine,
+            "local_dir": b.local_dir if b else None, "local_keep": b.local_keep if b else None,
+            "github_repo": b.github_repo if b else None, "github_keep": b.github_keep if b else None,
+            "rclone": {"available": rclone.available(), "remotes": rclone.remotes()},
+        })
+
+    @app.post("/api/v1/backup/test")
+    def api_backup_test():
+        from .. import rclone
+        dest = str((request.get_json(silent=True) or {}).get("dest", "")).strip().rstrip("/")
+        lang = current_language()
+        try:
+            return jsonify({"ok": True, "detail": i18n.translate_stored(rclone.test(dest), lang)})
+        except (rclone.RcloneError, OSError) as exc:
+            return jsonify({"ok": False, "detail": i18n.translate_stored(str(exc), lang)})
+
+    @app.post("/api/v1/backup/run")
+    def api_backup_run():
+        units.control("astreo-backup.service", "start")
+        return jsonify({"started": True})
 
     @app.get("/api/v1/heartbeat")
     def api_heartbeat():
