@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.1
+
+- **Security**: updated dependencies with known vulnerabilities — waitress 3.0.2 (HTTP server), requests 2.33.0, Flask 3.1.3, pytest 9.0.3 (tests only).
+- `update.sh` also upgrades pip in the virtual environment.
+- GitHub checks run `pip-audit` on every push; Dependabot configured for weekly dependency updates.
+
 ## 3.4.0
 
 - **Prometheus** endpoint `/metrics` and **Home Assistant** JSON status `/api/v1/status`, protected by a dedicated read-only token (Settings → Modules → Integrations).

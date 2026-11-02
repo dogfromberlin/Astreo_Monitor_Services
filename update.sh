@@ -52,6 +52,7 @@ fi
 grep -h "__version__" astreo_monitor/__init__.py
 
 m "== 2. Librerie" "== 2. Libraries"
+sudo -u "$OWNER" .venv/bin/python -m pip install -q --upgrade pip
 sudo -u "$OWNER" .venv/bin/python -m pip install -q -r requirements.txt
 
 m "== 3. Verifiche" "== 3. Checks"

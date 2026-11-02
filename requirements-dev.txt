@@ -1,4 +1,4 @@
 # Solo per sviluppo e verifiche (non servono al funzionamento)
 -r requirements.txt
-pytest==8.3.3
+pytest==9.0.3
 pyflakes==3.2.0

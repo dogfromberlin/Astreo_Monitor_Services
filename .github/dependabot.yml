@@ -1,0 +1,13 @@
+# Aggiornamenti automatici delle dipendenze: Dependabot apre una pull request per le librerie con
+# vulnerabilità corrette o nuove versioni (una volta a settimana), e per le azioni dei workflow.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly

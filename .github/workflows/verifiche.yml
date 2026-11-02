@@ -51,6 +51,10 @@ jobs:
           cur.execute("USE astreo_test; CREATE USER astreo_monitor_app FOR LOGIN astreo_monitor_app; "
                       "ALTER ROLE db_datareader ADD MEMBER astreo_monitor_app; ALTER ROLE db_datawriter ADD MEMBER astreo_monitor_app")
           PY
+      - name: Vulnerabilità note nelle dipendenze
+        run: |
+          python -m pip install pip-audit
+          pip-audit -r requirements.txt -r requirements-dev.txt
       - name: Codice Python
         run: python -m pyflakes astreo_monitor tests
       - name: Sintassi JavaScript
