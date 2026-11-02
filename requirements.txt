@@ -9,4 +9,4 @@ SQLAlchemy==2.0.36
 alembic==1.14.0
 # Driver: SQL Server (pymssql) e PostgreSQL (psycopg). SQLite è incluso in Python.
 pymssql==2.2.11
-psycopg[binary]==3.2.3
+psycopg[binary]==3.3.6
