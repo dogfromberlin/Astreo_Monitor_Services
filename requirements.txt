@@ -6,7 +6,7 @@ psutil==5.9.8
 requests==2.33.0
 Markdown==3.10.3
 # Accesso ai dati (dalla 3.0): SQLAlchemy + migrazioni Alembic
-SQLAlchemy==2.0.36
+SQLAlchemy==2.1.6
 alembic==1.14.0
 # Driver: SQL Server (pymssql) e PostgreSQL (psycopg). SQLite è incluso in Python.
 pymssql==2.2.11
