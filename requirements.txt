@@ -3,7 +3,7 @@ Flask==3.1.3
 Werkzeug==3.1.9
 waitress==3.0.2
 psutil==5.9.8
-requests==2.33.0
+requests==2.34.2
 Markdown==3.10.3
 # Accesso ai dati (dalla 3.0): SQLAlchemy + migrazioni Alembic
 SQLAlchemy==2.0.36
