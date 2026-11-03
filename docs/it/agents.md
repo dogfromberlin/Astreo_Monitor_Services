@@ -15,7 +15,8 @@ centrale e restano nascosti finché è scelto un altro server. La testata resta 
 
 | Dato | Linux | Windows |
 |---|---|---|
-| CPU, memoria, swap / file di paging, disco, uptime | ogni 5 minuti | ogni 5 minuti |
+| CPU, memoria, swap / file di paging, uptime | ogni 5 minuti | ogni 5 minuti |
+| Dischi (tutti quelli fissi; l'avviso considera il più pieno) | punti di montaggio | unità C:, D: … |
 | Load average | sì | non esiste su Windows |
 | Temperature | sì (`lm-sensors`) | non disponibili |
 | Servizi scelti | systemd, a ogni cambio | servizi di Windows, a ogni cambio |
@@ -33,7 +34,8 @@ Il nuovo server deve raggiungere il centrale sulla porta della dashboard (5443),
 <a id="linux"></a>
 ## Agente Linux
 
-Sul server da collegare (Ubuntu o Debian con systemd):
+Nella dashboard: **Impostazioni → Server collegati → Aggiungi un server**, sistema *Linux*; copia il comando mostrato.
+Poi sul server da collegare (Ubuntu o Debian con systemd), come utente con `sudo`:
 ```bash
 git clone https://github.com/dogfromberlin/Astreo_Monitor_Services.git
 cd Astreo_Monitor_Services
@@ -47,11 +49,25 @@ L'installatore scarica la CA del centrale e ne verifica l'impronta, salva config
 <a id="windows"></a>
 ## Agente Windows
 
-Windows 10/11 o Windows Server 2016 e successivi, con PowerShell 5.1 (già presente). Scarica e scompatta il
-pacchetto zip dell'ultima **Release** dal repository, apri **PowerShell come amministratore** nella cartella e lancia:
+Windows 10/11 o Windows Server 2016 e successivi, con PowerShell 5.1 (già presente).
+
+1. Nella dashboard: **Impostazioni → Server collegati → Aggiungi un server**, sistema *Windows*; copia il comando
+   mostrato (contiene token e impronta della CA).
+2. Sul server Windows apri https://github.com/dogfromberlin/Astreo_Monitor_Services/releases e scarica lo zip
+   dell'ultima versione.
+3. Tasto destro sullo zip → **Estrai tutto…** → cartella `C:\AstreoAgentSetup`.
+4. **Start** → scrivi `PowerShell` → tasto destro su **Windows PowerShell** → **Esegui come amministratore**.
+5. Nella finestra (il secondo comando toglie il blocco che Windows mette sui file scaricati), poi il comando copiato:
 ```powershell
+cd C:\AstreoAgentSetup
+Get-ChildItem -Recurse | Unblock-File
 powershell -ExecutionPolicy Bypass -File .\agent\windows\install-agent.ps1 -Central https://CENTRALE:5443 -Token agt_… -CaSha256 …
 ```
+6. Deve comparire *Collegamento al server centrale: OK*. Controllo: `Get-ScheduledTask -TaskName 'Astreo Monitor Agent'`
+   (stato *Ready*) e, dopo un paio di minuti, `Get-Content C:\ProgramData\AstreoAgent\agent.log -Tail 5`.
+
+Per **aggiornare** l'agente o usare un **nuovo token**: scarica il nuovo zip, genera il comando dalla dashboard
+(**Nuovo token**) e ripeti i passi 3–5; l'installazione sostituisce quella precedente.
 Lo script verifica la CA, salva configurazione e coda in `C:\ProgramData\AstreoAgent\` (solo SYSTEM e
 amministratori), prova il collegamento e crea l'attività pianificata **Astreo Monitor Agent** (ogni minuto, come
 SYSTEM). Il registro è `C:\ProgramData\AstreoAgent\agent.log`. Per rimuoverlo: lo stesso script con `-Uninstall`.

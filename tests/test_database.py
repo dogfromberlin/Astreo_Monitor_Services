@@ -213,7 +213,9 @@ def test_server_collegati(dbcfg):
         host = H.by_token(conn, token)
         iso = (now - dt.timedelta(minutes=1)).isoformat()
         r = H.ingest(conn, host, {"agent": {"version": "4.0.0", "os": "Debian 12"}, "items": [
-            {"type": "metrics", "time": iso, "cpu_pct": 12.5, "mem_used_pct": 40, "disk_used_pct": 91, "load1": 0.5},
+            {"type": "metrics", "time": iso, "cpu_pct": 12.5, "mem_used_pct": 40, "disk_used_pct": 50, "load1": 0.5,
+             "disks": [{"mountpoint": "/", "used_pct": 50, "total_mb": 1000, "used_mb": 500, "free_mb": 500},
+                       {"mountpoint": "/srv/dati", "used_pct": 91, "total_mb": 9000, "used_mb": 8190, "free_mb": 810}]},
             {"type": "temperatures", "time": iso, "sensors": [{"adapter": "coretemp", "device": "Package", "value": 55}]},
             {"type": "services", "time": iso, "services": [{"unit": "ssh.service", "label": "ssh", "up": True, "state": "active"}]},
             {"type": "metrics", "time": iso, "cpu_pct": 500},                        # fuori intervallo: scartato da solo
@@ -222,7 +224,7 @@ def test_server_collegati(dbcfg):
         H.ingest(conn, host, {"items": [{"type": "services", "time": now.isoformat(),
                                          "services": [{"unit": "ssh.service", "label": "ssh", "up": False, "state": "failed"}]}]})
         h = [x for x in H.listing(conn, 10) if x["id"] == hid][0]
-        assert h["status"] == "OK" and h["os_info"] == "Debian 12" and h["snapshot"]["disk_used_pct"] == 91
+        assert h["status"] == "OK" and h["os_info"] == "Debian 12" and h["snapshot"]["disks"][1]["mountpoint"] == "/srv/dati"
         start, end = now - dt.timedelta(hours=1), now + dt.timedelta(minutes=5)
         assert hist.metrics(conn, start, end, hid)["cpu"] == [12.5]
         assert hist.metrics(conn, start, end)["cpu"] == []              # il centrale non vede i dati dell'agente

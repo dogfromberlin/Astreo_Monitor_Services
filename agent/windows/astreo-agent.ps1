@@ -14,7 +14,7 @@ param(
   [switch]$TestConnection
 )
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '4.0.0'
+$AgentVersion = '4.0.1'
 $Dir = Split-Path -Parent $ConfigPath
 $QueueDir = Join-Path $Dir 'queue'
 $StatePath = Join-Path $Dir 'state.json'
@@ -118,6 +118,12 @@ if (($epoch - [int](Get-StateValue 'metrics_sent' 0)) -ge $MetricsEvery) {
   }
   if ($pageAlloc -gt 0) { $item.swap_used_pct = [math]::Round($pageUsed / $pageAlloc * 100, 1) }
   if ($sysDisk -and $sysDisk.Size -gt 0) { $item.disk_used_pct = [math]::Round(($sysDisk.Size - $sysDisk.FreeSpace) / $sysDisk.Size * 100, 1) }
+  # 4.0.1: tutti i dischi fissi (unità locali, DriveType 3)
+  $item.disks = @(Get-CimInstance -ClassName Win32_LogicalDisk -Filter 'DriveType=3' | Where-Object { $_.Size -gt 0 } | Select-Object -First 32 | ForEach-Object {
+    @{ mountpoint = $_.DeviceID; device = $_.DeviceID; fstype = [string]$_.FileSystem; label = [string]$_.VolumeName
+       total_mb = [math]::Round($_.Size / 1MB); used_mb = [math]::Round(($_.Size - $_.FreeSpace) / 1MB)
+       free_mb = [math]::Round($_.FreeSpace / 1MB); used_pct = [math]::Round(($_.Size - $_.FreeSpace) / $_.Size * 100, 1) }
+  })
   [void]$items.Add($item)
   Set-StateValue 'metrics_sent' $epoch
 }

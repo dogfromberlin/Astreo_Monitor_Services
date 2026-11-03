@@ -72,6 +72,11 @@
     else { g("#g-temp", 0, null, t("non disponibile")); $("#g-temp .value span").textContent = "–"; }
     $("#g-disk h2").textContent = h.kind === "windows" ? t("Disco di sistema") : t("Disco /");
     if (s.uptime_s != null) $("#g-cpu .sub").title = t("acceso da {p0}", { p0: fmtUptime(s.uptime_s) });
+    $("#disks tbody").replaceChildren(...(s.disks || []).map((d) => row([      // 4.0.1: tutti i dischi dell'agente
+      { text: d.label ? `${d.mountpoint} ${d.label}` : d.mountpoint, title: [d.device, d.fstype].filter(Boolean).join(" ") },
+      { text: fmtGB(d.used_mb), cls: "num" }, { text: fmtGB(d.free_mb), cls: "num" },
+      { text: fmtNum(d.used_pct), cls: `num ${level(d.used_pct, 85, 95)}` },
+    ])));
     const svc = (h.services_state || {}).services || [];
     $("#services").replaceChildren(...(svc.length ? svc.map((x) => {
       const li = el("li", { class: x.up ? "up" : "down" });
@@ -117,12 +122,30 @@
     }));
   }
 
+  // Passi completi dell'installazione (gli stessi della guida, docs/<lingua>/agents.md)
+  const STEPS = {
+    windows: [
+      "Sul server Windows apri https://github.com/dogfromberlin/Astreo_Monitor_Services/releases e scarica lo zip dell'ultima versione.",
+      "Tasto destro sullo zip → Estrai tutto… nella cartella C:\\AstreoAgentSetup.",
+      "Start → scrivi PowerShell → tasto destro su Windows PowerShell → Esegui come amministratore.",
+      "Nella finestra: cd C:\\AstreoAgentSetup e poi Get-ChildItem -Recurse | Unblock-File (sblocca i file scaricati).",
+      "Incolla il comando qui sotto e premi Invio: deve comparire «Collegamento al server centrale: OK».",
+      "Entro un paio di minuti il server compare nella panoramica della vista Server.",
+    ],
+    linux: [
+      "Sul server Linux, come utente con sudo: git clone https://github.com/dogfromberlin/Astreo_Monitor_Services.git",
+      "cd Astreo_Monitor_Services",
+      "Incolla il comando qui sotto e premi Invio: deve comparire «Collegamento al server centrale: OK».",
+      "Entro un paio di minuti il server compare nella panoramica della vista Server.",
+    ],
+  };
+
   function showInstall(name, kind, r) {
+    const k = kind === "windows" ? "windows" : "linux";
     $("#host-install").hidden = false;
     $("#host-install-title").textContent = t("Installazione dell'agente su {p0}", { p0: name });
-    $("#host-install-hint").textContent = kind === "windows"
-      ? t("Sul server Windows: scarica e scompatta il pacchetto della Release, apri PowerShell come amministratore nella cartella e lancia:")
-      : t("Sul server Linux: git clone del progetto, entra nella cartella e lancia:");
+    $("#host-install-steps").replaceChildren(...STEPS[k].map((s) => el("li", {}, t(s))));
+    $("#host-install-guide").dataset.help = `agents#${k}`;
     $("#host-install-cmd").textContent = r.command;
     $("#host-install").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }

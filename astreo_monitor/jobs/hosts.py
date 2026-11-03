@@ -44,10 +44,12 @@ def main(cfg: Config, dry_run: bool) -> int:
                            tr("Ultimo invio dei dati alle {p0}.", p0=last)))
             snap = h["snapshot"] or {}
             if online and snap:
-                d = snap.get("disk_used_pct")
+                disks = [x for x in (snap.get("disks") or []) if x.get("used_pct") is not None]
+                worst = max(disks, key=lambda x: x["used_pct"]) if disks else {"mountpoint": "/", "used_pct": snap.get("disk_used_pct")}
+                d = worst["used_pct"]
                 st = level(d, cfg.metrics.disk_warning, cfg.metrics.disk_alert)
                 checks.append(("disk", "disk", st, f"[{name}] " + (tr("Allarme {nome} rientrato", nome=tr("Disco").lower()) if st == "OK" else f"{tr('Disco')}: {st}"),
-                               tr("Disco {disco} occupato al {pct}%", disco="/", pct=round(d or 0))))
+                               tr("Disco {disco} occupato al {pct}%", disco=worst["mountpoint"], pct=round(d or 0))))
                 tmax = snap.get("temperature_max")
                 if tmax is not None:
                     st = level(tmax, cfg.metrics.temp_warning, cfg.metrics.temp_alert)

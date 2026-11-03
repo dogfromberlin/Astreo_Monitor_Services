@@ -246,9 +246,10 @@
       </form>
       <div class="install-box" id="host-install" hidden>
         <p><strong id="host-install-title"></strong></p>
-        <p class="hint" id="host-install-hint"></p>
+        <ol id="host-install-steps"></ol>
         <pre class="token-box" id="host-install-cmd"></pre>
-        <p class="hint">{{ _("Il token è mostrato una sola volta: se lo perdi, genera un nuovo token dall'elenco.") }}</p>
+        <p class="hint">{{ _("Il token è mostrato una sola volta: se lo perdi, genera un nuovo token dall'elenco.") }}
+          <a href="#" id="host-install-guide" data-help="agents#windows">{{ _("Guida completa") }}</a></p>
       </div>
       <form class="settings-form" id="form-hosts">
         <fieldset>

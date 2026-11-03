@@ -135,6 +135,23 @@ def _txt(v, n: int) -> str:
     return str(v or "")[:n]
 
 
+def _disks(v) -> list[dict]:
+    """4.0.1: tutti i dischi fissi dell'agente (Linux: punti di montaggio, Windows: unità)."""
+    if v is None:
+        return []
+    if not isinstance(v, list) or len(v) > 32:
+        raise HostError("dischi non validi")
+    out = []
+    for d in v:
+        if not isinstance(d, dict):
+            raise HostError("disco non valido")
+        out.append({"mountpoint": _txt(d.get("mountpoint"), 120), "device": _txt(d.get("device"), 120),
+                    "fstype": _txt(d.get("fstype"), 20), "label": _txt(d.get("label"), 60),
+                    "total_mb": _num(d.get("total_mb"), 0, 1e12), "used_mb": _num(d.get("used_mb"), 0, 1e12),
+                    "free_mb": _num(d.get("free_mb"), 0, 1e12), "used_pct": _num(d.get("used_pct"), 0, 100)})
+    return out
+
+
 def ingest(conn, host: dict, payload: dict) -> dict:
     """Registra un pacchetto dell'agente. Ritorna la risposta per l'agente."""
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
@@ -169,7 +186,8 @@ def _item(conn, host: dict, it, now: dt.datetime, metrics: list, temps: list, la
         metrics.append(row)
         if latest is None or t >= latest["time"]:
             latest = {**{k: v for k, v in row.items() if k not in ("timestamp", "host_id", "source")}, "time": t,
-                      "uptime_s": _num(it.get("uptime_s"), 0, 1e10), "mem_total_mb": _num(it.get("mem_total_mb"), 0, 1e9)}
+                      "uptime_s": _num(it.get("uptime_s"), 0, 1e10), "mem_total_mb": _num(it.get("mem_total_mb"), 0, 1e9),
+                      "disks": _disks(it.get("disks"))}
     elif kind == "temperatures":
         sensors = it.get("sensors") or []
         if not isinstance(sensors, list) or len(sensors) > 64:

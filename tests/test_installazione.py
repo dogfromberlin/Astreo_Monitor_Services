@@ -216,7 +216,7 @@ def test_lingua_degli_script(env, expected):
 def test_nessun_riferimento_personale_nel_repository():
     """Fase 4: il repository pubblico non contiene dati di un'installazione specifica.
     Il nome utente GitHub è ammesso solo dove indica il repository o il titolare della licenza."""
-    allowed_owner = {"README.md", "README.it.md", "LICENSE", "docs/en/installation.md", "docs/it/installation.md", "docs/en/agents.md", "docs/it/agents.md",
+    allowed_owner = {"README.md", "README.it.md", "LICENSE", "docs/en/installation.md", "docs/it/installation.md", "docs/en/agents.md", "docs/it/agents.md", "astreo_monitor/web/static/js/hosts.js", "astreo_monitor/i18n/en.json",
                      "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", ".github/workflows/release.yml"}
     bad = re.compile("|".join([rf"\b{PERSONAL_USER}\b", "192\\.168\\.1\\.(2|25[0-9])\\b", "10\\." + "8\\.0\\.",
                                "Shobu" + "Base", "astreo-db-" + "backups", r"\bastreo\.local\b", "@" + "gmail\\.com"]), re.I)

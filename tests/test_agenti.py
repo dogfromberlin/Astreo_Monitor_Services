@@ -52,6 +52,7 @@ def test_agente_linux_coda_e_invio(tmp_path, central):
     assert [i["type"] for i in items] == ["metrics"] or items[0]["type"] == "metrics"
     m = [i for i in items if i["type"] == "metrics"][0]
     assert 0 <= m["cpu_pct"] <= 100 and m["mem_used_pct"] > 0
+    assert m["disks"] and all({"mountpoint", "used_pct", "free_mb"} <= set(d) for d in m["disks"])
     # centrale irraggiungibile: i dati restano in coda
     a.enqueue(items)
     with mock.patch.object(agent_run.requests, "post", side_effect=requests.ConnectionError("giù")):
@@ -101,7 +102,10 @@ function Get-CimInstance { param($ClassName, $Filter, $ErrorAction)
     'Win32_OperatingSystem' { [pscustomobject]@{ LastBootUpTime = $global:Boot; TotalVisibleMemorySize = 8388608; FreePhysicalMemory = 2097152; Caption = 'Microsoft Windows 11 Pro'; Version = '10.0.22631' } }
     'Win32_PerfFormattedData_PerfOS_Processor' { [pscustomobject]@{ PercentProcessorTime = 20 } }
     'Win32_PageFileUsage' { [pscustomobject]@{ AllocatedBaseSize = 2048; CurrentUsage = 512 } }
-    'Win32_LogicalDisk' { [pscustomobject]@{ Size = 100GB; FreeSpace = 25GB } }
+    'Win32_LogicalDisk' {
+      $c = [pscustomobject]@{ DeviceID = 'C:'; Size = 100GB; FreeSpace = 25GB; FileSystem = 'NTFS'; VolumeName = 'Sistema' }
+      $d = [pscustomobject]@{ DeviceID = 'D:'; Size = 2000GB; FreeSpace = 100GB; FileSystem = 'NTFS'; VolumeName = 'Dati' }
+      if ($Filter -eq 'DriveType=3') { $c, $d } elseif ($Filter -like "*'D:'*") { $d } else { $c } }
   } }
 function Get-Service { param($Name, $ErrorAction) [pscustomobject]@{ DisplayName = "Nome di $Name"; Status = 'Running' } }
 function Start-Sleep { param($Milliseconds) }
@@ -124,6 +128,7 @@ def test_agente_windows_con_comandi_simulati(tmp_path, central):
     assert first["agent"]["kind"] == "windows" and first["agent"]["os"].startswith("Microsoft Windows 11")
     m = [i for i in first["items"] if i["type"] == "metrics"][0]
     assert m["cpu_pct"] == 20 and m["mem_used_pct"] == 75.0 and m["disk_used_pct"] == 75.0 and m["swap_used_pct"] == 25.0
+    assert [(d["mountpoint"], d["label"], d["used_pct"]) for d in m["disks"]] == [("C:", "Sistema", 75.0), ("D:", "Dati", 95.0)]
     svc = [i for i in second["items"] if i["type"] == "services"][0]["services"]       # elenco ricevuto al primo invio
     assert svc == [{"unit": "ssh.service", "label": "Nome di ssh.service", "up": True, "state": "running"}]
     assert RECEIVED[0]["auth"] == "Bearer agt_" + "w" * 30

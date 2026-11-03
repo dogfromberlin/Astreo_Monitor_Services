@@ -81,7 +81,9 @@ class Agent:
                           "load5": ld["load5"], "load15": ld["load15"], "mem_used_pct": mem["used_pct"],
                           "mem_used_mb": mem["used_mb"], "mem_total_mb": mem.get("total_mb"),
                           "swap_used_pct": mem["swap_used_pct"], "disk_used_pct": system.disk_used_pct(self.root_disk),
-                          "uptime_s": int(time.time() - curr["boot_time"])})
+                          "uptime_s": int(time.time() - curr["boot_time"]),
+                          "disks": [{k: d[k] for k in ("mountpoint", "device", "fstype", "total_mb", "used_mb", "free_mb", "used_pct")}
+                                    for d in system.disks()][:32]})
             temps = [{"adapter": t["adapter"], "device": t["device"], "value": t["value"]} for t in sensors.read()]
             if temps:
                 items.append({"type": "temperatures", "time": iso, "sensors": temps[:64]})

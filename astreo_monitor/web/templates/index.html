@@ -135,8 +135,8 @@
     <p class="hint" id="pihole-msg" hidden></p>
   </section>
 
-  <div class="columns central-only">
-    <section class="panel admin-only">
+  <div class="columns">
+    <section class="panel admin-only central-only">
       <div class="panel-head"><h2>{{ _("Processi") }} <button type="button" class="help-btn" data-help="server#processi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("ordinati per CPU, ogni 10 s") }}</small></div>
       <div class="scroll">
         <table class="data" id="processes">
@@ -146,7 +146,7 @@
       </div>
     </section>
     <div class="stack">
-      <section class="panel">
+      <section class="panel central-only">
         <div class="panel-head"><h2>{{ _("Sensori") }}</h2></div>
         <table class="data" id="temperatures">
           <thead><tr><th>{{ _("Sensore") }}</th><th class="num">°C</th><th class="num">{{ _("Max") }}</th></tr></thead>
