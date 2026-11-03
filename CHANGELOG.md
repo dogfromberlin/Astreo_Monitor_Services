@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.2
+
+- Windows agent: the certificate check now compiles on PowerShell 7.5 / .NET 9 too (`Add-Type -IgnoreWarnings`, warning SYSLIB0057). Windows PowerShell 5.1, used by the agent on Windows, was not affected; the failing test had blocked the 4.0.0 and 4.0.1 Releases.
+- Partitions panel of a connected server: clear message when the agent is older than 4.0.1 and sends only the system disk.
+
 ## 4.0.1
 
 - Agents send **all fixed disks** (Linux mount points, Windows drives C:, D: …), shown in the Partitions panel of the chosen server; the disk alert considers the fullest one and names it.

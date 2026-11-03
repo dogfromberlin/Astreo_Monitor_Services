@@ -72,6 +72,12 @@
     else { g("#g-temp", 0, null, t("non disponibile")); $("#g-temp .value span").textContent = "–"; }
     $("#g-disk h2").textContent = h.kind === "windows" ? t("Disco di sistema") : t("Disco /");
     if (s.uptime_s != null) $("#g-cpu .sub").title = t("acceso da {p0}", { p0: fmtUptime(s.uptime_s) });
+    if (!(s.disks || []).length) {                    // agente precedente alla 4.0.1: solo il disco di sistema
+      const td = el("td", { colspan: "4", class: "hint" },
+        t("L'agente {p0} invia solo il disco di sistema: aggiornalo per vedere tutti i dischi (guida, Server collegati).", { p0: h.agent_version || "" }));
+      const tr = el("tr"); tr.append(td);
+      $("#disks tbody").replaceChildren(tr);
+    } else
     $("#disks tbody").replaceChildren(...(s.disks || []).map((d) => row([      // 4.0.1: tutti i dischi dell'agente
       { text: d.label ? `${d.mountpoint} ${d.label}` : d.mountpoint, title: [d.device, d.fstype].filter(Boolean).join(" ") },
       { text: fmtGB(d.used_mb), cls: "num" }, { text: fmtGB(d.free_mb), cls: "num" },

@@ -82,7 +82,7 @@ def test_agente_linux_coda_oltre_24_ore(tmp_path, central):
     assert a.pending() == [] and not os.path.exists(old)
 
 
-PWSH = shutil.which("pwsh") or ("/tmp/pwsh/pwsh" if os.path.exists("/tmp/pwsh/pwsh") else None)
+PWSH = shutil.which("pwsh") or next((p for p in ("/tmp/pwsh75/pwsh", "/tmp/pwsh/pwsh") if os.path.exists(p)), None)
 WIN = os.path.join(ROOT, "agent", "windows")
 
 

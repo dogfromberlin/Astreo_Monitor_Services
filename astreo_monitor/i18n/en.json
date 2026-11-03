@@ -340,6 +340,7 @@
  "Inviata": "Sent",
  "Inviato alle {quando}, posticipato per la fascia di silenzio {fascia}.": "Sent at {quando}, postponed because of quiet hours {fascia}.",
  "L'IP pubblico del server è cambiato alle {quando}.": "The server's public IP changed at {quando}.",
+ "L'agente {p0} invia solo il disco di sistema: aggiornalo per vedere tutti i dischi (guida, Server collegati).": "Agent {p0} sends only the system disk: update it to see all disks (guide, Connected servers).",
  "L'orario di recapito deve essere fuori dalla fascia di silenzio (può coincidere con la fine)": "The delivery time must be outside quiet hours (it can match the end)",
  "La connessione è tornata regolare alle {ora}.": "The connection is back to normal at {ora}.",
  "La data di fine deve essere successiva a quella di inizio": "The end date must be after the start date",

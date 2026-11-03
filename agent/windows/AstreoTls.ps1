@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 # Astreo Monitor - verifica del certificato del centrale con la sua CA (usato dall'agente e dall'installatore).
 if (-not ('AstreoTls' -as [type])) {
-  Add-Type -TypeDefinition @'
+  Add-Type -IgnoreWarnings -TypeDefinition @'
 using System;
 using System.Net;
 using System.Net.Security;
