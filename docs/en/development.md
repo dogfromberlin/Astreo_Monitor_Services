@@ -50,6 +50,7 @@ Command-line tools: language from `ASTREO_LANG`, `install.ini` or `LANG`.
 Pages have the same name in `docs/it/` and `docs/en/`. Chapters opened by the dashboard help have a fixed anchor,
 identical in both languages (`<a id="…"></a>` before the heading). The documentation test checks that every page
 exists in both languages with the same chapters, anchors and number of tables and code blocks, and that internal
-links lead to existing pages and anchors.
+links lead to existing pages and anchors. Every **?** icon of the dashboard (`data-help="page#anchor"`) must also
+lead to a page and an anchor existing in both languages.
 
 To add a feature: code, tests, translations, `docs/it` and `docs/en` pages, entry in `CHANGELOG.md`.

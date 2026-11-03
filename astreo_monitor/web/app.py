@@ -718,6 +718,17 @@ def create_app(cfg: Config) -> Flask:
             return jsonify({"error": i18n.translate_stored(str(exc), current_language()), "entries": []}), 200
         return jsonify({"entries": entries})
 
+    # ---------------------------------------------------------- aiuto in linea
+    from .. import help as help_mod
+
+    @app.get("/api/v1/help/<name>")
+    def api_help(name: str):
+        lang = request.args.get("lang") or current_language()
+        try:
+            return jsonify(help_mod.page(lang, name))
+        except help_mod.HelpError:
+            abort(404, description="Pagina della guida non trovata")
+
     @app.get("/api/v1/heartbeat")
     def api_heartbeat():
         with db.connect(cfg.database) as conn:

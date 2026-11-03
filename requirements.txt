@@ -4,6 +4,7 @@ Werkzeug==3.1.9
 waitress==3.0.2
 psutil==5.9.8
 requests==2.33.0
+Markdown==3.10.3
 # Accesso ai dati (dalla 3.0): SQLAlchemy + migrazioni Alembic
 SQLAlchemy==2.0.36
 alembic==1.14.0

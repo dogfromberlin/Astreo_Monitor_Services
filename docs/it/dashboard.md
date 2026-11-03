@@ -31,6 +31,14 @@ dei servizi monitorati (verde attivo, rosso fermo).
 Le modifiche valgono subito, senza riavvii. I valori segreti (password, token) non vengono mai mostrati:
 lascia il campo com'è per conservarli, scrivi un valore nuovo per sostituirli.
 
+<a id="aiuto"></a>
+## Aiuto in linea
+
+L'icona **?** accanto al titolo di ogni sezione apre questa guida nel punto che la riguarda, in un pannello
+laterale e nella lingua scelta; **Guida** in fondo alla pagina apre l'indice. I collegamenti tra le pagine si
+seguono senza uscire dalla dashboard (← per tornare indietro). È la stessa guida di `docs/` nel repository,
+sempre della versione installata.
+
 <a id="lingua"></a>
 ## Lingua
 

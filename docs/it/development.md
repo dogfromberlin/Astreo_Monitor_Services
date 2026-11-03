@@ -51,5 +51,7 @@ Le pagine hanno lo stesso nome in `docs/it/` e `docs/en/`. I capitoli che la das
 un'ancora fissa, uguale nelle due lingue (`<a id="…"></a>` prima del titolo). Il test della documentazione
 controlla che ogni pagina esista in entrambe le lingue con gli stessi capitoli, le stesse ancore e lo stesso
 numero di tabelle e blocchi di codice, e che i collegamenti interni portino a pagine e ancore esistenti.
+Anche ogni icona **?** della dashboard (`data-help="pagina#ancora"`) deve portare a una pagina e a un'ancora
+esistenti in entrambe le lingue.
 
 Per aggiungere una funzione: codice, test, traduzioni, pagine `docs/it` e `docs/en`, voce in `CHANGELOG.md`.

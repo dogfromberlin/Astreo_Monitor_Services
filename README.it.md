@@ -24,6 +24,7 @@ insieme a mano.
 | **Utenti** | Amministratore e un utente facoltativo in sola lettura ([guida](docs/it/configuration.md#utenti)) |
 | **Terminale web** | Shell nel browser protetta da una password separata (solo HTTPS) |
 | **Riepilogo settimanale** | Ogni lunedì mattina |
+| **Aiuto in linea** | icona **?** in ogni sezione: apre la guida al capitolo giusto, nella lingua scelta |
 | **Lingue** | Italiano e inglese (dashboard, notifiche, bot, installatore) |
 
 ## Requisiti

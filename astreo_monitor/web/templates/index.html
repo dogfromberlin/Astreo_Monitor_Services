@@ -92,19 +92,19 @@
 
   <section class="panel services-panel">
     <div class="panel-head">
-      <h2>{{ _("Servizi") }}</h2>
+      <h2>{{ _("Servizi") }} <button type="button" class="help-btn" data-help="server#servizi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
       <button type="button" class="ghost" id="services-refresh">{{ _("Aggiorna") }}</button>
     </div>
     <ul class="services" id="services"></ul>
   </section>
 
   <section class="panel">
-    <div class="panel-head"><h2>{{ _("Controlli") }}</h2><small>{{ _("connessione, dischi, aggiornamenti, backup e scadenze") }}</small></div>
+    <div class="panel-head"><h2>{{ _("Controlli") }} <button type="button" class="help-btn" data-help="server#controlli" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("connessione, dischi, aggiornamenti, backup e scadenze") }}</small></div>
     <ul class="checks" id="checks"></ul>
   </section>
 
   <section class="panel" id="checks-panel" hidden>
-    <div class="panel-head"><h2>{{ _("Dispositivi e servizi") }}</h2><small id="checks-summary"></small></div>
+    <div class="panel-head"><h2>{{ _("Dispositivi e servizi") }} <button type="button" class="help-btn" data-help="devices#dove" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="checks-summary"></small></div>
     <div class="scroll">
       <table class="data" id="checks-table">
         <thead><tr><th>{{ _("Nome") }}</th><th>{{ _("Controllo") }}</th><th>{{ _("Stato") }}</th><th class="num">{{ _("Latenza") }}</th><th class="num">{{ _("Disponibilità 24 ore") }}</th><th>{{ _("Dal") }}</th></tr></thead>
@@ -114,7 +114,7 @@
   </section>
 
   <section class="panel module" id="mod-docker" hidden>
-    <div class="panel-head"><h2>{{ _("Docker") }}</h2><small id="docker-info"></small></div>
+    <div class="panel-head"><h2>{{ _("Docker") }} <button type="button" class="help-btn" data-help="modules#docker" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="docker-info"></small></div>
     <div class="scroll">
       <table class="data" id="docker-table">
         <thead><tr><th>{{ _("Container") }}</th><th>{{ _("Immagine") }}</th><th>{{ _("Stato") }}</th><th class="num">{{ _("CPU") }}</th><th>{{ _("Memoria") }}</th><th class="num">{{ _("Riavvii") }}</th></tr></thead>
@@ -125,14 +125,14 @@
   </section>
 
   <section class="panel module" id="mod-pihole" hidden>
-    <div class="panel-head"><h2>{{ _("Pi-hole") }}</h2><small id="pihole-info"></small></div>
+    <div class="panel-head"><h2>{{ _("Pi-hole") }} <button type="button" class="help-btn" data-help="modules#pihole" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="pihole-info"></small></div>
     <div class="stats" id="pihole-stats"></div>
     <p class="hint" id="pihole-msg" hidden></p>
   </section>
 
   <div class="columns">
     <section class="panel admin-only">
-      <div class="panel-head"><h2>{{ _("Processi") }}</h2><small>{{ _("ordinati per CPU, ogni 10 s") }}</small></div>
+      <div class="panel-head"><h2>{{ _("Processi") }} <button type="button" class="help-btn" data-help="server#processi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("ordinati per CPU, ogni 10 s") }}</small></div>
       <div class="scroll">
         <table class="data" id="processes">
           <thead><tr><th>{{ _("PID") }}</th><th>{{ _("Utente") }}</th><th class="num">{{ _("CPU %") }}</th><th class="num">{{ _("RAM %") }}</th><th class="num">{{ _("RSS MB") }}</th><th>{{ _("Comando") }}</th></tr></thead>
@@ -162,7 +162,7 @@
 
   <section class="panel history">
     <div class="panel-head">
-      <h2>{{ _("Storico") }}</h2>
+      <h2>{{ _("Storico") }} <button type="button" class="help-btn" data-help="server#eventi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
       <div class="period" role="group" aria-label="{{ _("Periodo") }}">
         <button type="button" data-range="24h" class="active">{{ _("24 ore") }}</button>
         <button type="button" data-range="7d">{{ _("7 giorni") }}</button>
@@ -202,8 +202,18 @@
 {% include "_terminale.html" %}
 </main>
 
-<footer><span>Astreo Monitor {{ version }}</span> <a href="{{ url_for('ca_cert') }}">{{ _("certificato CA") }}</a> <a href="{{ url_for('api_health') }}">{{ _("stato API") }}</a>
+<footer><span>Astreo Monitor {{ version }}</span> <a href="#" data-help="index">{{ _("Guida") }}</a> <a href="{{ url_for('ca_cert') }}">{{ _("certificato CA") }}</a> <a href="{{ url_for('api_health') }}">{{ _("stato API") }}</a>
   <span class="lang-switch">{% for code, name in languages.items() %}<button type="button" data-lang="{{ code }}" class="{{ 'active' if code == lang }}" title="{{ name }}">{{ code|upper }}</button>{% endfor %}</span></footer>
+
+<dialog id="help-dialog" class="help-drawer" aria-labelledby="help-title">
+  <div class="help-head">
+    <button type="button" class="ghost" id="help-back" title="{{ _("Indietro") }}" aria-label="{{ _("Indietro") }}">←</button>
+    <button type="button" class="ghost" data-help="index" title="{{ _("Indice della guida") }}">{{ _("Indice") }}</button>
+    <h2 id="help-title"></h2>
+    <form method="dialog"><button type="submit" class="ghost" aria-label="{{ _("Chiudi") }}">✕</button></form>
+  </div>
+  <article class="help-body" id="help-body"></article>
+</dialog>
 
 <dialog id="check-dialog" class="wide">
   <form method="dialog" class="dialog-head">
@@ -236,6 +246,7 @@
 <script src="{{ url_for('static', filename='js/controlli.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/backup.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/log.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/help.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/connessione.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/impostazioni.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/terminale.js') }}?v={{ version }}"></script>

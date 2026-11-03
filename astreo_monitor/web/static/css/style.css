@@ -328,7 +328,7 @@ td.warn { color: var(--warn); }
   /* navigazione in basso, come le app */
   .views {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; margin: 0;
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0;   /* tante colonne quante le viste visibili */
     padding: .25rem .25rem calc(.25rem + env(safe-area-inset-bottom));
     background: rgb(13 8 34 / .97); border-top: 1px solid var(--line);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
@@ -505,3 +505,31 @@ label.narrow { max-width: 22rem; }
 .token-box { background: var(--raised); padding: .6rem .8rem; border-radius: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
 .form-actions.left { justify-content: flex-start; }
 @media (max-width: 760px) { .log-line { grid-template-columns: 1fr; gap: 0; } }
+
+/* 3.6 - aiuto in linea */
+.help-btn { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; margin-left: .35rem; padding: 0;
+            border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--off);
+            font-size: .75rem; font-weight: 700; line-height: 1; vertical-align: middle; cursor: pointer; }
+.help-btn:hover, .help-btn:focus-visible { color: var(--sage); border-color: var(--sage); }
+dialog.help-drawer { margin: 0 0 0 auto; height: 100vh; max-height: 100vh; width: min(46rem, 100vw); padding: 0;
+                     border: 0; border-left: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--text); }
+dialog.help-drawer::backdrop { background: rgb(0 0 0 / .45); }
+.help-head { position: sticky; top: 0; display: flex; align-items: center; gap: .5rem; padding: .7rem 1rem;
+             background: var(--surface); border-bottom: 1px solid var(--line); z-index: 1; }
+.help-head h2 { flex: 1; margin: 0; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.help-head form { margin: 0; }
+.help-body { padding: .4rem 1.2rem 2rem; line-height: 1.55; font-size: .93rem; }
+.help-body h1 { display: none; }
+.help-body h2 { font-size: 1.1rem; margin: 1.6rem 0 .5rem; color: var(--sage); }
+.help-body h3 { font-size: 1rem; margin: 1.2rem 0 .4rem; }
+.help-body table { width: 100%; border-collapse: collapse; margin: .6rem 0; font-size: .86rem; display: block; overflow-x: auto; }
+.help-body th, .help-body td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.help-body th { color: var(--off); font-weight: 600; }
+.help-body pre { background: var(--raised); padding: .6rem .8rem; border-radius: 6px; overflow-x: auto; font-size: .8rem; }
+.help-body code { font-family: var(--font-mono, monospace); font-size: .85em; }
+.help-body a { color: var(--accent2); }
+.help-body .flash { animation: helpflash 1.6s ease-out; border-radius: 4px; }
+@keyframes helpflash { from { background: rgb(143 184 255 / .25); } to { background: transparent; } }
+.help-body > * { scroll-margin-top: 4.2rem; }
+.help-btn { min-height: 0 !important; min-width: 0 !important; flex: none; }
+@media (max-width: 760px) { .help-btn { width: 1.6rem; height: 1.6rem; font-size: .85rem; } }

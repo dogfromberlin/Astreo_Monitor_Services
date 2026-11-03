@@ -1,6 +1,6 @@
 <div class="view" data-view="impostazioni" hidden>
   <section class="panel">
-    <div class="panel-head"><h2>{{ _("Impostazioni") }}</h2></div>
+    <div class="panel-head"><h2>{{ _("Impostazioni") }} <button type="button" class="help-btn" data-help="dashboard#impostazioni" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2></div>
     <div class="subtabs" role="tablist" data-subtabs="set">
       <button type="button" role="tab" data-sub="speedtest" class="active">{{ _("Speedtest") }}</button>
       <button type="button" role="tab" data-sub="notifiche">{{ _("Notifiche") }}</button>
@@ -25,7 +25,7 @@
 
       <form class="settings-form" id="form-speedtest">
         <fieldset>
-          <legend>{{ _("Soglie") }}</legend>
+          <legend>{{ _("Soglie") }} <button type="button" class="help-btn" data-help="connection#speedtest" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <p class="hint">{{ _("Sotto la soglia di warning lo stato è WARNING, sotto quella di alert è ALERT. Le stesse soglie valgono per la vista Connessione.") }}</p>
           <div class="grid-fields">
             <label>{{ _("Download warning (Mbps)") }}<input type="number" step="1" data-key="speedtest.download_warning"></label>
@@ -60,7 +60,7 @@
           <p class="hint">{{ _("Solo se peggiora: avviso per OK→WARNING, WARNING→ALERT e connessione assente; nessun avviso se resta uguale o migliora. Il promemoria parte se la situazione resta anomala (WARNING o ALERT, anche alternati) per il numero di ore indicato dall'ultimo avviso. I canali si configurano nella scheda Notifiche.") }}</p>
         </fieldset>
         <fieldset>
-          <legend>{{ _("Controllo continuo della connessione (ping ogni minuto)") }}</legend>
+          <legend>{{ _("Controllo continuo della connessione (ping ogni minuto)") }} <button type="button" class="help-btn" data-help="connection#continuo" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <label class="switch"><input type="checkbox" data-key="connectivity.enabled"><span>{{ _("Attivo") }}</span></label>
           <div class="grid-fields">
             <label class="span-2">{{ _("Destinazioni (separate da virgola;") }} <em>{{ _("gateway") }}</em> {{ _("= il router)") }}<input type="text" data-key="connectivity.targets"></label>
@@ -78,7 +78,7 @@
       <form class="settings-form" id="form-notify">
         <div class="channels">
           <fieldset class="channel channel-wide">
-            <legend>{{ _("Email") }}</legend>
+            <legend>{{ _("Email") }} <button type="button" class="help-btn" data-help="notifications#canali" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
             <label class="switch"><input type="checkbox" data-key="notify.email.enabled"><span>{{ _("Attiva") }}</span></label>
             <div class="grid-fields">
               <label>{{ _("Server SMTP") }}<input type="text" data-key="email.smtp_host" placeholder="{{ _("smtp.gmail.com") }}"></label>
@@ -100,7 +100,7 @@
             <button type="button" class="ghost" data-test="email">{{ _("Invia prova") }}</button>
           </fieldset>
           <fieldset class="channel">
-            <legend>{{ _("Telegram") }}</legend>
+            <legend>{{ _("Telegram") }} <button type="button" class="help-btn" data-help="notifications#telegram" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
             <label class="switch"><input type="checkbox" data-key="notify.telegram.enabled"><span>{{ _("Attiva") }}</span></label>
             <label>{{ _("Token del bot") }}<input type="password" autocomplete="off" data-key="notify.telegram.bot_token" placeholder="{{ _("123456789:AA…") }}"></label>
             <label>{{ _("Chat ID") }}<input type="text" data-key="notify.telegram.chat_id" placeholder="{{ _("es. 123456789") }}"></label>
@@ -147,7 +147,7 @@
         <p class="hint">{{ _("Il valore dei campi segreti non viene mai mostrato: lascia il campo com'è per mantenerlo, scrivi un nuovo valore per sostituirlo. La procedura per ottenere token e API key è in docs/it/notifications.md.") }}</p>
 
         <fieldset>
-          <legend>{{ _("Heartbeat esterno (avviso se il server si spegne)") }}</legend>
+          <legend>{{ _("Heartbeat esterno (avviso se il server si spegne)") }} <button type="button" class="help-btn" data-help="notifications#heartbeat" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <label class="switch"><input type="checkbox" data-key="heartbeat.enabled"><span>{{ _("Attivo") }}</span></label>
           <div class="grid-fields">
             <label class="span-2">{{ _("URL di ping (es. https://hc-ping.com/…)") }}<input type="password" autocomplete="off" data-key="heartbeat.url"></label>
@@ -157,7 +157,7 @@
         </fieldset>
 
         <fieldset>
-          <legend>{{ _("Scadenze") }}</legend>
+          <legend>{{ _("Scadenze") }} <button type="button" class="help-btn" data-help="health#scadenze" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <div class="grid-fields">
             <label>{{ _("WARNING a (giorni)") }}<input type="number" step="1" data-key="expiry.warning_days"></label>
             <label>{{ _("ALERT a (giorni)") }}<input type="number" step="1" data-key="expiry.alert_days"></label>
@@ -168,7 +168,7 @@
         </fieldset>
 
         <fieldset>
-          <legend>{{ _("Dischi") }}</legend>
+          <legend>{{ _("Dischi") }} <button type="button" class="help-btn" data-help="health#dischi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <div class="grid-fields">
             <label>{{ _("Temperatura disco per WARNING (°C)") }}<input type="number" step="1" data-key="smart.temp_warning"></label>
             <label>{{ _("Usura SSD per WARNING (%)") }}<input type="number" step="1" data-key="smart.wear_warning"></label>
@@ -177,7 +177,7 @@
         </fieldset>
 
         <fieldset>
-          <legend>{{ _("Fascia di silenzio") }}</legend>
+          <legend>{{ _("Fascia di silenzio") }} <button type="button" class="help-btn" data-help="notifications#silenzio" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <label class="switch"><input type="checkbox" data-key="quiet.enabled"><span>{{ _("Attiva") }}</span></label>
           <div class="grid-fields quiet-fields">
             <label>{{ _("Dalle") }}<input type="time" data-key="quiet.start"></label>
@@ -188,7 +188,7 @@
         </fieldset>
 
         <fieldset>
-          <legend>{{ _("Regole di avviso") }}</legend>
+          <legend>{{ _("Regole di avviso") }} <button type="button" class="help-btn" data-help="notifications#regole" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <div class="scroll">
             <table class="data rules" id="rules">
               <thead><tr><th>{{ _("Monitoraggio") }}</th><th>{{ _("Quando avvisare") }}</th><th>{{ _("Al rientro in OK") }}</th><th>{{ _("Promemoria (ore)") }}</th></tr></thead>
@@ -200,7 +200,7 @@
         </fieldset>
 
         <fieldset>
-          <legend>{{ _("Quali avvisi su quali canali") }}</legend>
+          <legend>{{ _("Quali avvisi su quali canali") }} <button type="button" class="help-btn" data-help="notifications#instradamento" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <div class="scroll">
             <table class="data routes" id="routes">
               <thead></thead>
@@ -235,7 +235,7 @@
       <p class="hint" id="checks-empty" hidden>{{ _("Nessun controllo configurato.") }}</p>
       <form class="settings-form" id="check-form" autocomplete="off">
         <fieldset>
-          <legend id="check-form-title">{{ _("Nuovo controllo") }}</legend>
+          <legend><span id="check-form-title">{{ _("Nuovo controllo") }}</span> <button type="button" class="help-btn" data-help="devices#configurazione" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <input type="hidden" name="id">
           <div class="grid-fields">
             <label>{{ _("Nome") }}<input type="text" name="name" maxlength="100" required placeholder="{{ _("es. NAS") }}"></label>
@@ -271,7 +271,7 @@
     <div data-subpanel="set:backup" hidden>
       <div class="settings-form">
       <fieldset>
-        <legend>{{ _("Ultimo backup") }}</legend>
+        <legend>{{ _("Ultimo backup") }} <button type="button" class="help-btn" data-help="backup#come-funziona" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
         <div class="stats" id="bk-stats"></div>
         <ul class="bk-dest" id="bk-dest-results"></ul>
         <p class="hint" id="bk-where"></p>
@@ -280,7 +280,7 @@
       </div>
       <form class="settings-form" id="form-backup" autocomplete="off">
         <fieldset>
-          <legend>{{ _("Copie con rclone") }}</legend>
+          <legend>{{ _("Copie con rclone") }} <button type="button" class="help-btn" data-help="backup#rclone" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <p class="hint">{{ _("Oltre alla copia locale (e a quella su GitHub, se configurata), ogni backup può essere copiato e verificato su altre destinazioni: cartella di rete o NAS montati, SFTP, Backblaze B2, S3, Google Drive, OneDrive…") }}</p>
           <label>{{ _("Destinazioni (una per riga: remote:percorso oppure un percorso assoluto)") }}
             <textarea data-key="backup.rclone_destinations" rows="3" placeholder="nas:backup/astreo&#10;/mnt/disco-esterno/astreo"></textarea></label>
@@ -299,7 +299,7 @@
     <div data-subpanel="set:moduli" hidden>
       <form class="settings-form" id="form-modules">
         <fieldset>
-          <legend>{{ _("Moduli") }}</legend>
+          <legend>{{ _("Moduli") }} <button type="button" class="help-btn" data-help="modules" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <p class="hint">{{ _("Ogni modulo compare nella dashboard solo se il servizio è presente su questo server. Puoi comunque nasconderlo.") }}</p>
           <div class="scroll">
             <table class="data" id="modules-table">
@@ -309,7 +309,7 @@
           </div>
         </fieldset>
         <fieldset>
-          <legend>{{ _("Pi-hole") }}</legend>
+          <legend>{{ _("Pi-hole") }} <button type="button" class="help-btn" data-help="modules#pihole" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <div class="grid-fields">
             <label>{{ _("Indirizzo (API v6)") }}<input type="text" data-key="pihole.url" placeholder="{{ _("http://127.0.0.1:8080") }}"></label>
             <label>{{ _("Password per le app") }}<input type="password" autocomplete="off" data-key="pihole.password"></label>
@@ -318,7 +318,7 @@
           <button type="button" class="ghost" id="pihole-test">{{ _("Prova la connessione") }}</button>
         </fieldset>
         <fieldset>
-          <legend>{{ _("Integrazioni (Prometheus, Home Assistant)") }}</legend>
+          <legend>{{ _("Integrazioni (Prometheus, Home Assistant)") }} <button type="button" class="help-btn" data-help="integrations#token" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <p class="hint">{{ _("Due indirizzi in sola lettura, protetti da un token dedicato (diverso dalla password): /metrics nel formato di Prometheus e /api/v1/status in JSON per Home Assistant. Esempi di configurazione in docs/it/integrations.md.") }}</p>
           <p id="api-token-state" class="hint"></p>
           <pre class="token-box" id="api-token-box" hidden></pre>
@@ -328,7 +328,7 @@
           </div>
         </fieldset>
         <fieldset>
-          <legend>{{ _("Eventi sui grafici") }}</legend>
+          <legend>{{ _("Eventi sui grafici") }} <button type="button" class="help-btn" data-help="server#eventi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <label class="switch"><input type="checkbox" data-key="ui.events"><span>{{ _("Mostra gli eventi sui grafici (riavvii, interruzioni, cambi di IP, servizi, avvisi)") }}</span></label>
         </fieldset>
         <div class="form-actions"><button type="submit">{{ _("Salva moduli") }}</button></div>

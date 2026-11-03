@@ -31,6 +31,14 @@ services (green running, red stopped).
 Changes apply immediately, no restarts. Secret values (passwords, tokens) are never shown: leave the field as
 it is to keep them, type a new value to replace them.
 
+<a id="aiuto"></a>
+## Online help
+
+The **?** icon next to each section title opens this guide at the relevant point, in a side panel and in the
+chosen language; **Guide** at the bottom of the page opens the index. Links between pages are followed without
+leaving the dashboard (← to go back). It is the same guide as `docs/` in the repository, always of the installed
+version.
+
 <a id="lingua"></a>
 ## Language
 

@@ -25,6 +25,7 @@ nightly database backups with restore checks, and a few extras you usually have 
 | **Users** | Administrator and an optional read-only user ([docs](docs/en/configuration.md#utenti)) |
 | **Web terminal** | Shell in the browser behind a separate password (HTTPS only) |
 | **Weekly summary** | Every Monday morning |
+| **Online help** | **?** icon in every section opens the guide at the right chapter, in the chosen language |
 | **Languages** | English and Italian (dashboard, notifications, bot, installer) |
 
 ## Requirements

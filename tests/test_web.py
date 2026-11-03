@@ -1,6 +1,8 @@
 """Dashboard: autenticazione, protezioni, endpoint pubblici, terminale (senza database)."""
 from unittest import mock
 
+import os
+
 import pytest
 
 from astreo_monitor import db
@@ -85,7 +87,7 @@ def test_pagina_in_inglese(cfg):
         app = webapp.create_app(cfg)
         app.testing = True
         html = app.test_client().get("/", headers=AUTH).get_data(as_text=True)
-    assert 'lang="en"' in html and 'aria-label="Real-time resources"' in html and '<h2>Processes</h2>' in html
+    assert 'lang="en"' in html and 'aria-label="Real-time resources"' in html and '<h2>Processes <button' in html and 'aria-label="Help"' in html
 
 
 # ----------------------------------------------------------------------- utente in sola lettura
@@ -152,3 +154,15 @@ def test_lettura_del_journal():
     assert [x["message"] for x in e] == ["errore grave", "hi"] and e[0]["priority"] == 3
     with mock.patch.object(logs.subprocess, "run", return_value=mock.Mock(stdout=out, stderr="", returncode=0)):
         assert [x["message"] for x in logs.read(["nginx.service"], grep="GRAVE")] == ["errore grave"]
+
+
+def test_variabili_css_definite():
+    """3.6: una variabile CSS inesistente rende trasparente lo sfondo (pannello dell'aiuto illeggibile)."""
+    import re
+    css = open(os.path.join(os.path.dirname(webapp.__file__), "static", "css", "style.css"), encoding="utf-8").read()
+    defined = set(re.findall(r"(--[a-z0-9-]+)\s*:", css))
+    js_dir = os.path.join(os.path.dirname(webapp.__file__), "static", "js")
+    for name in os.listdir(js_dir):                       # variabili impostate dagli script (setProperty)
+        defined |= set(re.findall(r'setProperty\("(--[a-z0-9-]+)"', open(os.path.join(js_dir, name), encoding="utf-8").read()))
+    used = set(re.findall(r"var\((--[a-z0-9-]+)", css))
+    assert used <= defined, sorted(used - defined)

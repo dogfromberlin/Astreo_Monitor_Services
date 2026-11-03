@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.6.0
+
+- **Online help**: a **?** icon next to every section opens the guide at the relevant chapter in a side panel, in the chosen language; links between pages work inside the panel (with back); **Guide** in the footer opens the index. Pages come from `docs/<lang>/`, so the help always matches the installed version.
+- New dependency: Markdown 3.10.3.
+- Tests: every `data-help` reference must exist in both languages; all CSS variables must be defined.
+- Mobile: the bottom bar fits any number of views on one row.
+
 ## 3.5.0
 
 - **Complete guide in English and Italian**: 16 pages in `docs/en/` and `docs/it/` (same names), reviewed and updated to the current features; older single-language pages merged or removed.

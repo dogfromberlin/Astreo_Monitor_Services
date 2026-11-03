@@ -82,3 +82,32 @@ def test_riferimenti_alla_guida_nel_progetto():
             if not os.path.exists(os.path.join(DOCS, ref)):
                 missing.append(f"{rel}: docs/{ref}")
     assert not missing, missing
+
+
+def test_aiuto_della_dashboard_punta_a_pagine_esistenti():
+    """3.6: ogni icona ? (data-help="pagina#ancora") porta a una pagina e a un'ancora che esistono in tutte e due le lingue."""
+    refs = set()
+    for path in glob.glob(os.path.join(ROOT, "astreo_monitor", "web", "**", "*.*"), recursive=True):
+        if path.endswith((".html", ".js")):
+            refs |= set(re.findall(r'data-help="([a-z0-9-]+(?:#[a-z0-9-]+)?)"', open(path, encoding="utf-8").read()))
+    assert len(refs) >= 25, refs
+    problems = []
+    for ref in sorted(refs):
+        page, _, anchor = ref.partition("#")
+        for lang in LANGS:
+            if f"{page}.md" not in pages(lang):
+                problems.append(f"{ref}: pagina mancante in {lang}")
+            elif anchor and anchor not in structure(read(lang, f"{page}.md"))["anchors"]:
+                problems.append(f"{ref}: ancora mancante in {lang}")
+    assert not problems, problems
+
+
+def test_pagine_dell_aiuto_generate():
+    from astreo_monitor import help as help_mod
+    for lang in LANGS:
+        for name in help_mod.pages(lang):
+            p = help_mod.page(lang, name)
+            assert p["title"] and "<table" in p["html"] or name == "index" or "<p>" in p["html"]
+            assert ".md" not in re.sub(r"<code>.*?</code>|<pre>.*?</pre>", "", p["html"], flags=re.S), (lang, name)
+    with pytest.raises(help_mod.HelpError):
+        help_mod.page("it", "../../etc/passwd")
