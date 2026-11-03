@@ -34,7 +34,7 @@
     ].filter(Boolean).join(" · ");
     $("#bk-rclone").textContent = !d.rclone.available ? t("rclone non è installato: sudo apt install rclone")
       : d.rclone.remotes.length ? t("Remote configurati: {p0}", { p0: d.rclone.remotes.join(" ") })
-      : t("Nessun remote configurato: si creano con «rclone config» come utente dei servizi (docs/backup-database.md).");
+      : t("Nessun remote configurato: si creano con «rclone config» come utente dei servizi (docs/it/backup.md).");
     const s = await api("/api/v1/settings");
     $('#form-backup [data-key="backup.rclone_destinations"]').value = (s.values["backup.rclone_destinations"] || "").replace(/,\s*/g, "\n");
     $('#form-backup [data-key="backup.rclone_keep"]').value = s.values["backup.rclone_keep"];

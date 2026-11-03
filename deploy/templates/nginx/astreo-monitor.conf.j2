@@ -56,7 +56,7 @@ server {
         proxy_set_header Upgrade    $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host       $http_host;
-        # credenziale interna verso ttyd (generata all'installazione, vedi docs/terminale.md)
+        # credenziale interna verso ttyd (generata all'installazione, vedi docs/it/https-terminal.md)
         include /etc/nginx/snippets/astreo-terminal-auth.conf;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;

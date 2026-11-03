@@ -144,7 +144,7 @@
             <button type="button" class="ghost" data-test="webhook">{{ _("Invia prova") }}</button>
           </fieldset>
         </div>
-        <p class="hint">{{ _("Il valore dei campi segreti non viene mai mostrato: lascia il campo com'è per mantenerlo, scrivi un nuovo valore per sostituirlo. La procedura per ottenere token e API key è in docs/notifiche.md.") }}</p>
+        <p class="hint">{{ _("Il valore dei campi segreti non viene mai mostrato: lascia il campo com'è per mantenerlo, scrivi un nuovo valore per sostituirlo. La procedura per ottenere token e API key è in docs/it/notifications.md.") }}</p>
 
         <fieldset>
           <legend>{{ _("Heartbeat esterno (avviso se il server si spegne)") }}</legend>
@@ -152,7 +152,7 @@
           <div class="grid-fields">
             <label class="span-2">{{ _("URL di ping (es. https://hc-ping.com/…)") }}<input type="password" autocomplete="off" data-key="heartbeat.url"></label>
           </div>
-          <p class="hint">{{ _("Ogni 5 minuti il server avvisa un servizio esterno che è attivo; se i segnali smettono di arrivare (server spento, bloccato o senza rete) è il servizio esterno ad avvisarti. Configurazione in docs/heartbeat.md.") }} <span id="hb-info"></span></p>
+          <p class="hint">{{ _("Ogni 5 minuti il server avvisa un servizio esterno che è attivo; se i segnali smettono di arrivare (server spento, bloccato o senza rete) è il servizio esterno ad avvisarti. Configurazione in docs/it/notifications.md.") }} <span id="hb-info"></span></p>
           <button type="button" class="ghost" id="hb-test">{{ _("Invia ping di prova") }}</button>
         </fieldset>
 
@@ -314,12 +314,12 @@
             <label>{{ _("Indirizzo (API v6)") }}<input type="text" data-key="pihole.url" placeholder="{{ _("http://127.0.0.1:8080") }}"></label>
             <label>{{ _("Password per le app") }}<input type="password" autocomplete="off" data-key="pihole.password"></label>
           </div>
-          <p class="hint">{{ _("In Pi-hole: Impostazioni → Interfaccia web / API → modalità") }} <em>{{ _("Esperto") }}</em> → <em>{{ _("Configura password per le app") }}</em>{{ _(". È una password dedicata, revocabile, diversa da quella di amministratore. Procedura in docs/moduli.md.") }}</p>
+          <p class="hint">{{ _("In Pi-hole: Impostazioni → Interfaccia web / API → modalità") }} <em>{{ _("Esperto") }}</em> → <em>{{ _("Configura password per le app") }}</em>{{ _(". È una password dedicata, revocabile, diversa da quella di amministratore. Procedura in docs/it/modules.md.") }}</p>
           <button type="button" class="ghost" id="pihole-test">{{ _("Prova la connessione") }}</button>
         </fieldset>
         <fieldset>
           <legend>{{ _("Integrazioni (Prometheus, Home Assistant)") }}</legend>
-          <p class="hint">{{ _("Due indirizzi in sola lettura, protetti da un token dedicato (diverso dalla password): /metrics nel formato di Prometheus e /api/v1/status in JSON per Home Assistant. Esempi di configurazione in docs/integrazioni.md.") }}</p>
+          <p class="hint">{{ _("Due indirizzi in sola lettura, protetti da un token dedicato (diverso dalla password): /metrics nel formato di Prometheus e /api/v1/status in JSON per Home Assistant. Esempi di configurazione in docs/it/integrations.md.") }}</p>
           <p id="api-token-state" class="hint"></p>
           <pre class="token-box" id="api-token-box" hidden></pre>
           <div class="form-actions left">

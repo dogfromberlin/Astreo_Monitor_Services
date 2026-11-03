@@ -123,7 +123,7 @@ def main(cfg: Config, dry_run: bool) -> int:
                     body = "\n".join(x for x in (notifier.reason_line(reason, state, lang),
                                                  tr("{nome} scade il {data} (tra {giorni} giorni).", nome=name,
                                                     data=it["expires"][:10], giorni=f"{it['days']:.0f}"),
-                                                 tr("Procedura di rinnovo: {doc}", doc="docs/scadenze.md")) if x)
+                                                 tr("Procedura di rinnovo: {doc}", doc="docs/it/health.md")) if x)
                 if notifier.dispatch(conn, cfg, "expiry", subject, body, detected_at=now):
                     state.mark_notified()
             state.save()

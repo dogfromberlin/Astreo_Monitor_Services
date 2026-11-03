@@ -66,7 +66,7 @@ def main(cfg: Config, dry_run: bool) -> int:
                     tr("Temperatura: {t} °C — ore di accensione: {ore}", t=d.get("temperature"), ore=d.get("power_on_hours"))
                     + (tr(" — usura: {p0}%", p0=d["wear_used_pct"]) if d.get("wear_used_pct") is not None else ""),
                     tr("Dettaglio: {comando}", comando="sudo smartctl -a /dev/" + d["device"]),
-                    tr("Con un disco in ALERT verifica subito che i backup siano recenti (docs/backup-database.md).")) if x)
+                    tr("Con un disco in ALERT verifica subito che i backup siano recenti (docs/it/backup.md).")) if x)
                 if notifier.dispatch(conn, cfg, "smart", subject, body, detected_at=now):
                     state.mark_notified()
             state.save()

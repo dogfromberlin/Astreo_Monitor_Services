@@ -101,7 +101,7 @@ def check_config(rep: Report, cfg, path: str) -> None:
     else:
         rep.add(A, _("[web] dietro nginx"), OK if nginx_site else SKIP, "" if nginx_site else _("sito nginx non installato"))
     if cfg.terminal and cfg.terminal.enabled and not cfg.terminal.password_hash:
-        rep.add(A, "[terminal]", FAIL, _("enabled = true ma password_hash vuoto"), _("vedi docs/terminale.md"))
+        rep.add(A, "[terminal]", FAIL, _("enabled = true ma password_hash vuoto"), _("vedi docs/it/https-terminal.md"))
 
 
 def check_database(rep: Report, cfg) -> None:
@@ -151,7 +151,7 @@ def check_web(rep: Report, cfg) -> None:
             try:
                 h = requests.get(url, timeout=10, verify=v).json()
             except requests.exceptions.SSLError as exc:
-                rep.add(A, url, FAIL, _("certificato non valido: {p0}", p0=str(exc)[:120]), _("vedi docs/certificato.md"))
+                rep.add(A, url, FAIL, _("certificato non valido: {p0}", p0=str(exc)[:120]), _("vedi docs/it/https-terminal.md"))
                 break
             except Exception:  # noqa: BLE001
                 if time.time() > deadline:

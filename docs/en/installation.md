@@ -1,8 +1,14 @@
-# Installation
+# Installation and update
 
-Requirements: **Ubuntu or Debian** with systemd, **Python 3.10+**, `sudo` access. SQL Server must already be
-installed (Express is fine); PostgreSQL and SQLite are prepared by the installer.
+<a id="requisiti"></a>
+## Requirements
 
+- **Ubuntu or Debian** with systemd, **Python 3.10** or newer, `sudo` access.
+- **Database**: SQLite (nothing to install), PostgreSQL (installed by the installer if on the same server) or
+  SQL Server (an existing instance, Express is fine).
+- Optional: nginx for HTTPS, Docker, Pi-hole, rclone for backup copies.
+
+<a id="installare"></a>
 ## Install
 
 ```bash
@@ -12,43 +18,48 @@ sudo bash install.sh
 ```
 
 `install.sh` installs the base packages (python3-venv, zstd, smartmontools, ping), creates the Python
-environment and starts the questions:
+environment and asks the questions:
 
 | Question | Default | Notes |
 |---|---|---|
 | Language | from `LANG` | dashboard, notifications, bot and command-line messages |
 | Service user | whoever runs `sudo` | services do not run as root |
-| Database | `sqlite` | `postgresql` (installed via apt if local) or `mssql` (existing instance: database and login are created) |
-| HTTPS with nginx | yes | certificate from a private CA (mkcert); without HTTPS the dashboard works over HTTP with a warning and without the terminal |
+| Database | `sqlite` | `postgresql` or `mssql` (SQL Server: database and login are created) |
+| HTTPS with nginx | yes | certificate from a private CA; without HTTPS the dashboard works over HTTP with a warning and without the terminal |
 | Server IPs and names | detected | written into the certificate |
-| Web terminal | yes | HTTPS only; allowed networks detected from the interfaces (LAN, VPN) |
+| Web terminal | yes | HTTPS only; allowed networks detected from the interfaces |
 | Speedtest, backup, NetPulse | yes, yes, no | optional modules |
 | Services to monitor | running ones that are recognised | editable later in Settings → Services |
-| Passwords | — | dashboard and terminal (different) |
+| Passwords | — | dashboard and terminal, different |
 
 At the end: configuration in `/etc/astreo-monitor/config.ini`, answers in `/etc/astreo-monitor/install.ini`,
 database schema created, services started and health check printed.
 
-To avoid browser warnings with HTTPS, install the CA certificate on your devices: open
-`https://<server>:<port>/astreo-ca.crt` and add it to the trusted root authorities (Windows: *Install
-certificate → Current user → Trusted Root Certification Authorities*; Android: *Settings → Security →
-Encryption & credentials → Install a certificate → CA certificate*).
+With HTTPS, install the CA on your devices to avoid browser warnings: see
+[HTTPS and terminal](https-terminal.md#certificato).
 
+<a id="aggiornare"></a>
 ## Update
 
 ```bash
-sudo bash update.sh                     # from git
-sudo bash update.sh /tmp/package.zip    # from a zip
+cd Astreo_Monitor_Services
+sudo bash update.sh                       # from git
+sudo bash update.sh /path/package.zip
 ```
-Steps: code → libraries → checks (stops if they fail) → system files from templates → database migration →
-restart → health check.
+Steps: code (with a zip, files the new version no longer contains are removed too) → libraries and pip →
+automated checks (it stops before touching services and database if they fail) → system files from templates
+→ schema migration (with SQL Server it asks for the `sa` password) → restart → health check.
 
+Zip packages of every version are in the repository **Releases** on GitHub, with their SHA256.
+
+<a id="https-dopo"></a>
 ## Enable HTTPS and the terminal later
 
 ```bash
 sudo bash update.sh --enable-https
 ```
 
+<a id="modelli"></a>
 ## Files generated from templates
 
 systemd units, nginx sites and the polkit rule are generated from `deploy/templates/` with the answers in
@@ -57,8 +68,11 @@ systemd units, nginx sites and the polkit rule are generated from `deploy/templa
 sudo .venv/bin/python -m astreo_monitor.installer diff -v    # what would change
 sudo .venv/bin/python -m astreo_monitor.installer apply      # apply
 ```
+An installation older than 3.0 is "adopted" with `sudo .venv/bin/python -m astreo_monitor.installer adopt`,
+which derives the answers from the existing files.
 
+<a id="lingua-terminale"></a>
 ## Language of command-line messages
 
-Taken from `ASTREO_LANG`, then from `language` in `install.ini`, then from the system `LANG`. Example:
+From `ASTREO_LANG`, then `language` in `install.ini`, then the system `LANG`. Example:
 `sudo ASTREO_LANG=en .venv/bin/python -m astreo_monitor.doctor`.

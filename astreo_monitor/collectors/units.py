@@ -33,7 +33,7 @@ def control(unit: str, verb: str) -> None:
     if res.returncode != 0:
         msg = (res.stderr or res.stdout).strip()
         if "Interactive authentication required" in msg or "Access denied" in msg:
-            msg += " — manca la regola polkit (vedi docs/impostazioni.md)"
+            msg += " — manca la regola polkit (vedi docs/it/dashboard.md)"
         raise UnitControlError(msg)
 
 

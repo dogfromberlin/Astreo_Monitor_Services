@@ -81,12 +81,12 @@
   async function refresh() {
     try { st = await api("/api/v1/terminal/status"); } catch (e) { blocked(t("Stato del terminale non disponibile: {p0}", { p0: e.message })); return; }
     if (!st.enabled) {
-      blocked(t("Il terminale non è abilitato. Si attiva nella sezione <code>[terminal]</code> di <code>/etc/astreo-monitor/config.ini</code> (vedi <code>docs/terminale.md</code>)."));
+      blocked(t("Il terminale non è abilitato. Si attiva nella sezione <code>[terminal]</code> di <code>/etc/astreo-monitor/config.ini</code> (vedi <code>docs/it/https-terminal.md</code>)."));
       return;
     }
     if (!st.https) {
       if (location.protocol === "https:") {
-        blocked(t("La pagina è in HTTPS, ma la dashboard non lo rileva: in <code>/etc/astreo-monitor/config.ini</code>, sezione <code>[web]</code>, devono esserci <code>trusted_proxy = 127.0.0.1</code> e <code>host = 127.0.0.1</code> (vedi <code>docs/terminale.md</code>, Diagnosi)."));
+        blocked(t("La pagina è in HTTPS, ma la dashboard non lo rileva: in <code>/etc/astreo-monitor/config.ini</code>, sezione <code>[web]</code>, devono esserci <code>trusted_proxy = 127.0.0.1</code> e <code>host = 127.0.0.1</code> (vedi <code>docs/it/https-terminal.md</code>, Diagnosi)."));
       } else {
         const url = `https://${location.hostname}:5443/#terminale`;
         blocked(t("Per sicurezza il terminale funziona solo con una connessione cifrata. Apri {p0}.", { p0: `<a href="${url}">${url}</a>` }));

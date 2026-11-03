@@ -26,7 +26,7 @@ def main() -> None:
         log.error("%s", exc)
         sys.exit(2)
     if not cfg.web.username or not cfg.web.password_hash:
-        log.error("[web] username e password_hash sono obbligatori (vedi docs/configurazione.md)")
+        log.error("[web] username e password_hash sono obbligatori (vedi docs/it/configuration.md)")
         sys.exit(2)
 
     port = args.port or cfg.web.port

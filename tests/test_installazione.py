@@ -144,7 +144,7 @@ def test_modelli_e_migrazioni_coincidono(tmp_path):
 
 
 # ----------------------------------------------------------------------- documentazione
-@pytest.mark.parametrize("path", files("docs/*.md"))
+@pytest.mark.parametrize("path", files("docs/**/*.md"))
 def test_sed_su_etc_con_sudo(path):
     """2.3: 'sed -i' su /etc/astreo-monitor fallisce senza sudo (cartella di root) e non modifica nulla."""
     for line in open(path, encoding="utf-8"):
@@ -213,7 +213,7 @@ def test_lingua_degli_script(env, expected):
 def test_nessun_riferimento_personale_nel_repository():
     """Fase 4: il repository pubblico non contiene dati di un'installazione specifica.
     Il nome utente GitHub è ammesso solo dove indica il repository o il titolare della licenza."""
-    allowed_owner = {"README.md", "README.it.md", "LICENSE", "docs/en/installation.md", "docs/installazione-guidata.md",
+    allowed_owner = {"README.md", "README.it.md", "LICENSE", "docs/en/installation.md", "docs/it/installation.md",
                      "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", ".github/workflows/release.yml"}
     bad = re.compile("|".join([rf"\b{PERSONAL_USER}\b", "192\\.168\\.1\\.(2|25[0-9])\\b", "10\\." + "8\\.0\\.",
                                "Shobu" + "Base", "astreo-db-" + "backups", r"\bastreo\.local\b", "@" + "gmail\\.com"]), re.I)

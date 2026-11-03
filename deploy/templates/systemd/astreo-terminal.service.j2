@@ -1,6 +1,6 @@
 [Unit]
 Description=Astreo Monitor - terminale web (ttyd)
-Documentation=file://{{ project_dir }}/docs/terminale.md
+Documentation=file://{{ project_dir }}/docs/it/https-terminal.md
 After=network.target
 
 [Service]
@@ -8,7 +8,7 @@ Type=simple
 User={{ user }}
 Group={{ group }}
 WorkingDirectory={{ home }}
-# TTYD_CREDENTIAL=utente:segreto, condiviso solo con nginx (vedi docs/terminale.md)
+# TTYD_CREDENTIAL=utente:segreto, condiviso solo con nginx (vedi docs/it/https-terminal.md)
 EnvironmentFile={{ config_dir }}/terminal.env
 # - ascolta solo in locale: raggiungibile esclusivamente tramite nginx
 # - --check-origin rifiuta connessioni websocket partite da altri siti

@@ -493,7 +493,7 @@ def write_config(ans: Answers, sysm: System, dbsec: dict, web_password: str, ter
     from io import StringIO
     buf = StringIO()
     cp.write(buf)
-    sysm.write(path, _("# Astreo Monitor {p0} - generato dall'installatore. Guida: docs/configurazione.md\n", p0=__version__)
+    sysm.write(path, _("# Astreo Monitor {p0} - generato dall'installatore. Guida: docs/it/configuration.md\n", p0=__version__)
                + buf.getvalue(), 0o600, owner=ans.user)
     return path
 
@@ -584,7 +584,7 @@ def cmd_install(args, sysm: System) -> None:
     if not a.https:
         print(_("ATTENZIONE: connessione NON cifrata (HTTP). Per HTTPS e terminale: sudo bash update.sh --enable-https"))
     elif a.https:
-        print(_("Per evitare gli avvisi del browser installa la CA sui dispositivi: {p0}astreo-ca.crt (docs/certificato.md)", p0=url))
+        print(_("Per evitare gli avvisi del browser installa la CA sui dispositivi: {p0}astreo-ca.crt (docs/it/https-terminal.md)", p0=url))
     if sysm.enabled:
         subprocess.run([sys.executable, "-m", "astreo_monitor.doctor", "-c", cfg_path, "--no-color"])
 

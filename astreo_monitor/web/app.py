@@ -276,7 +276,7 @@ def create_app(cfg: Config) -> Flask:
         import os
         from flask import send_file
         if not os.path.isfile(cfg.web.ca_cert):
-            abort(404, description="Certificato della CA non presente (vedi docs/certificato.md)")
+            abort(404, description="Certificato della CA non presente (vedi docs/it/https-terminal.md)")
         return send_file(cfg.web.ca_cert, mimetype="application/x-x509-ca-cert", as_attachment=True,
                          download_name="astreo-ca.crt")
 

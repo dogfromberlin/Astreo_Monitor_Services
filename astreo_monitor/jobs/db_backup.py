@@ -69,7 +69,7 @@ def upload(b: BackupConfig, stamp: str, when: dt.datetime, files: list[str], res
     notes = "\n".join(
         [f"Backup di {socket.gethostname()} del {when:%d/%m/%Y %H:%M}", ""]
         + [f"- `{r['database']}`: {human(r['bak_bytes'])} -> {human(r['zst_bytes'])} (sha256 `{r['sha256'][:12]}…`)" for r in results]
-        + ["", "Ripristino: vedi docs/backup-database.md nel repository Astreo_Monitor_Services."]
+        + ["", "Ripristino: vedi docs/it/backup.md nel repository Astreo_Monitor_Services."]
     )
     out = gh(["release", "create", tag, *files, "--repo", b.github_repo,
               "--title", f"Backup DB {when:%d/%m/%Y %H:%M}", "--notes", notes], timeout=b.timeout)

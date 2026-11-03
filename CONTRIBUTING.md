@@ -31,4 +31,8 @@ Tests against PostgreSQL and SQL Server run in GitHub Actions; locally you can e
 - **System files** (systemd, nginx, polkit) are templates in `deploy/templates/`: no user names, paths or
   addresses of a specific installation (a test checks it).
 - **No personal data or secrets** in code, docs, examples or tests.
+- **Documentation in both languages, in the same commit**: every new, changed or removed feature updates the
+  matching pages in `docs/it/` and `docs/en/` (same file names, same chapters and anchors — the guide is also the
+  dashboard's online help). `tests/test_documentazione.py` fails if the two languages drift apart or a link breaks.
+  Add an entry to `CHANGELOG.md` too.
 - Keep `bash scripts/verifica.sh` green; new behaviour should come with a test.
