@@ -8,6 +8,7 @@
 | Dashboard (`astreo_monitor.web`) | Flask servito da waitress su `127.0.0.1`, dietro nginx per HTTPS; pagina unica con viste, API REST `/api/v1/…` |
 | Job (`astreo_monitor.jobs.*`) | processi brevi lanciati dai timer systemd; un job lento non blocca la dashboard |
 | Bot Telegram | servizio permanente che legge i comandi |
+| Agenti (`astreo_monitor/agent`, `agent/windows`) | Linux in Python, Windows in PowerShell; inviano a `/api/v1/agents/ingest` |
 | Strato dati (`db.py`, `models.py`) | SQLAlchemy Core, stesse query su SQL Server, PostgreSQL e SQLite; schema con migrazioni Alembic |
 | Raccolta (`collectors/`) | sistema, sensori, servizi, unit, journal |
 | Moduli (`integrations/`) | Docker e Pi-hole, rilevati automaticamente |

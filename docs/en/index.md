@@ -14,6 +14,7 @@ sections).
 | [The dashboard](dashboard.md) | views, settings, languages, smartphones |
 | [Server](server.md) | resources, temperatures, processes, services, events on charts |
 | [Connection](connection.md) | continuous check, speedtest, public IP |
+| [Connected servers](agents.md) | Linux and Windows agents, overview, alerts |
 | [Devices and services](devices.md) | ping, TCP port and web page checks |
 | [Notifications](notifications.md) | channels, alert rules, quiet hours, heartbeat, Telegram bot, summary |
 | [System health](health.md) | disks (SMART), updates, expirations |

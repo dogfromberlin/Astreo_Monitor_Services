@@ -37,6 +37,7 @@ COMMANDS = [
 ]
 ALIASES = {en: it for it, en, _d in COMMANDS}
 CHECK_NAMES: dict[str, str] = {}          # id -> nome dei controlli, aggiornato a ogni comando
+HOST_NAMES: dict[str, str] = {}           # id -> nome dei server collegati
 ICON = {"OK": "🟢", "WARNING": "🟡", "ALERT": "🔴", "DOWN": "🔴", "UNKNOWN": "⚪"}
 
 
@@ -51,6 +52,14 @@ def alert_name(key: str, tr=lambda s, **kw: s.format(**kw)) -> str:
         return tr("Disco {p0}", p0=rest)
     if kind == "check":
         return CHECK_NAMES.get(rest, tr("Dispositivi e servizi"))
+    if kind == "host":                                    # host:<id>:online | disk | temperature | service:<unit>
+        hid, _, what = rest.partition(":")
+        name = HOST_NAMES.get(hid, f"server {hid}")
+        if what == "online":
+            return name
+        if what.startswith("service:"):
+            return f"{name}: " + tr("Servizio {p0}", p0=what[8:].removesuffix(".service"))
+        return f"{name}: " + tr({"disk": "Disco", "temperature": "Temperatura"}.get(what, what))
     return tr(settings_mod.SOURCES.get(kind, kind))
 
 
@@ -173,6 +182,10 @@ class Bot:
             con = db.state_get(conn, "connectivity:last") or {}
             alerts = db.state_rows(conn, "alert:")
             CHECK_NAMES.update({str(c["id"]): c["name"] for c in db.rows(conn, select(models.checks.c.id, models.checks.c.name))})
+            from . import hosts as hosts_mod
+            from . import settings as _st
+            host_list = hosts_mod.listing(conn, int(_st.load(conn, self.cfg)["hosts.offline_minutes"]))
+            HOST_NAMES.update({str(h["id"]): h["name"] for h in host_list})
         st = services.statuses(mon)
         down = [s["label"] for s in st if not s["up"]]
         active = []
@@ -194,6 +207,14 @@ class Bot:
             ("🟢 " + self.tr("Servizi: tutti attivi ({n})", n=len(st))) if not down
             else "🔴 " + self.tr("Servizi fermi: {elenco}", elenco=", ".join(down)),
         ]
+        others = [h for h in host_list if h["kind"] != "local" and h["enabled"]]
+        if others:
+            icon = {"OK": "🟢", "DOWN": "🔴", "WAITING": "⚪"}
+            lines += ["", self.tr("Server collegati:")] + [
+                f"{icon.get(h['status'], '⚪')} {h['name']}"
+                + (f" — CPU {(h['snapshot'] or {}).get('cpu_pct', 0):.0f}% · RAM {(h['snapshot'] or {}).get('mem_used_pct', 0):.0f}%"
+                   if h["status"] == "OK" and h["snapshot"] else (" — " + self.tr("non raggiungibile") if h["status"] == "DOWN" else ""))
+                for h in others]
         lines += ["", self.tr("Allarmi attivi:")] + active if active else ["", self.tr("Nessun allarme attivo.")]
         self.send(chat, "\n".join(lines))
 

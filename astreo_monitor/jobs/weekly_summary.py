@@ -53,9 +53,9 @@ def build(conn, now: dt.datetime, values: dict | None = None) -> tuple[str, str]
     M, T = models.system_metrics, models.system_temperature
     m = db.one(conn, select(func.avg(M.c.cpu_pct).label("cpu"), func.max(M.c.cpu_pct).label("cpu_max"),
                             func.avg(M.c.mem_used_pct).label("mem"), func.max(M.c.disk_used_pct).label("disk"))
-               .where(M.c.timestamp >= start, M.c.timestamp < now))
+               .where(M.c.timestamp >= start, M.c.timestamp < now, M.c.host_id == 1))
     t = db.one(conn, select(func.max(T.c.temperature).label("tmax"), func.avg(T.c.temperature).label("tavg"))
-               .where(T.c.timestamp >= start, T.c.timestamp < now))
+               .where(T.c.timestamp >= start, T.c.timestamp < now, T.c.host_id == 1))
     lines += ["SERVER",
               tr("- CPU media {cpu} (picco {picco}), RAM media {ram}, disco {disco}", cpu=_f(m["cpu"], 1, "%"),
                  picco=_f(m["cpu_max"], 0, "%"), ram=_f(m["mem"], 0, "%"), disco=_f(m["disk"], 0, "%")),

@@ -166,3 +166,27 @@ def test_variabili_css_definite():
         defined |= set(re.findall(r'setProperty\("(--[a-z0-9-]+)"', open(os.path.join(js_dir, name), encoding="utf-8").read()))
     used = set(re.findall(r"var\((--[a-z0-9-]+)", css))
     assert used <= defined, sorted(used - defined)
+
+
+def test_ricezione_dati_agenti_solo_con_token(cfg):
+    """4.0: /api/v1/agents/ingest accetta solo il token di un agente: mai la password della dashboard."""
+    import contextlib
+    from astreo_monitor import hosts as hosts_mod
+    host = {"id": 2, "name": "nas", "services": "ssh.service"}
+    with mock.patch.object(db, "connect", return_value=contextlib.nullcontext(None)), \
+         mock.patch("astreo_monitor.schema.check", return_value=[]), \
+         mock.patch.object(hosts_mod, "by_token", side_effect=lambda conn, tok: host if tok == "agt_giusto" else None), \
+         mock.patch.object(hosts_mod, "ingest", return_value={"ok": True, "accepted": 0, "services": ["ssh.service"]}) as ing:
+        app = webapp.create_app(cfg)
+        app.testing = True
+        c = app.test_client()
+        body = {"items": []}
+        assert c.post("/api/v1/agents/ingest", json=body).status_code == 401
+        assert c.post("/api/v1/agents/ingest", json=body, headers=AUTH).status_code == 401
+        assert c.post("/api/v1/agents/ingest", json=body, headers={"Authorization": "Bearer agt_sbagliato"}).status_code == 401
+        r = c.post("/api/v1/agents/ingest", json=body, headers={"Authorization": "Bearer agt_giusto"})
+        assert r.status_code == 200 and r.get_json()["services"] == ["ssh.service"] and ing.call_args[0][1] is host
+        assert c.get("/api/v1/hosts", headers={"Authorization": "Bearer agt_giusto"}).status_code == 401   # il token non apre altro
+        for _ in range(31):
+            r = c.post("/api/v1/agents/ingest", json=body, headers={"Authorization": "Bearer agt_giusto"})
+        assert r.status_code == 429                                                    # limite di invii al minuto

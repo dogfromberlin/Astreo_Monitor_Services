@@ -25,6 +25,7 @@ KINDS = {
     "container": "Container",
     "pihole": "Pi-hole",
     "check": "Dispositivi e servizi",
+    "host": "Server collegati",
     "speedtest": "Speedtest sotto soglia",
     "alert": "Avviso inviato",
 }
@@ -37,13 +38,14 @@ def translate(text: str, lang: str) -> str:
 
 
 def record(conn, kind: str, severity: str, title: str, detail: str = "", ref: str | None = None,
-           when: dt.datetime | None = None) -> bool:
+           when: dt.datetime | None = None, host_id: int = 1) -> bool:
     """Registra un evento. Con ref, un evento già presente non viene duplicato."""
     E = models.events
     if ref and db.one(conn, select(E.c.id).where(E.c.ref == ref)):
         return False
     conn.execute(E.insert().values(timestamp=(when or dt.datetime.now()).replace(microsecond=0), kind=kind,
-                                   severity=severity, title=title[:200], detail=(detail or "")[:400] or None, ref=ref))
+                                   severity=severity, title=title[:200], detail=(detail or "")[:400] or None, ref=ref,
+                                   host_id=host_id))
     return True
 
 
@@ -68,7 +70,8 @@ def backfill_reboots(conn) -> int:
     return n
 
 
-def list_events(conn, start: dt.datetime, end: dt.datetime, outages: list[dict] | None = None, lang: str = "it") -> list[dict]:
+def list_events(conn, start: dt.datetime, end: dt.datetime, outages: list[dict] | None = None, lang: str = "it",
+                host_id: int = 1) -> list[dict]:
     from . import i18n
     _ = i18n.translator(lang)
     E, IP, S, N = models.events, models.public_ip_history, models.speedtest_results, models.notification_log
@@ -77,9 +80,15 @@ def list_events(conn, start: dt.datetime, end: dt.datetime, outages: list[dict] 
         return and_(t.c.timestamp >= start, t.c.timestamp < end)
 
     out = []
-    for r in db.rows(conn, select(E.c.timestamp, E.c.kind, E.c.severity, E.c.title, E.c.detail).where(rng(E))):
+    for r in db.rows(conn, select(E.c.timestamp, E.c.kind, E.c.severity, E.c.title, E.c.detail)
+                     .where(rng(E), E.c.host_id == host_id)):
         out.append({"time": db.as_datetime(r["timestamp"]), "kind": r["kind"], "severity": r["severity"],
                     "title": translate(r["title"], lang), "detail": translate(r["detail"] or "", lang)})
+    if host_id != 1:                  # connessione, IP, speedtest e avvisi sono del solo server centrale
+        out.sort(key=lambda e: e["time"])
+        for e in out:
+            e["time"] = e["time"].isoformat(timespec="seconds")
+        return out
     for o in outages or []:
         out.append({"time": dt.datetime.fromisoformat(o["start"]), "kind": "outage", "severity": "alert",
                     "title": _("Interruzione della connessione ({p0} min)", p0=o["minutes"]),

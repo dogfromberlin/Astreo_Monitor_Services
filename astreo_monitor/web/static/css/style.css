@@ -533,3 +533,18 @@ dialog.help-drawer::backdrop { background: rgb(0 0 0 / .45); }
 .help-body > * { scroll-margin-top: 4.2rem; }
 .help-btn { min-height: 0 !important; min-width: 0 !important; flex: none; }
 @media (max-width: 760px) { .help-btn { width: 1.6rem; height: 1.6rem; font-size: .85rem; } }
+
+/* 4.0 - server collegati */
+.host-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .7rem; }
+.host-card { text-align: left; background: var(--raised); border: 1px solid var(--line); border-left: 4px solid var(--off);
+             border-radius: 8px; padding: .7rem .9rem; color: var(--text); cursor: pointer; display: grid; gap: .25rem; }
+.host-card[aria-selected="true"] { border-color: var(--sage); box-shadow: 0 0 0 1px var(--sage) inset; }
+.host-card.ok { border-left-color: var(--ok); } .host-card.warn { border-left-color: var(--warn); }
+.host-card.down { border-left-color: var(--alert); } .host-card.wait { border-left-color: var(--off); }
+.host-card .name { font-weight: 700; } .host-card .meta { font-size: .78rem; color: var(--off); }
+.host-card .vals { display: flex; gap: .7rem; font-size: .82rem; flex-wrap: wrap; }
+.remote-note { margin: 0; padding: .5rem .8rem; border-radius: 6px; background: var(--raised); color: var(--off); font-size: .85rem; }
+body[data-remote="1"] .central-only { display: none !important; }
+.install-box { margin: .8rem 0; padding: .8rem 1rem; border: 1px solid var(--sage); border-radius: 8px; }
+#hosts-admin input { width: 100%; min-width: 12rem; background: var(--raised); color: var(--text); border: 1px solid var(--line);
+                     border-radius: 6px; padding: .3rem .5rem; font: inherit; font-size: .85rem; }

@@ -1,0 +1,24 @@
+# Generato dall'installatore dell'agente di Astreo Monitor: non modificare a mano.
+[Unit]
+Description=Astreo Monitor - agente: invio dei dati al server centrale
+Documentation=file://{{ project_dir }}/docs/it/agents.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{ project_dir }}/.venv/bin/python -m astreo_monitor.agent.run -c /etc/astreo-agent/agent.ini
+WorkingDirectory={{ project_dir }}
+StateDirectory=astreo-agent
+StateDirectoryMode=0700
+TimeoutStartSec=120
+Nice=5
+# gira come root per leggere stato dei servizi e sensori, ma con il sistema in sola lettura
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true

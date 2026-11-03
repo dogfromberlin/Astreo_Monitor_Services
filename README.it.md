@@ -12,6 +12,7 @@ insieme a mano.
 |---|---|
 | **Server** | CPU, load, memoria, disco, temperature, processi, partizioni; grafici storici con gli **eventi** (riavvii, interruzioni, cambi di IP, servizi fermi, avvisi) sulla linea del tempo |
 | **Servizi** | Qualsiasi unit systemd: attivo / fermo, avvisi quando si ferma e quando riparte, avvio e arresto dalla dashboard |
+| **Server collegati** | Agenti leggeri per altri server **Linux e Windows** (solo invio, token per server, coda locale): panoramica, storico, servizi, riavvii, avvisi ([guida](docs/it/agents.md)) |
 | **Dispositivi e servizi** | Controlli ping, porta TCP e pagina web di altri dispositivi (router, NAS, siti…) con storico e avvisi ([controlli.md](docs/it/devices.md)) |
 | **Connessione** | Ping verso router e Internet ogni minuto (interruzioni, disponibilità), speedtest periodico con soglie, cambi di IP pubblico |
 | **Salute** | Stato SMART dei dischi, aggiornamenti di sicurezza in sospeso e riavvii richiesti, scadenze di certificati e token |

@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione controllo dei server collegati (ogni minuto)
+
+[Timer]
+OnCalendar=*-*-* *:*:50
+AccuracySec=2s
+Persistent=false
+Unit=astreo-hosts.service
+
+[Install]
+WantedBy=timers.target

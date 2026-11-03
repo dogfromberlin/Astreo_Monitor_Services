@@ -157,6 +157,31 @@ def create_app(cfg: Config) -> Flask:
         tok = api_token()
         return bool(tok) and h.startswith("Bearer ") and hmac.compare_digest(h[7:].strip(), tok)
 
+    from .. import hosts as hosts_mod
+    agent_hits: dict[int, list[float]] = {}
+
+    def agent_auth():
+        h = request.headers.get("Authorization", "")
+        if request.method != "POST" or not h.startswith("Bearer "):
+            return jsonify({"error": "Unauthorized"}), 401
+        if request.content_length is not None and request.content_length > 1_000_000:
+            return jsonify({"error": "Payload too large"}), 413
+        try:
+            with db.connect(cfg.database) as conn:
+                host = hosts_mod.by_token(conn, h[7:].strip())
+        except db.DatabaseError:
+            return jsonify({"error": "Database unavailable"}), 503
+        if not host:
+            log.warning("Agente: token non valido da %s", request.remote_addr)
+            return jsonify({"error": "Unauthorized"}), 401
+        now = time.time()
+        hits = [x for x in agent_hits.get(host["id"], []) if now - x < 60] + [now]
+        agent_hits[host["id"]] = hits
+        if len(hits) > 30:
+            return jsonify({"error": "Too many requests"}), 429
+        g.role, g.host = "agent", host
+        return None
+
     @app.before_request
     def require_auth():
         if request.endpoint in PUBLIC_ENDPOINTS or request.path.startswith("/api/netpulse/"):
@@ -164,6 +189,8 @@ def create_app(cfg: Config) -> Flask:
         if request.path in TOKEN_PATHS and request.method == "GET" and bearer_ok():
             g.role = "integration"
             return None
+        if request.path == "/api/v1/agents/ingest":           # solo il token di un agente, mai la password
+            return agent_auth()
         auth = request.authorization
         if (
             auth
@@ -451,13 +478,13 @@ def create_app(cfg: Config) -> Flask:
     def api_history_metrics():
         start, end = parse_period()
         with db.connect(cfg.database) as conn:
-            return jsonify(history.metrics(conn, start, end))
+            return jsonify(history.metrics(conn, start, end, request.args.get("host", 1, type=int)))
 
     @app.get("/api/v1/history/temperatures")
     def api_history_temperatures():
         start, end = parse_period()
         with db.connect(cfg.database) as conn:
-            return jsonify(history.temperatures(conn, start, end))
+            return jsonify(history.temperatures(conn, start, end, request.args.get("host", 1, type=int)))
 
     @app.get("/api/v1/history/speedtest")
     def api_history_speedtest():
@@ -547,9 +574,11 @@ def create_app(cfg: Config) -> Flask:
     @app.get("/api/v1/events")
     def api_events():
         start, end = parse_period()
+        hid = request.args.get("host", 1, type=int)
         with db.connect(cfg.database) as conn:
-            outages = history.connectivity(conn, start, end)["outages"]
-            return jsonify({"events": events.list_events(conn, start, end, outages, current_language()), "kinds": {k: i18n.t(v, current_language()) for k, v in events.KINDS.items()}})
+            outages = history.connectivity(conn, start, end)["outages"] if hid == 1 else []
+            return jsonify({"events": events.list_events(conn, start, end, outages, current_language(), host_id=hid),
+                            "kinds": {k: i18n.t(v, current_language()) for k, v in events.KINDS.items()}})
 
     # ------------------------------------------- controlli di dispositivi e servizi
     from sqlalchemy import delete as sa_delete, func as sa_func, select as sa_select, update as sa_update
@@ -728,6 +757,84 @@ def create_app(cfg: Config) -> Flask:
             return jsonify(help_mod.page(lang, name))
         except help_mod.HelpError:
             abort(404, description="Pagina della guida non trovata")
+
+    # ---------------------------------------------------------- server collegati
+    def offline_minutes() -> int:
+        with db.connect(cfg.database) as conn:
+            return int(settings_mod.load(conn, cfg)["hosts.offline_minutes"])
+
+    @app.post("/api/v1/agents/ingest")
+    def api_agent_ingest():
+        try:
+            with db.connect(cfg.database) as conn:
+                return jsonify(hosts_mod.ingest(conn, g.host, request.get_json(silent=True)))
+        except hosts_mod.HostError as exc:
+            log.warning("Agente %s: pacchetto rifiutato: %s", g.host["name"], exc)
+            return jsonify({"error": "Bad request", "detail": str(exc)}), 400
+
+    @app.get("/api/v1/hosts")
+    def api_hosts():
+        mins = offline_minutes()
+        with db.connect(cfg.database) as conn:
+            return jsonify({"hosts": hosts_mod.listing(conn, mins), "offline_minutes": mins})
+
+    def install_commands(hid: int, kind: str, token: str) -> dict:
+        import hashlib
+        base = request.host_url.rstrip("/")
+        try:
+            ca_sha = hashlib.sha256(open(cfg.web.ca_cert, "rb").read()).hexdigest() if cfg.web.ca_cert else ""
+        except OSError:
+            ca_sha = ""
+        if kind == "windows":
+            cmd = (f"powershell -ExecutionPolicy Bypass -File .\\agent\\windows\\install-agent.ps1 "
+                   f"-Central {base} -Token {token}" + (f" -CaSha256 {ca_sha}" if ca_sha else ""))
+        else:
+            cmd = (f"sudo bash install.sh --agent {base} --token {token}" + (f" --ca-sha256 {ca_sha}" if ca_sha else ""))
+        return {"id": hid, "token": token, "command": cmd, "ca_sha256": ca_sha}
+
+    @app.post("/api/v1/hosts")
+    def api_host_create():
+        data = request.get_json(silent=True) or {}
+        with db.connect(cfg.database) as conn:
+            hid, token = hosts_mod.create(conn, str(data.get("name", "")), str(data.get("kind", "")),
+                                          str(data.get("services", "")))
+        return jsonify(install_commands(hid, data.get("kind"), token)), 201
+
+    @app.post("/api/v1/hosts/<int:hid>/token")
+    def api_host_token(hid: int):
+        with db.connect(cfg.database) as conn:
+            token = hosts_mod.regenerate(conn, hid)
+            kind = db.scalar(conn, sa_select(models.hosts.c.kind).where(models.hosts.c.id == hid))
+        return jsonify(install_commands(hid, kind, token))
+
+    @app.put("/api/v1/hosts/<int:hid>")
+    def api_host_update(hid: int):
+        data = request.get_json(silent=True) or {}
+        vals = {}
+        if "name" in data:
+            name = str(data["name"]).strip()
+            if not hosts_mod.NAME_RE.match(name):
+                raise hosts_mod.HostError("Nome non valido: lettere, numeri, spazi, punto, trattino (massimo 64)")
+            vals["name"] = name
+        if "services" in data and hid != hosts_mod.LOCAL_ID:
+            vals["services"] = hosts_mod.clean_services(str(data["services"]))
+        if "enabled" in data and hid != hosts_mod.LOCAL_ID:
+            vals["enabled"] = bool(data["enabled"])
+        with db.connect(cfg.database) as conn:
+            if not vals or not conn.execute(sa_update(models.hosts).where(models.hosts.c.id == hid).values(**vals)).rowcount:
+                abort(404, description="Server inesistente")
+        return jsonify({"updated": hid})
+
+    @app.delete("/api/v1/hosts/<int:hid>")
+    def api_host_delete(hid: int):
+        with db.connect(cfg.database) as conn:
+            hosts_mod.remove(conn, hid)
+        return jsonify({"deleted": hid})
+
+    @app.errorhandler(hosts_mod.HostError)
+    def host_error(exc):
+        lang = current_language()
+        return jsonify({"error": i18n.t("Valore non valido", lang), "detail": i18n.translate_stored(str(exc), lang)}), 400
 
     @app.get("/api/v1/heartbeat")
     def api_heartbeat():

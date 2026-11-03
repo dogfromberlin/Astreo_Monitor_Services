@@ -51,6 +51,14 @@ else
 fi
 grep -h "__version__" astreo_monitor/__init__.py
 
+if [ -f /etc/astreo-agent/agent.ini ] && [ ! -f /etc/astreo-monitor/config.ini ]; then
+  m "== 2. Agente: librerie e unit" "== 2. Agent: libraries and units"
+  sudo -u "$OWNER" .venv/bin/python -m pip install -q --upgrade pip
+  sudo -u "$OWNER" .venv/bin/python -m pip install -q -r requirements-agent.txt
+  .venv/bin/python -m astreo_monitor.agent.install --update
+  exit $?
+fi
+
 m "== 2. Librerie" "== 2. Libraries"
 sudo -u "$OWNER" .venv/bin/python -m pip install -q --upgrade pip
 sudo -u "$OWNER" .venv/bin/python -m pip install -q -r requirements.txt

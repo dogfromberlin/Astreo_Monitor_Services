@@ -7,6 +7,16 @@ cd "$(dirname "$(readlink -f "$0")")"
 . scripts/lingua.sh
 OWNER=${SUDO_USER:-$(stat -c %U .)}
 
+# Modalità agente: sudo bash install.sh --agent https://CENTRALE:5443 --token … [--ca-sha256 …]
+if [ "${1:-}" = "--agent" ]; then
+  m "== Astreo Monitor: installazione dell'agente" "== Astreo Monitor: agent installation"
+  apt-get update -q && apt-get install -y -q python3-venv iputils-ping
+  [ -x .venv/bin/python ] || sudo -u "$OWNER" python3 -m venv .venv
+  sudo -u "$OWNER" .venv/bin/python -m pip install -q --upgrade pip
+  sudo -u "$OWNER" .venv/bin/python -m pip install -q -r requirements-agent.txt
+  exec .venv/bin/python -m astreo_monitor.agent.install "$@"
+fi
+
 m "== Astreo Monitor: controllo dei prerequisiti" "== Astreo Monitor: checking prerequisites"
 . /etc/os-release
 case "${ID:-}${ID_LIKE:-}" in

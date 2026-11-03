@@ -32,11 +32,14 @@ def _r(v, n=2):
     return None if v is None else round(float(v), n)
 
 
-def _bucketed(conn, table, start, end, b, columns: dict, group_extra=()):
+def _bucketed(conn, table, start, end, b, columns: dict, group_extra=(), host_id: int | None = None):
     """SELECT bucket, aggregati... raggruppati per bucket (e colonne extra), ordinati per bucket."""
     expr, epoch = db.bucket_expr(conn, table.c.timestamp, b)
+    cond = [table.c.timestamp >= start, table.c.timestamp < end]
+    if host_id is not None:
+        cond.append(table.c.host_id == host_id)
     inner = select(expr.label("bucket"), *[table.c[c] for c in {*(col for col, _ in columns.values()), *group_extra}]) \
-        .where(and_(table.c.timestamp >= start, table.c.timestamp < end)).subquery()
+        .where(and_(*cond)).subquery()
     aggs = [fn(inner.c[col]).label(name) for name, (col, fn) in columns.items()]
     extra = [inner.c[g] for g in group_extra]
     q = select(inner.c.bucket, *extra, *aggs).group_by(inner.c.bucket, *extra).order_by(inner.c.bucket)
@@ -46,11 +49,11 @@ def _bucketed(conn, table, start, end, b, columns: dict, group_extra=()):
     return out
 
 
-def metrics(conn, start: dt.datetime, end: dt.datetime) -> dict:
+def metrics(conn, start: dt.datetime, end: dt.datetime, host_id: int = 1) -> dict:
     b = bucket_seconds(start, end)
     rows = _bucketed(conn, models.system_metrics, start, end, b, {
         "cpu": ("cpu_pct", func.avg), "cpu_max": ("cpu_pct", func.max), "load1": ("load1", func.avg),
-        "mem": ("mem_used_pct", func.avg), "disk": ("disk_used_pct", func.avg)})
+        "mem": ("mem_used_pct", func.avg), "disk": ("disk_used_pct", func.avg)}, host_id=host_id)
     return {
         "bucket_s": b,
         "labels": [_iso(x["bucket"]) for x in rows],
@@ -59,10 +62,10 @@ def metrics(conn, start: dt.datetime, end: dt.datetime) -> dict:
     }
 
 
-def temperatures(conn, start: dt.datetime, end: dt.datetime) -> dict:
+def temperatures(conn, start: dt.datetime, end: dt.datetime, host_id: int = 1) -> dict:
     b = bucket_seconds(start, end)
     rows = _bucketed(conn, models.system_temperature, start, end, b,
-                     {"t": ("temperature", func.avg)}, group_extra=("adapter", "device"))
+                     {"t": ("temperature", func.avg)}, group_extra=("adapter", "device"), host_id=host_id)
     labels: list[str] = []
     index: dict[str, int] = {}
     series: dict[str, dict[str, float]] = {}

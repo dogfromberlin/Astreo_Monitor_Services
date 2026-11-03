@@ -2,8 +2,11 @@
 (() => {
   "use strict";
   const { t, $, $$, api, el, row, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtUptime, level, C, PALETTE, drawChart, ds, every } = window.AM;
+  window.AM.setGauge = (...a) => setGauge(...a);
   const REFRESH = { system: 10_000, processes: 10_000, services: 60_000, temps: 60_000, network: 300_000, history: 300_000 };
   const state = { range: "24h", custom: null };
+  const remote = () => (window.AM.host || 1) !== 1;            // 4.0: server collegato scelto nella panoramica
+  const hostQ = () => (remote() ? `&host=${window.AM.host}` : "");
 
   function setGauge(id, value, cls, sub) {
     const g = $(id);
@@ -21,6 +24,7 @@
       $("#hostname").textContent = s.hostname;
       $("#uptime").textContent = fmtUptime(s.uptime.uptime_s);
       $("#last-update").textContent = fmtTime();
+      if (remote()) return;                                    // la testata resta del centrale
       setGauge("#g-cpu", s.cpu_pct, level(s.cpu_pct, 70, 90), t("load {p0} / {p1} / {p2} su {p3} core", { p0: s.load.load1, p1: s.load.load5, p2: s.load.load15, p3: s.load.cpu_count }));
       const m = s.memory;
       setGauge("#g-mem", m.used_pct, level(m.used_pct, 80, 92), t("{p0} di {p1}, swap {p2}%", { p0: fmtGB(m.used_mb), p1: fmtGB(m.total_mb), p2: fmtNum(m.swap_used_pct) }));
@@ -49,6 +53,7 @@
   }
 
   async function loadTemperatures() {
+    if (remote()) return;
     try {
       const temp = await api("/api/v1/temperatures");
       state.temps = { warning: temp.warning, alert: temp.alert };
@@ -80,6 +85,7 @@
         ? t("{p0} {p1} su {p2}", { p0: down.length, p1: down.length === 1 ? t("servizio fermo") : t("servizi fermi"), p2: list.length })
         : t("{p0}/{p1} servizi attivi", { p0: list.length, p1: list.length });
       $("#svc-summary-led").className = `led ${down.length ? "down" : "up"}`;
+      if (remote()) return;
       $("#services").replaceChildren(...list.map((s) => {
         const li = el("li", { class: s.up ? "up" : "down" });
         const b = el("button", { type: "button", title: `${s.label} — ${s.unit}: ${s.state}` });
@@ -137,14 +143,14 @@
   }
 
   async function loadHistory() {
-    const q = periodQuery();
+    const q = periodQuery() + hostQ();
     const err = $("#history-error");
     err.hidden = true;
     try {
       const [m, tm, s, evs] = await Promise.all([
         api(`/api/v1/history/metrics?${q}`),
         api(`/api/v1/history/temperatures?${q}`),
-        api(`/api/v1/history/speedtest?${q}`),
+        remote() ? Promise.resolve({ labels: [], download: [], upload: [] }) : api(`/api/v1/history/speedtest?${q}`),
         window.AM.loadEvents(q),
       ]);
       const L = (arr) => arr.map(fmtDateTime);
@@ -248,5 +254,6 @@
       $("#svc-summary").setAttribute("aria-expanded", String(open));
     });
     window.AM.onView("server", () => { loadProcesses(); loadTemperatures(); loadHistory(); loadChecks(); });
+    document.addEventListener("host-changed", () => { loadSystem(); loadServices(); loadTemperatures(); loadHistory(); });
   });
 })();

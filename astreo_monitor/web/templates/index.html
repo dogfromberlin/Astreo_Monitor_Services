@@ -71,6 +71,11 @@
 <main>
 <div class="banner" id="schema-banner" role="alert" hidden></div>
 <div class="view" data-view="server">
+  <section class="panel hosts-panel" id="hosts-panel" hidden>
+    <div class="panel-head"><h2>{{ _("Server") }} <button type="button" class="help-btn" data-help="agents#panoramica" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="hosts-summary"></small></div>
+    <div class="host-cards" id="host-cards" role="tablist"></div>
+  </section>
+  <p class="remote-note" id="remote-note" hidden></p>
   <section class="gauges" aria-label="{{ _("Risorse in tempo reale") }}">
     <article class="gauge" id="g-cpu">
       <h2>{{ _("CPU") }}</h2><p class="value"><span>–</span>%</p>
@@ -98,12 +103,12 @@
     <ul class="services" id="services"></ul>
   </section>
 
-  <section class="panel">
+  <section class="panel central-only">
     <div class="panel-head"><h2>{{ _("Controlli") }} <button type="button" class="help-btn" data-help="server#controlli" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("connessione, dischi, aggiornamenti, backup e scadenze") }}</small></div>
     <ul class="checks" id="checks"></ul>
   </section>
 
-  <section class="panel" id="checks-panel" hidden>
+  <section class="panel central-only" id="checks-panel" hidden>
     <div class="panel-head"><h2>{{ _("Dispositivi e servizi") }} <button type="button" class="help-btn" data-help="devices#dove" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="checks-summary"></small></div>
     <div class="scroll">
       <table class="data" id="checks-table">
@@ -113,7 +118,7 @@
     </div>
   </section>
 
-  <section class="panel module" id="mod-docker" hidden>
+  <section class="panel module central-only" id="mod-docker" hidden>
     <div class="panel-head"><h2>{{ _("Docker") }} <button type="button" class="help-btn" data-help="modules#docker" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="docker-info"></small></div>
     <div class="scroll">
       <table class="data" id="docker-table">
@@ -124,13 +129,13 @@
     <p class="hint" id="docker-empty" hidden>{{ _("Nessun container su questo server.") }}</p>
   </section>
 
-  <section class="panel module" id="mod-pihole" hidden>
+  <section class="panel module central-only" id="mod-pihole" hidden>
     <div class="panel-head"><h2>{{ _("Pi-hole") }} <button type="button" class="help-btn" data-help="modules#pihole" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="pihole-info"></small></div>
     <div class="stats" id="pihole-stats"></div>
     <p class="hint" id="pihole-msg" hidden></p>
   </section>
 
-  <div class="columns">
+  <div class="columns central-only">
     <section class="panel admin-only">
       <div class="panel-head"><h2>{{ _("Processi") }} <button type="button" class="help-btn" data-help="server#processi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("ordinati per CPU, ogni 10 s") }}</small></div>
       <div class="scroll">
@@ -181,7 +186,7 @@
       <figure><figcaption>{{ _("CPU e load") }}</figcaption><canvas id="chart-cpu"></canvas></figure>
       <figure><figcaption>{{ _("Memoria e disco") }}</figcaption><canvas id="chart-mem"></canvas></figure>
       <figure><figcaption>{{ _("Temperature") }}</figcaption><canvas id="chart-temp"></canvas></figure>
-      <figure><figcaption>{{ _("Velocità connessione") }}</figcaption><canvas id="chart-speed"></canvas></figure>
+      <figure class="central-only"><figcaption>{{ _("Velocità connessione") }}</figcaption><canvas id="chart-speed"></canvas></figure>
     </div>
     <div class="events-panel" id="server-events" hidden>
       <div class="panel-head"><h3 class="sub-title">{{ _("Eventi del periodo") }}</h3><div class="event-filters" data-events-filters></div></div>
@@ -247,6 +252,7 @@
 <script src="{{ url_for('static', filename='js/backup.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/log.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/help.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/hosts.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/connessione.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/impostazioni.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/terminale.js') }}?v={{ version }}"></script>

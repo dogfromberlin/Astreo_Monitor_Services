@@ -40,7 +40,10 @@ def test_tutti_i_modelli_sono_usati():
     used = {f"systemd/{u}.j2" for u in UNITS} | {"polkit/50-astreo-monitor.rules.j2", "nginx/astreo-monitor.conf.j2",
                                                   "nginx/netpulse.conf.j2"}
     present = {os.path.relpath(p, installer.TEMPLATES) for p in files("deploy/templates/*/*.j2")}
-    assert present == used
+    agent = {"agent/astreo-agent.service.j2", "agent/astreo-agent.timer.j2"}      # 4.0: le installa l'agente
+    assert present == used | agent
+    from astreo_monitor.agent import install as agent_install
+    assert {f"agent/{u}.j2" for u in agent_install.UNITS} == agent
 
 
 def test_nessun_valore_personale_nei_modelli():
@@ -213,7 +216,7 @@ def test_lingua_degli_script(env, expected):
 def test_nessun_riferimento_personale_nel_repository():
     """Fase 4: il repository pubblico non contiene dati di un'installazione specifica.
     Il nome utente GitHub è ammesso solo dove indica il repository o il titolare della licenza."""
-    allowed_owner = {"README.md", "README.it.md", "LICENSE", "docs/en/installation.md", "docs/it/installation.md",
+    allowed_owner = {"README.md", "README.it.md", "LICENSE", "docs/en/installation.md", "docs/it/installation.md", "docs/en/agents.md", "docs/it/agents.md",
                      "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", ".github/workflows/release.yml"}
     bad = re.compile("|".join([rf"\b{PERSONAL_USER}\b", "192\\.168\\.1\\.(2|25[0-9])\\b", "10\\." + "8\\.0\\.",
                                "Shobu" + "Base", "astreo-db-" + "backups", r"\bastreo\.local\b", "@" + "gmail\\.com"]), re.I)

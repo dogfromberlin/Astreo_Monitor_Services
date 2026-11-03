@@ -8,6 +8,7 @@
 | Dashboard (`astreo_monitor.web`) | Flask served by waitress on `127.0.0.1`, behind nginx for HTTPS; single page with views, REST API `/api/v1/…` |
 | Jobs (`astreo_monitor.jobs.*`) | short processes started by systemd timers; a slow job does not block the dashboard |
 | Telegram bot | permanent service reading the commands |
+| Agents (`astreo_monitor/agent`, `agent/windows`) | Linux in Python, Windows in PowerShell; they send to `/api/v1/agents/ingest` |
 | Data layer (`db.py`, `models.py`) | SQLAlchemy Core, same queries on SQL Server, PostgreSQL and SQLite; schema with Alembic migrations |
 | Collection (`collectors/`) | system, sensors, services, units, journal |
 | Modules (`integrations/`) | Docker and Pi-hole, detected automatically |

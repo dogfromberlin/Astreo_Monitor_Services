@@ -1,0 +1,12 @@
+# Generato dall'installatore dell'agente di Astreo Monitor: non modificare a mano.
+[Unit]
+Description=Astreo Monitor - agente (ogni minuto)
+
+[Timer]
+OnBootSec=30s
+OnCalendar=*-*-* *:*:20
+AccuracySec=5s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

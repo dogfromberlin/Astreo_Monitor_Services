@@ -1,0 +1,89 @@
+# Server collegati (agenti)
+
+Una sola dashboard per più server: questo è il **server centrale**, gli altri server Linux e Windows inviano i
+loro dati con un **agente leggero**. Gli agenti inviano soltanto: non aprono porte e non possono leggere nulla dal
+centrale. Con il solo centrale la dashboard resta quella di sempre.
+
+<a id="panoramica"></a>
+## Panoramica e server scelto
+
+Con almeno un server collegato, in cima alla vista **Server** compare la **panoramica**: una scheda per server con
+stato (verde, giallo se ha servizi fermi o il disco quasi pieno, rosso se non risponde), CPU, memoria, disco,
+servizi fermi e ultimo invio. Un clic sceglie il server: la vista mostra le sue risorse, i suoi servizi e il suo
+storico con gli eventi (riavvii, servizi fermi). Controlli, dispositivi, moduli, processi e speedtest sono del solo
+centrale e restano nascosti finché è scelto un altro server. La testata resta sempre del centrale.
+
+| Dato | Linux | Windows |
+|---|---|---|
+| CPU, memoria, swap / file di paging, disco, uptime | ogni 5 minuti | ogni 5 minuti |
+| Load average | sì | non esiste su Windows |
+| Temperature | sì (`lm-sensors`) | non disponibili |
+| Servizi scelti | systemd, a ogni cambio | servizi di Windows, a ogni cambio |
+| Riavvii | sì | sì |
+
+<a id="aggiungere"></a>
+## Aggiungere un server
+
+1. **Impostazioni → Server collegati → Aggiungi un server**: nome, sistema, servizi da controllare (modificabili poi).
+2. Compare il **comando d'installazione** con il token (mostrato una sola volta) e l'impronta della CA del centrale.
+3. Eseguilo sul nuovo server, come indicato sotto. Entro un paio di minuti il server compare nella panoramica.
+
+Il nuovo server deve raggiungere il centrale sulla porta della dashboard (5443), nella stessa rete o tramite VPN.
+
+<a id="linux"></a>
+## Agente Linux
+
+Sul server da collegare (Ubuntu o Debian con systemd):
+```bash
+git clone https://github.com/dogfromberlin/Astreo_Monitor_Services.git
+cd Astreo_Monitor_Services
+sudo bash install.sh --agent https://CENTRALE:5443 --token agt_… --ca-sha256 …
+```
+L'installatore scarica la CA del centrale e ne verifica l'impronta, salva configurazione e token in
+`/etc/astreo-agent/` (solo root), prova il collegamento e attiva `astreo-agent.timer` (ogni minuto). Aggiornamento:
+`sudo bash update.sh` nella stessa cartella. Prova senza inviare nulla:
+`sudo .venv/bin/python -m astreo_monitor.agent.run --dry-run`.
+
+<a id="windows"></a>
+## Agente Windows
+
+Windows 10/11 o Windows Server 2016 e successivi, con PowerShell 5.1 (già presente). Scarica e scompatta il
+pacchetto zip dell'ultima **Release** dal repository, apri **PowerShell come amministratore** nella cartella e lancia:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\agent\windows\install-agent.ps1 -Central https://CENTRALE:5443 -Token agt_… -CaSha256 …
+```
+Lo script verifica la CA, salva configurazione e coda in `C:\ProgramData\AstreoAgent\` (solo SYSTEM e
+amministratori), prova il collegamento e crea l'attività pianificata **Astreo Monitor Agent** (ogni minuto, come
+SYSTEM). Il registro è `C:\ProgramData\AstreoAgent\agent.log`. Per rimuoverlo: lo stesso script con `-Uninstall`.
+
+<a id="sicurezza"></a>
+## Sicurezza
+
+| Protezione | Come |
+|---|---|
+| Un token per server | generato dalla dashboard, nel database solo la sua impronta; **Nuovo token** invalida subito il precedente |
+| Solo invio | l'agente non legge nulla dal centrale: riceve solo l'elenco dei propri servizi da controllare |
+| Certificato | l'agente verifica il centrale con la sua CA, senza installarla nel sistema |
+| Validazione | ogni valore è controllato; un elemento non valido viene scartato da solo, il resto dell'invio accettato |
+| Limiti | al massimo 1 MB e 30 invii al minuto per agente |
+
+<a id="avvisi"></a>
+## Avvisi e coda
+
+Ogni minuto il centrale controlla i server collegati: **non raggiungibile** se un agente non invia dati da
+10 minuti (modificabile in **Impostazioni → Server collegati**), disco e temperatura con le soglie del centrale, servizi fermi.
+Gli avvisi usano regole e canali di sempre (evento *Server collegati*, e *Disco*, *Temperatura*, *Servizi* per gli
+altri), con il nome del server nell'oggetto. Il bot mostra i server collegati in `/stato`.
+
+Se il centrale non risponde, l'agente conserva i dati in coda e li invia in ordine appena torna raggiungibile;
+i dati più vecchi di 24 ore vengono scartati.
+
+<a id="problemi"></a>
+## Problemi frequenti
+
+| Sintomo | Causa probabile |
+|---|---|
+| *l'impronta della CA non coincide* | indirizzo sbagliato, oppure qualcuno si interpone: non proseguire |
+| *certificato del centrale non valido per l'indirizzo usato* | usa un IP o un nome presenti nel certificato del centrale |
+| *token rifiutato* | token sbagliato o rigenerato: **Nuovo token** e reinstalla con quello |
+| il server resta *in attesa del primo invio* | timer o attività pianificata fermi, oppure centrale non raggiungibile: vedi il registro dell'agente |

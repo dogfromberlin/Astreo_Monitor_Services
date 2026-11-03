@@ -35,6 +35,7 @@ If the schema is not aligned, the dashboard shows a warning with the command to 
 | `monitored_services`, `app_settings` | monitored services and dashboard settings |
 | `notification_log`, `notification_queue` | delivery log and alerts held by quiet hours |
 | `monitor_state` | current state of the checks (key/value) |
+| `hosts` | connected servers (1 = the central server), with the fingerprint of each agent's token |
 | `alembic_version` | schema revision |
 
 <a id="retention"></a>

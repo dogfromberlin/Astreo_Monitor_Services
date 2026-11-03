@@ -31,14 +31,18 @@ system_metrics = Table(
     Column("mem_used_pct", Float), Column("mem_used_mb", Integer), Column("swap_used_pct", Float),
     Column("disk_used_pct", Float),
     Column("source", String(16), nullable=False, server_default="v2"),
+    Column("host_id", Integer, nullable=False, server_default="1"),          # 4.0: 1 = server centrale
     Index("IX_system_metrics_ts", "timestamp", mssql_clustered=True),
+    Index("IX_system_metrics_host", "host_id", "timestamp"),
 )
 
 system_temperature = Table(
     "system_temperature", metadata, *_id("system_temperature"),
     Column("timestamp", TS),
     Column("adapter", String(255)), Column("device", String(255)), Column("temperature", Float),
+    Column("host_id", Integer, nullable=False, server_default="1"),
     Index("IX_system_temperature_ts", "timestamp", mssql_clustered=True),
+    Index("IX_system_temperature_host", "host_id", "timestamp"),
 )
 
 speedtest_results = Table(
@@ -108,6 +112,7 @@ events = Table(
     Column("timestamp", TS, nullable=False),
     Column("kind", String(16), nullable=False), Column("severity", String(8), nullable=False),
     Column("title", Unicode(200), nullable=False), Column("detail", Unicode(400)), Column("ref", String(100)),
+    Column("host_id", Integer, nullable=False, server_default="1"),
     Index("IX_events_ts", "timestamp", mssql_clustered=True),
     Index("UX_events_ref", "ref", unique=True, mssql_where=Column("ref").isnot(None),
           postgresql_where=Column("ref").isnot(None), sqlite_where=Column("ref").isnot(None)),
@@ -141,4 +146,22 @@ check_results = Table(
     Column("latency_ms", Float),
     Column("detail", Unicode(300)),
     Index("IX_check_results_ts", "timestamp", "check_id", mssql_clustered=True),
+)
+
+
+# --- 4.0: server monitorati (1 = il server centrale, gli altri inviano i dati con un agente) ---
+hosts = Table(
+    "hosts", metadata, *_id("hosts"),
+    Column("name", Unicode(100), nullable=False),
+    Column("kind", String(8), nullable=False),            # local | linux | windows
+    Column("token_hash", String(64)),                      # sha256 del token dell'agente (mai il token)
+    Column("services", Unicode(2000)),                     # servizi da controllare, separati da virgola
+    Column("enabled", Boolean, nullable=False, server_default="1"),
+    Column("sort_order", Integer, nullable=False, server_default="0"),
+    Column("created_at", TS, nullable=False),
+    Column("last_seen", TS),
+    Column("agent_version", String(32)),
+    Column("os_info", Unicode(200)),
+    Index("UX_hosts_token", "token_hash", unique=True, mssql_where=Column("token_hash").isnot(None),
+          postgresql_where=Column("token_hash").isnot(None), sqlite_where=Column("token_hash").isnot(None)),
 )

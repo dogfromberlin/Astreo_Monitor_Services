@@ -35,6 +35,7 @@ Se lo schema non è allineato, la dashboard mostra un avviso con il comando da e
 | `monitored_services`, `app_settings` | servizi monitorati e impostazioni della dashboard |
 | `notification_log`, `notification_queue` | registro degli invii e avvisi trattenuti dalla fascia di silenzio |
 | `monitor_state` | stato corrente dei controlli (chiave/valore) |
+| `hosts` | server collegati (1 = il server centrale), con l'impronta del token di ciascun agente |
 | `alembic_version` | revisione dello schema |
 
 <a id="retention"></a>

@@ -57,6 +57,10 @@ STORED_TEMPLATES = [
     # eventi
     "Riavvio del server", "Servizio {p0} ripartito", "Servizio {p0} fermo", "Container {p0} riavviato",
     "Container {p0}: {p1}", "Pi-hole: {p0}", "riavvii totali: {p0}", "kernel {p0}",
+    # server collegati
+    "Nome di servizio non valido: {p0}", "Esiste già un server chiamato {p0}", "Ultimo invio dei dati alle {p0}.",
+    "Nome non valido: lettere, numeri, spazi, punto, trattino (massimo 64)", "Sistema non valido: linux o windows",
+    "Al massimo 60 servizi per server", "Server inesistente", "Il server centrale non si può eliminare",
     # controlli di dispositivi e servizi
     "{p0}: non raggiungibile", "{p0}: di nuovo raggiungibile", "nessuna risposta su {p0}", "{p0}/{p1} risposte",
     "porta {p0} aperta", "connessione rifiutata", "nome non risolto", "host irraggiungibile", "rete irraggiungibile", "{p0}: numero non valido", "{p0}: da {p1} a {p2}", "certificato non valido", "nessuna risposta entro {p0} s", "connessione non riuscita",

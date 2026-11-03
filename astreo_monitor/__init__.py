@@ -1,3 +1,3 @@
-"""Astreo Monitor - monitoraggio del server astreo (metriche, servizi, speedtest, IP pubblico, backup DB)."""
+"""Astreo Monitor - monitoraggio self-hosted di server Linux e Windows (metriche, servizi, connessione, backup, avvisi)."""
 
-__version__ = "3.6.0"
+__version__ = "4.0.0"

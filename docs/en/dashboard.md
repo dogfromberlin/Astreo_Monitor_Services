@@ -22,6 +22,7 @@ services (green running, red stopped).
 | Tab | What you set |
 |---|---|
 | Speedtest | timer status, run now, pause, thresholds, parameters, continuous connection check |
+| Servers | servers connected through an agent, installation command, checked services, new token |
 | Notifications | channels, alert rules, quiet hours, routing, heartbeat, expirations, disks, delivery log |
 | Services | which systemd services to monitor, alert, label, order |
 | Devices | checks of other devices and services |

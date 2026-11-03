@@ -36,7 +36,7 @@ def dbcfg(request, cfg, tmp_path):
     migrate.run(c, *admin, out=lambda *_: None)
     with db.connect(dbc) as conn:                       # tabelle vuote per ogni test
         for t in reversed(models.metadata.sorted_tables):
-            conn.execute(delete(t))
+            conn.execute(delete(t).where(t.c.id != 1) if t is models.hosts else delete(t))
     yield c
     db._engines.clear()
 
@@ -194,3 +194,56 @@ def test_esportazione_prometheus_e_stato(dbcfg):
     assert "astreo_speedtest_download_mbps 600" in text and "astreo_connectivity_status 1" in text
     assert 'astreo_connectivity_rtt_ms{target="1.1.1.1",role="internet"} 12.5' in text
     assert st["speedtest"]["download_mbps"] == 600.0 and st["connection"] == "WARNING"
+
+
+# ----------------------------------------------------------------------- 4.0: server collegati
+def test_server_collegati(dbcfg):
+    from unittest import mock as _m
+    from astreo_monitor import hosts as H
+    from astreo_monitor.jobs import hosts as hosts_job
+    from astreo_monitor.web import history as hist
+    now = dt.datetime.now().replace(microsecond=0)
+    with db.connect(dbcfg.database) as conn:
+        assert db.scalar(conn, select(models.hosts.c.kind).where(models.hosts.c.id == 1)) == "local"
+        hid, token = H.create(conn, "nas", "linux", "ssh.service, cron.service")
+        assert db.scalar(conn, select(models.hosts.c.token_hash).where(models.hosts.c.id == hid)) == H.token_hash(token)
+        assert H.by_token(conn, token)["id"] == hid and H.by_token(conn, "agt_falso") is None
+        with pytest.raises(H.HostError):
+            H.create(conn, "NAS", "linux")                          # nome già usato
+        host = H.by_token(conn, token)
+        iso = (now - dt.timedelta(minutes=1)).isoformat()
+        r = H.ingest(conn, host, {"agent": {"version": "4.0.0", "os": "Debian 12"}, "items": [
+            {"type": "metrics", "time": iso, "cpu_pct": 12.5, "mem_used_pct": 40, "disk_used_pct": 91, "load1": 0.5},
+            {"type": "temperatures", "time": iso, "sensors": [{"adapter": "coretemp", "device": "Package", "value": 55}]},
+            {"type": "services", "time": iso, "services": [{"unit": "ssh.service", "label": "ssh", "up": True, "state": "active"}]},
+            {"type": "metrics", "time": iso, "cpu_pct": 500},                        # fuori intervallo: scartato da solo
+            {"type": "boot", "time": iso, "boot_time": (now - dt.timedelta(days=5)).isoformat()}]})
+        assert r["accepted"] == 4 and len(r["rejected"]) == 1 and r["services"] == ["ssh.service", "cron.service"]
+        H.ingest(conn, host, {"items": [{"type": "services", "time": now.isoformat(),
+                                         "services": [{"unit": "ssh.service", "label": "ssh", "up": False, "state": "failed"}]}]})
+        h = [x for x in H.listing(conn, 10) if x["id"] == hid][0]
+        assert h["status"] == "OK" and h["os_info"] == "Debian 12" and h["snapshot"]["disk_used_pct"] == 91
+        start, end = now - dt.timedelta(hours=1), now + dt.timedelta(minutes=5)
+        assert hist.metrics(conn, start, end, hid)["cpu"] == [12.5]
+        assert hist.metrics(conn, start, end)["cpu"] == []              # il centrale non vede i dati dell'agente
+        titles = [e["title"] for e in events.list_events(conn, now - dt.timedelta(days=6), end, host_id=hid)]
+        assert "Riavvio del server" in titles and "Servizio ssh fermo" in titles
+        assert not [e for e in events.list_events(conn, start, end) if e["title"] == "Servizio ssh fermo"]
+    sent = []
+    with _m.patch.object(hosts_job.notifier, "dispatch", side_effect=lambda c, cfg, src, subj, body, **k: sent.append((src, subj)) or True):
+        hosts_job.main(dbcfg, dry_run=False)
+        assert ("disk", "[nas] Disco: WARNING") in sent and ("services", "[nas] Servizio ssh fermo (failed)") in sent
+        with db.connect(dbcfg.database) as conn:                       # nessun invio da 15 minuti
+            conn.execute(models.hosts.update().where(models.hosts.c.id == hid).values(last_seen=now - dt.timedelta(minutes=15)))
+        sent.clear()
+        hosts_job.main(dbcfg, dry_run=False)
+        assert sent == [("hosts", "nas: non raggiungibile")]
+    with db.connect(dbcfg.database) as conn:
+        assert any(e["title"] == "nas: non raggiungibile" for e in events.list_events(conn, start, end, host_id=hid))
+        new = H.regenerate(conn, hid)
+        assert H.by_token(conn, token) is None and H.by_token(conn, new)["id"] == hid
+        H.remove(conn, hid)
+        assert db.scalar(conn, select(func.count()).select_from(models.system_metrics).where(models.system_metrics.c.host_id == hid)) == 0
+        assert db.state_get(conn, f"host:{hid}:snapshot") is None
+        with pytest.raises(H.HostError):
+            H.remove(conn, 1)

@@ -22,6 +22,7 @@ dei servizi monitorati (verde attivo, rosso fermo).
 | Scheda | Cosa si imposta |
 |---|---|
 | Speedtest | stato del timer, esegui ora, sospendi, soglie, parametri, controllo continuo della connessione |
+| Server | server collegati con un agente, comando d'installazione, servizi controllati, nuovo token |
 | Notifiche | canali, regole di avviso, fascia di silenzio, instradamento, heartbeat, scadenze, dischi, registro degli invii |
 | Servizi | quali servizi systemd monitorare, avviso, etichetta, ordine |
 | Dispositivi | controlli di altri dispositivi e servizi |
