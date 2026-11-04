@@ -76,12 +76,12 @@ def test_preferenze_valide_e_salvate(dbcfg):
         with pytest.raises(ValueError):
             ui_prefs.validate(bad)
     with db.connect(dbcfg.database) as conn:
-        assert ui_prefs.load(conn, "mario") == {"theme": "system"}
+        assert ui_prefs.load(conn, "mario") == {"theme": "system", "layout": {}}
         ui_prefs.save(conn, "mario", {"theme": "dark"})
-        assert ui_prefs.load(conn, "mario") == {"theme": "dark"}
-        assert ui_prefs.load(conn, "famiglia") == {"theme": "system"}            # ogni utente la sua
+        assert ui_prefs.load(conn, "mario")["theme"] == "dark"
+        assert ui_prefs.load(conn, "famiglia")["theme"] == "system"            # ogni utente la sua
         ui_prefs.save(conn, "x" * 200, {"theme": "light"})                       # nomi lunghi: chiave entro 64 caratteri
-        assert ui_prefs.load(conn, "x" * 200) == {"theme": "light"}
+        assert ui_prefs.load(conn, "x" * 200)["theme"] == "light"
 
 
 def test_preferenze_anche_in_sola_lettura(cfg):
@@ -126,3 +126,28 @@ def test_servizio_tolto_sparisce_subito(dbcfg):
     d = build(dbcfg)
     assert not any(x["key"].startswith("service:2:") for x in d["todo"])
     assert d["services"]["down"] == []
+
+
+def test_disposizione_delle_card(dbcfg):
+    """4.1: Personalizza salva ordine e card nascoste per sezione; niente sezioni o nomi arbitrari."""
+    good = {"layout": {"ov-kpis": {"order": ["backup", "servers"], "hidden": ["connection"]}, "srv-detail": {"order": ["history"]}}}
+    v = ui_prefs.validate(good)
+    assert v["layout"]["ov-kpis"] == {"order": ["backup", "servers"], "hidden": ["connection"]}
+    assert v["layout"]["srv-detail"] == {"order": ["history"], "hidden": []}
+    for bad in ({"layout": {"altro": {"order": []}}}, {"layout": {"ov-kpis": {"order": ["<script>"]}}},
+                {"layout": {"ov-kpis": {"order": ["a"] * 61}}}, {"layout": {"ov-kpis": {"ordine": []}}}, {"layout": []}):
+        with pytest.raises(ValueError):
+            ui_prefs.validate(bad)
+    with db.connect(dbcfg.database) as conn:
+        ui_prefs.save(conn, "mario", {"theme": "dark"})
+        ui_prefs.save(conn, "mario", v)
+        p = ui_prefs.load(conn, "mario")
+        assert p["theme"] == "dark" and p["layout"]["ov-kpis"]["hidden"] == ["connection"]   # il tema resta
+
+
+def test_indice_della_guida_per_la_ricerca():
+    from astreo_monitor import help as help_mod
+    for lang in ("it", "en"):
+        refs = {e["ref"]: e for e in help_mod.index(lang)}
+        assert "dashboard#da-controllare" in refs and "dashboard#personalizza" in refs and "dashboard#ricerca" in refs
+        assert all(e["title"] for e in refs.values())

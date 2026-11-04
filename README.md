@@ -11,6 +11,7 @@ nightly database backups with restore checks, and a few extras you usually have 
 
 | Area | What you get |
 |---|---|
+| **Dashboard** | **Overview** start page with the status in one sentence and a **To check** list with suggested actions; side menu, light and dark theme, cards you can rearrange or hide, **Ctrl K** search; works on phones and installs as an app ([docs](docs/en/dashboard.md)) |
 | **Server** | CPU, load, memory, disk, temperatures, processes, partitions; history charts with **events** (reboots, outages, IP changes, service stops, alerts) drawn on the timeline |
 | **Services** | Any systemd unit: running / stopped, alerts when it stops and restarts, start / stop from the dashboard |
 | **Connected servers** | Lightweight agents for other **Linux and Windows** servers (send-only, token per server, local queue): overview, history, services, reboots, alerts ([docs](docs/en/agents.md)) |

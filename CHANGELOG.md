@@ -1,24 +1,16 @@
 # Changelog
 
-## 4.1.0.dev2 — new front end, stage 2 of 3 (test build, not a Release)
+## 4.1.0 — new front end
 
-- **Side menu** as in the new design: Overview, Server, Network and connection, Devices, Alerts and events, Backup, Logs, Terminal, Settings. On phones the bottom bar keeps four views and puts the others under **More**.
-- **Server**: with more than one server, `#server` shows the list of servers (same cards as the Overview) and `#server/<id>` the detail, with breadcrumb, state, resources, history, services, disks, maintenance and checks, modules, processes and sensors.
-- **Network and connection**: public IP, last speedtest and public IP changes at the top (they were in the old header and at the bottom of the Server view).
-- **Devices**, **Alerts and events** (events of all servers with filters by period, server, type and severity; notifications sent, administrator only) and **Backup** (data safety summary for everyone; last backup, copies and run now for the administrator) are now sections of their own. Links such as `#impostazioni/dispositivi` open a settings tab directly.
-- **Fix**: a service removed from a connected server (for example with *Stop checking it*) disappears immediately from the Overview, the Server view and the alerts, without waiting for the agent's next data.
-- Fix: several scripts can now react to the same view (before, only the last one registered was run when opening it).
-- Guide updated: dashboard, server, agents, devices, backup, connection (IT/EN).
-
-## 4.1.0.dev1 — new front end, stage 1 of 3 (test build, not a Release)
-
-- **New layout**: side menu with the new "Orbita Classica" logo, page title at the top, bottom bar on phones. Fonts: Space Grotesk, Inter, JetBrains Mono.
-- **Overview** is the new start page: status in one sentence, key numbers (servers, services, 7-day connection availability, last backup), **To check** list with suggested actions (open the server, stop checking a service that is no longer needed), one card per server, connection, data safety and latest events. The number of things to check is shown next to Overview in the menu.
-- **Light and dark theme**: follow the system (default), light or dark; saved per user, so it is the same on computer and phone, and applied before the page is drawn.
-- New API: `GET /api/v1/overview`, `GET/PUT /api/v1/ui/prefs` (also allowed to the read-only user, for their own preferences only). Preferences are stored in `monitor_state`: no database migration.
-- Server view: name, uptime, public IP, speedtest, backup and services row moved from the old header to the top of the view.
-- New favicon and app icons from the logo (the large icons are provisional).
-- Guide: Overview, To check and theme in *The dashboard* (IT/EN).
+- **New look**: side menu with the new "Orbita Classica" logo, **light and dark theme** (follow the system, light or dark; saved per user and applied before the page is drawn), fonts Space Grotesk, Inter and JetBrains Mono, new favicon and app icons (the large app icons are provisional).
+- **Overview** is the new start page: status in one sentence, key numbers (servers, services, 7-day connection availability, last backup), a **To check** list with suggested actions (open the server, *Stop checking it* for a service that is no longer needed), one card per server, connection, data safety and latest events; the number of things to check is shown next to Overview in the menu.
+- **Sections**: Overview, Server (list of servers and detail with breadcrumb, resources, history, services, disks, maintenance and checks, modules, processes and sensors), Network and connection (public IP, speedtest and IP changes at the top), Devices, Alerts and events (events of all servers with filters by period, server, type and severity; notifications sent), Backup (data safety for everyone; last backup, copies and run now for the administrator), Logs, Terminal, Settings. Links such as `#impostazioni/dispositivi` open a settings tab directly.
+- **Customise**: in the Overview and in the server detail, cards can be dragged (mouse or finger), moved with arrows and hidden; reset order, show hidden cards. The layout is saved per user, the same on computer and phone; the status strip and *To check* stay at the top.
+- **Search** with **Ctrl K** (⌘ K on Mac): sections, servers, services, devices, settings tabs, guide pages and chapters, quick commands (theme, guide, customise).
+- **Phones**: bottom bar with four views and **More** for the others, search and theme in the top bar, larger touch areas.
+- New API: `GET /api/v1/overview`, `GET/PUT /api/v1/ui/prefs` (theme and layout; also allowed to the read-only user, for their own preferences only), `GET /api/v1/help-search`. Preferences are stored in `monitor_state`: no database migration.
+- **Fixes**: a service removed from a connected server disappears immediately from the Overview, the Server view and the alerts, without waiting for the agent's next data; several scripts can now react to the same view (before, only the last one registered ran when opening it).
+- Guide (IT/EN): Overview, To check, theme, customise, search and the new sections; README updated.
 
 ## 4.0.2
 

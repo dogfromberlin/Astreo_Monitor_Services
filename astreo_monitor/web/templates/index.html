@@ -44,6 +44,12 @@
   <symbol id="i-devices" viewBox="0 0 24 24"><rect x="2" y="5" width="13" height="10" rx="1.5"/><path d="M6 19h5M8.5 15v4"/><rect x="17" y="8" width="5" height="11" rx="1"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
   <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 4.4-1.1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
   <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.4M12 17h.01"/></symbol>
 </svg>
 
@@ -79,6 +85,8 @@
 <div class="content">
 <header class="topbar">
   <div class="page-title"><h1 id="page-title">{{ _("Panoramica") }}</h1><p id="page-sub"></p></div>
+  <button type="button" class="search-btn" id="search-open" aria-haspopup="dialog" aria-label="{{ _("Cerca") }}" title="{{ _("Cerca") }} (Ctrl K)"><svg class="icon"><use href="#i-search"/></svg><span>{{ _("Cerca…") }}</span><kbd>Ctrl K</kbd></button>
+  <button type="button" class="btn small edit-btn" id="edit-open" hidden><svg class="icon"><use href="#i-settings"/></svg><span>{{ _("Personalizza") }}</span></button>
   <div class="theme-switch" role="group" aria-label="{{ _("Tema") }}">
     <button type="button" data-theme-set="system" aria-pressed="false" aria-label="{{ _("Segui il sistema") }}" title="{{ _("Segui il sistema") }}"><svg class="icon"><use href="#i-monitor"/></svg></button>
     <button type="button" data-theme-set="light" aria-pressed="false" aria-label="{{ _("Tema chiaro") }}" title="{{ _("Tema chiaro") }}"><svg class="icon"><use href="#i-sun"/></svg></button>
@@ -96,11 +104,11 @@
     <a href="#panoramica" class="btn primary" id="ov-goto" hidden>{{ _("Vedi cosa controllare") }}</a>
   </section>
 
-  <section class="kpis" aria-label="{{ _("Riepilogo") }}">
-    <article class="kpi" id="kpi-servers"><span class="label">{{ _("Server") }}</span><span class="value">–</span><span class="sub"></span></article>
-    <article class="kpi" id="kpi-services"><span class="label">{{ _("Servizi") }}</span><span class="value">–</span><span class="sub"></span></article>
-    <article class="kpi" id="kpi-conn"><span class="label">{{ _("Connessione · ultimi 7 giorni") }}</span><span class="value">–</span><span class="sub"></span></article>
-    <article class="kpi" id="kpi-backup"><span class="label">{{ _("Ultimo backup") }}</span><span class="value">–</span><span class="sub"></span></article>
+  <section class="kpis" data-layout="ov-kpis" aria-label="{{ _("Riepilogo") }}">
+    <article class="kpi" id="kpi-servers" data-card="servers"><span class="label">{{ _("Server") }}</span><span class="value">–</span><span class="sub"></span></article>
+    <article class="kpi" id="kpi-services" data-card="services"><span class="label">{{ _("Servizi") }}</span><span class="value">–</span><span class="sub"></span></article>
+    <article class="kpi" id="kpi-conn" data-card="connection"><span class="label">{{ _("Connessione · ultimi 7 giorni") }}</span><span class="value">–</span><span class="sub"></span></article>
+    <article class="kpi" id="kpi-backup" data-card="backup"><span class="label">{{ _("Ultimo backup") }}</span><span class="value">–</span><span class="sub"></span></article>
   </section>
 
   <section class="panel" id="da-controllare" aria-labelledby="h-todo">
@@ -112,11 +120,11 @@
   <section aria-labelledby="h-ov-hosts">
     <div class="section-head"><h2 id="h-ov-hosts">{{ _("Server") }}</h2><small>{{ _("stato attuale") }}</small>
       <a class="end admin-only" href="#impostazioni">{{ _("+ Aggiungi un server") }}</a></div>
-    <div class="ov-hosts" id="ov-hosts"></div>
+    <div class="ov-hosts" id="ov-hosts" data-layout="ov-hosts"></div>
   </section>
 
-  <section class="ov-bottom" aria-label="{{ _("Rete, backup ed eventi") }}">
-    <article class="ov-card" id="ov-conn">
+  <section class="ov-bottom" data-layout="ov-bottom" aria-label="{{ _("Rete, backup ed eventi") }}">
+    <article class="ov-card" id="ov-conn" data-card="connection">
       <div class="card-head"><h2>{{ _("Connessione") }}</h2><span class="pill wait" data-f="pill">–</span></div>
       <div class="speed" data-f="speed">–</div>
       <dl class="kv">
@@ -125,11 +133,11 @@
         <dt>{{ _("IP pubblico") }}</dt><dd class="mono" data-f="ip">–</dd>
       </dl>
     </article>
-    <article class="ov-card" id="ov-backup">
+    <article class="ov-card" id="ov-backup" data-card="backup">
       <div class="card-head"><h2>{{ _("Sicurezza dei dati") }}</h2><span class="pill wait" data-f="pill">–</span></div>
       <ul class="steps" data-f="steps"></ul>
     </article>
-    <article class="ov-card" id="ov-events">
+    <article class="ov-card" id="ov-events" data-card="events">
       <div class="card-head"><h2>{{ _("Ultimi eventi") }}</h2><a href="#avvisi" class="small">{{ _("Tutti") }}</a></div>
       <ol class="timeline" data-f="list"></ol>
     </article>
@@ -142,7 +150,7 @@
       <small id="srv-list-sum"></small><a class="end admin-only" href="#impostazioni/server">{{ _("+ Aggiungi un server") }}</a></div>
     <div class="ov-hosts" id="srv-list-cards"></div>
   </section>
-  <div class="srv-detail" id="srv-detail">
+  <div class="srv-detail" id="srv-detail" data-layout="srv-detail">
   <nav class="crumbs" aria-label="{{ _("Percorso") }}" id="srv-crumbs" hidden><a href="#server">{{ _("Server") }}</a><span aria-hidden="true">›</span><span id="crumb-name">–</span></nav>
   <section class="srv-head" aria-labelledby="srv-name">
     <span class="ic" id="srv-ic" aria-hidden="true"><svg class="icon"><use href="#i-server"/></svg></span>
@@ -153,7 +161,7 @@
     </div>
     <span class="pill" id="srv-pill"><span class="dot ok" aria-hidden="true"></span><span>{{ _("regolare") }}</span></span>
   </section>
-  <section class="gauges" aria-label="{{ _("Risorse in tempo reale") }}">
+  <section class="gauges" data-card="resources" aria-label="{{ _("Risorse in tempo reale") }}">
     <article class="gauge" id="g-cpu">
       <h2>{{ _("CPU") }}</h2><p class="value"><span>–</span>%</p>
       <div class="bar"><i></i></div><p class="sub" id="g-cpu-sub">{{ _("load –") }}</p>
@@ -172,7 +180,7 @@
     </article>
   </section>
 
-  <section class="panel history">
+  <section class="panel history" data-card="history">
     <div class="panel-head">
       <h2>{{ _("Storico") }} <button type="button" class="help-btn" data-help="server#eventi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
       <div class="period" role="group" aria-label="{{ _("Periodo") }}">
@@ -201,7 +209,7 @@
     </div>
   </section>
 
-  <section class="panel services-panel">
+  <section class="panel services-panel" data-card="services">
     <div class="panel-head">
       <h2>{{ _("Servizi") }} <button type="button" class="help-btn" data-help="server#servizi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
       <button type="button" class="ghost" id="services-refresh">{{ _("Aggiorna") }}</button>
@@ -209,13 +217,13 @@
     <ul class="services" id="services"></ul>
   </section>
 
-  <section class="panel central-only">
+  <section class="panel central-only" data-card="maintenance">
     <div class="panel-head"><h2>{{ _("Manutenzione e controlli") }} <button type="button" class="help-btn" data-help="server#controlli" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("connessione, dischi, aggiornamenti, backup e scadenze") }}</small></div>
     <ul class="checks" id="checks"></ul>
   </section>
 
 
-  <section class="panel module central-only" id="mod-docker" hidden>
+  <section class="panel module central-only" id="mod-docker" data-card="docker" hidden>
     <div class="panel-head"><h2>{{ _("Docker") }} <button type="button" class="help-btn" data-help="modules#docker" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="docker-info"></small></div>
     <div class="scroll">
       <table class="data" id="docker-table">
@@ -226,13 +234,13 @@
     <p class="hint" id="docker-empty" hidden>{{ _("Nessun container su questo server.") }}</p>
   </section>
 
-  <section class="panel module central-only" id="mod-pihole" hidden>
+  <section class="panel module central-only" id="mod-pihole" data-card="pihole" hidden>
     <div class="panel-head"><h2>{{ _("Pi-hole") }} <button type="button" class="help-btn" data-help="modules#pihole" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="pihole-info"></small></div>
     <div class="stats" id="pihole-stats"></div>
     <p class="hint" id="pihole-msg" hidden></p>
   </section>
 
-  <div class="columns">
+  <div class="columns" data-card="processes">
     <section class="panel admin-only central-only">
       <div class="panel-head"><h2>{{ _("Processi") }} <button type="button" class="help-btn" data-help="server#processi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("ordinati per CPU, ogni 10 s") }}</small></div>
       <div class="scroll">
@@ -344,6 +352,17 @@
   <article class="help-body" id="help-body"></article>
 </dialog>
 
+<dialog id="search-dialog" class="search-dialog" aria-label="{{ _("Cerca") }}">
+  <div class="search-box">
+    <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+    <input type="search" id="search-input" placeholder="{{ _("Cerca sezioni, server, servizi, dispositivi, guida…") }}" autocomplete="off"
+           role="combobox" aria-expanded="true" aria-controls="search-results" aria-autocomplete="list" aria-label="{{ _("Cerca") }}">
+    <form method="dialog"><button type="submit" class="ghost" aria-label="{{ _("Chiudi") }}">Esc</button></form>
+  </div>
+  <ul class="search-results" id="search-results" role="listbox" aria-label="{{ _("Risultati") }}"></ul>
+  <p class="search-hint">{{ _("↑ ↓ per scegliere · Invio per aprire · Esc per chiudere") }}</p>
+</dialog>
+
 <dialog id="check-dialog" class="wide">
   <form method="dialog" class="dialog-head">
     <h2 id="check-dialog-title"></h2>
@@ -383,5 +402,7 @@
 <script src="{{ url_for('static', filename='js/terminale.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/panoramica.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/avvisi.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/personalizza.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/cerca.js') }}?v={{ version }}"></script>
 </body>
 </html>

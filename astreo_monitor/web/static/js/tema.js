@@ -43,5 +43,9 @@
 
   apply(pref, false);
   // la scelta salvata per l'utente prevale su quella del browser (es. cambiata dal telefono)
-  api("/api/v1/ui/prefs").then((p) => { if (p.theme && p.theme !== pref) apply(p.theme, true); }).catch(() => {});
+  api("/api/v1/ui/prefs").then((p) => {
+    window.AM.prefs = p;                                 // anche la disposizione delle card (personalizza.js)
+    document.dispatchEvent(new CustomEvent("prefs-loaded", { detail: p }));
+    if (p.theme && p.theme !== pref) apply(p.theme, true);
+  }).catch(() => {});
 })();

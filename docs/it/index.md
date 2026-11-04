@@ -11,7 +11,7 @@ dashboard (icona **?** nelle sezioni).
 |---|---|
 | [Installazione e aggiornamento](installation.md) | requisiti, `install.sh`, `update.sh`, HTTPS, file generati dai modelli |
 | [Configurazione e utenti](configuration.md) | `config.ini`, password, utente in sola lettura |
-| [La dashboard](dashboard.md) | viste (Panoramica, Server, Rete, Dispositivi, Avvisi ed eventi, Backup), cose da controllare, tema, impostazioni, lingue, smartphone |
+| [La dashboard](dashboard.md) | viste (Panoramica, Server, Rete, Dispositivi, Avvisi ed eventi, Backup), cose da controllare, tema, personalizza, ricerca, impostazioni, lingue, smartphone |
 | [Server](server.md) | risorse, temperature, processi, servizi, eventi sui grafici |
 | [Connessione](connection.md) | controllo continuo, speedtest, IP pubblico |
 | [Server collegati](agents.md) | agenti Linux e Windows, panoramica, avvisi |

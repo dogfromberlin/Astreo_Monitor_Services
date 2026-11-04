@@ -1,4 +1,4 @@
-"""Preferenze dell'interfaccia di ogni utente della dashboard (4.1): tema, e dalla 4.1 anche l'ordine delle card.
+"""Preferenze dell'interfaccia di ogni utente della dashboard (4.1): tema e disposizione delle card (Personalizza).
 
 Salvate nella tabella monitor_state con la chiave ui:prefs:<utente>: nessuna migrazione del database.
 Valgono per l'utente, quindi sono le stesse dal computer e dal telefono; il browser ne tiene una copia
@@ -7,11 +7,33 @@ locale solo per mostrare subito il tema giusto all'apertura della pagina.
 from __future__ import annotations
 
 import hashlib
+import re
 
 from . import db
 
 THEMES = ("system", "light", "dark")
-DEFAULTS = {"theme": "system"}
+# sezioni della dashboard con le card riorganizzabili (Personalizza)
+LAYOUT_SECTIONS = ("ov-kpis", "ov-hosts", "ov-bottom", "srv-detail")
+CARD_RE = re.compile(r"^[a-z0-9:_-]{1,64}$")
+MAX_CARDS = 60
+DEFAULTS = {"theme": "system", "layout": {}}
+
+
+def _cards(v) -> list[str]:
+    if not isinstance(v, list) or len(v) > MAX_CARDS or not all(isinstance(x, str) and CARD_RE.match(x) for x in v):
+        raise ValueError("Elenco di card non valido")
+    return list(dict.fromkeys(v))
+
+
+def _layout(v) -> dict:
+    if not isinstance(v, dict):
+        raise ValueError("Disposizione non valida")
+    out = {}
+    for sec, conf in v.items():
+        if sec not in LAYOUT_SECTIONS or not isinstance(conf, dict) or set(conf) - {"order", "hidden"}:
+            raise ValueError(f"Sezione non valida: {sec}")
+        out[sec] = {"order": _cards(conf.get("order", [])), "hidden": _cards(conf.get("hidden", []))}
+    return out
 
 
 def _key(user: str) -> str:
@@ -31,6 +53,8 @@ def validate(data) -> dict:
             if v not in THEMES:
                 raise ValueError("Tema non valido")
             out[k] = v
+        elif k == "layout":
+            out[k] = _layout(v)
         else:
             raise ValueError(f"Preferenza sconosciuta: {k}")
     return out

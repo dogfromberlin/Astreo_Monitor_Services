@@ -778,6 +778,70 @@ dl.kv dd.mono { font-family: var(--font-mono); font-size: .8rem; }
   body.more-open .more-btn { grid-column: 4; grid-row: 1; }
 }
 
+/* 4.1 tappa 3: ricerca Ctrl K */
+.search-btn { display: inline-flex; align-items: center; gap: .6rem; min-height: 2.75rem; min-width: 16rem; padding: 0 .8rem;
+              border-radius: 12px; border: 1px solid var(--line-strong); background: var(--input); color: var(--muted); font-weight: 400; }
+.search-btn:hover { color: var(--strong); }
+.search-btn span { margin-right: auto; }
+kbd { font-family: var(--font-mono); font-size: .72rem; padding: .1rem .4rem; border-radius: 6px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--raised); }
+.edit-btn .icon { width: 1rem; height: 1rem; }
+dialog.search-dialog { width: min(40rem, 94vw); margin-top: 12vh; padding: 0; border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
+.search-box { display: flex; align-items: center; gap: .6rem; padding: .6rem .8rem; border-bottom: 1px solid var(--line); }
+.search-box .icon { color: var(--muted); }
+.search-box input { flex: 1; min-height: 2.75rem; border: 0; outline: none; background: transparent; color: var(--strong); font: 400 1.05rem var(--font); }
+.search-box form { margin: 0; }
+.search-box button { font-family: var(--font-mono); font-size: .75rem; }
+.search-results { list-style: none; margin: 0; padding: .4rem; max-height: min(26rem, 60vh); overflow-y: auto; }
+.search-results li { display: flex; align-items: center; gap: .8rem; min-height: 2.9rem; padding: .45rem .7rem; border-radius: 10px; cursor: pointer; }
+.search-results li.active { background: var(--nav-active); }
+.search-results li .kind { flex: none; min-width: 6.5rem; font-size: .72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.search-results li .txt { display: grid; min-width: 0; }
+.search-results li strong { color: var(--strong); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-results li small { font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-results li.empty { color: var(--muted); cursor: default; }
+.search-hint { margin: 0; padding: .55rem .9rem; border-top: 1px solid var(--line); font-size: .76rem; color: var(--muted); }
+
+/* 4.1 tappa 3: Personalizza */
+body:not(.editing) .card-hidden { display: none !important; }
+body.editing [data-layout] > [data-card] { outline: 1px dashed var(--line-strong); outline-offset: 3px; }
+body.editing .card-hidden { opacity: .45; }
+.edit-banner { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem 1rem; padding: .9rem 1.1rem; border-radius: 14px;
+               background: var(--info-bg); border: 1px dashed var(--accent2); }
+.edit-banner > .icon { color: var(--accent2); }
+.edit-banner .txt { display: grid; gap: .1rem; margin-right: auto; flex: 1 1 18rem; }
+.edit-banner strong { color: var(--strong); }
+.edit-banner span { font-size: .85rem; color: var(--text); }
+.card-tools { display: flex; align-items: center; gap: .3rem; margin-bottom: .2rem; grid-column: 1 / -1; }
+.card-tools button { min-width: 2.25rem; height: 2.25rem; padding: 0 .45rem; border-radius: 8px; border: 1px solid var(--line-strong);
+                     background: var(--input); color: var(--text); display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
+.card-tools button .icon { width: 1rem; height: 1rem; }
+.card-tools .grip { cursor: grab; touch-action: none; font-size: .75rem; margin-right: auto; }
+.card-tools .eye { margin-left: .3rem; }
+.card-tools .eye[aria-pressed="true"] { color: var(--warn-text); }
+[data-card].dragging { opacity: .85; box-shadow: var(--shadow); outline: 2px solid var(--accent) !important; }
+[data-card].dragging .grip { cursor: grabbing; }
+.gauges .card-tools, .columns > .card-tools { grid-column: 1 / -1; }
+
+/* aree di tocco più ampie sui dispositivi con il dito */
+@media (pointer: coarse) {
+  .help-btn { position: relative; }
+  .help-btn::after { content: ""; position: absolute; inset: -.7rem; }
+  .lang-switch button { min-width: 2.75rem; min-height: 2.75rem; }
+  .subtabs button, .period button { min-height: 2.75rem; }
+}
+@media (max-width: 760px) {
+  .topbar { gap: .4rem; }
+  .search-btn { min-width: 0; width: 2.6rem; height: 2.4rem; min-height: 0; padding: 0; justify-content: center; }
+  .search-btn span, .search-btn kbd { display: none; }
+  .edit-btn { position: fixed; right: .75rem; bottom: calc(4.6rem + env(safe-area-inset-bottom)); z-index: 25; box-shadow: var(--shadow);
+              background: var(--surface); }
+  dialog.search-dialog { margin-top: 4vh; }
+  .search-results li .kind { min-width: 5.2rem; }
+  .card-tools .grip span { display: none; }
+  button { min-height: 2.75rem; }
+  .card-tools button, .theme-switch button { min-height: 0; }
+}
+
 /* piè di pagina compatto sul telefono (sul computer le stesse voci sono nel menu laterale) */
 .mobile-foot { display: none; }
 

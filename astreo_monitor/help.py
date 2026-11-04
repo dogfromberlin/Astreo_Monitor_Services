@@ -50,3 +50,27 @@ def page(lang: str, name: str) -> dict:
         raise HelpError("pagina non trovata")
     title, html = _render(path, os.path.getmtime(path))
     return {"page": name, "lang": lang, "title": title, "html": html}
+
+
+@functools.lru_cache(maxsize=8)
+def _index(lang: str, stamp: float) -> list[dict]:
+    out = []
+    for name in pages(lang):
+        text = open(os.path.join(DOCS, lang, f"{name}.md"), encoding="utf-8").read()
+        title = next((line[2:].strip() for line in text.splitlines() if line.startswith("# ")), name)
+        out.append({"ref": name, "page": title, "title": title})
+        # capitoli con ancora: <a id="x"></a> seguito dal titolo "## ..."
+        for anchor, heading in re.findall(r'<a id="([a-z0-9-]+)"></a>\s*\n#{2,3} ([^\n]+)', text):
+            out.append({"ref": f"{name}#{anchor}", "page": title, "title": heading.strip()})
+    return out
+
+
+def index(lang: str) -> list[dict]:
+    """4.1: pagine e capitoli della guida, per la ricerca Ctrl K della dashboard."""
+    lang = i18n.normalize(lang)
+    folder = os.path.join(DOCS, lang)
+    try:
+        stamp = max(os.path.getmtime(os.path.join(folder, f)) for f in os.listdir(folder))
+    except (OSError, ValueError):
+        return []
+    return _index(lang, stamp)

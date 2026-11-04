@@ -62,6 +62,34 @@ lettura vede le voci ma non le azioni che modificano qualcosa.
 Interruttore in alto a destra: **segui il sistema** (predefinito), **chiaro** o **scuro**. La scelta vale per
 l'utente, quindi è la stessa dal computer e dal telefono; la pagina parte subito con il tema giusto.
 
+<a id="personalizza"></a>
+## Personalizza
+
+Nella **Panoramica** e nel dettaglio di un **server** il pulsante **Personalizza** (in alto; sul telefono in basso a
+destra) mette la pagina in modifica: ogni card ha una maniglia **Trascina**, le frecce per spostarla prima o dopo e
+l'occhio per nasconderla. Le card si spostano dentro la propria sezione; la fascia di stato e *Da controllare*
+restano sempre in alto.
+
+| Pulsante | Cosa fa |
+|---|---|
+| Trascina | sposta la card con il mouse o con il dito |
+| ↑ ↓ | sposta la card di un posto (comodo da tastiera e sul telefono) |
+| Occhio | nasconde la card, o la rimostra; in modifica le card nascoste restano visibili, sbiadite |
+| Ripristina ordine | torna all'ordine di partenza delle sezioni della pagina |
+| Mostra card nascoste | rimostra tutte le card nascoste della pagina |
+| Fine | chiude la modifica (anche Esc) |
+
+La disposizione vale per l'utente, quindi è la stessa dal computer e dal telefono; l'ordine dei pannelli del
+dettaglio vale per tutti i server. Le card aggiunte nelle versioni future compaiono in fondo alla loro sezione.
+
+<a id="ricerca"></a>
+## Ricerca
+
+**Ctrl K** (**⌘ K** su Mac), oppure il campo **Cerca** in alto (sul telefono la lente), apre la ricerca: sezioni,
+server, servizi, dispositivi, schede delle impostazioni, pagine e capitoli di questa guida, e comandi rapidi (tema,
+guida, personalizza). Si scrive una parte del nome, si sceglie con ↑ ↓ e si apre con **Invio**; **Esc** chiude.
+L'utente in sola lettura trova solo quello che può aprire.
+
 <a id="impostazioni"></a>
 ## Impostazioni
 

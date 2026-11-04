@@ -62,6 +62,33 @@ settings). The read-only user sees the items but not the actions that change som
 Switch at the top right: **follow the system** (default), **light** or **dark**. The choice applies to the
 user, so it is the same on the computer and on the phone; the page starts straight away with the right theme.
 
+<a id="personalizza"></a>
+## Customise
+
+In the **Overview** and in the detail of a **server** the **Customise** button (at the top; on the phone at the
+bottom right) puts the page in edit mode: each card has a **Drag** handle, arrows to move it before or after and
+an eye to hide it. Cards move within their own section; the status strip and *To check* always stay at the top.
+
+| Button | What it does |
+|---|---|
+| Drag | moves the card with the mouse or a finger |
+| ↑ ↓ | moves the card by one place (handy from the keyboard and on the phone) |
+| Eye | hides the card, or shows it again; in edit mode hidden cards stay visible, faded |
+| Reset order | goes back to the starting order of the page's sections |
+| Show hidden cards | shows all the hidden cards of the page again |
+| Done | closes edit mode (Esc too) |
+
+The layout applies to the user, so it is the same on the computer and on the phone; the order of the detail
+panels applies to all servers. Cards added in future versions appear at the end of their section.
+
+<a id="ricerca"></a>
+## Search
+
+**Ctrl K** (**⌘ K** on Mac), or the **Search** field at the top (the magnifier on the phone), opens the search:
+sections, servers, services, devices, settings tabs, pages and chapters of this guide, and quick commands
+(theme, guide, customise). Type part of the name, choose with ↑ ↓ and open with **Enter**; **Esc** closes.
+The read-only user only finds what they can open.
+
 <a id="impostazioni"></a>
 ## Settings
 

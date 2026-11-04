@@ -10,6 +10,7 @@ insieme a mano.
 
 | Area | Cosa offre |
 |---|---|
+| **Dashboard** | Pagina iniziale **Panoramica** con lo stato in una frase e l'elenco **Da controllare** con le azioni suggerite; menu laterale, tema chiaro e scuro, card da riordinare o nascondere, ricerca **Ctrl K**; funziona sul telefono e si installa come app ([guida](docs/it/dashboard.md)) |
 | **Server** | CPU, load, memoria, disco, temperature, processi, partizioni; grafici storici con gli **eventi** (riavvii, interruzioni, cambi di IP, servizi fermi, avvisi) sulla linea del tempo |
 | **Servizi** | Qualsiasi unit systemd: attivo / fermo, avvisi quando si ferma e quando riparte, avvio e arresto dalla dashboard |
 | **Server collegati** | Agenti leggeri per altri server **Linux e Windows** (solo invio, token per server, coda locale): panoramica, storico, servizi, riavvii, avvisi ([guida](docs/it/agents.md)) |

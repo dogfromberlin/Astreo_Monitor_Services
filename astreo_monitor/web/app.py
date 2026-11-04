@@ -752,6 +752,10 @@ def create_app(cfg: Config) -> Flask:
     # ---------------------------------------------------------- aiuto in linea
     from .. import help as help_mod
 
+    @app.get("/api/v1/help-search")
+    def api_help_search():
+        return jsonify({"entries": help_mod.index(request.args.get("lang") or current_language())})
+
     @app.get("/api/v1/help/<name>")
     def api_help(name: str):
         lang = request.args.get("lang") or current_language()

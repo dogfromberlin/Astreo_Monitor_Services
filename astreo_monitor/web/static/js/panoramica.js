@@ -186,7 +186,7 @@
       label = stopped.length === 1 ? t("1 servizio fermo") : t("{p0} servizi fermi", { p0: stopped.length });
     } else if (h.status === "OK" && worst === "alert") cls = "alert";
     else if (h.status === "OK" && worst === "warn") cls = "warn";
-    const a = el("a", { class: `ov-host ${cls === "wait" ? "" : cls}`, href: hostHref(h.id) });
+    const a = el("a", { class: `ov-host ${cls === "wait" ? "" : cls}`, href: hostHref(h.id), "data-card": `host-${h.id}` });
 
     const head = el("div", { class: "head" });
     const ic = el("span", { class: `ic${h.kind === "local" ? "" : " remote"}`, "aria-hidden": "true" });
@@ -307,6 +307,8 @@
     renderKpis(d);
     renderTodo(d);
     $("#ov-hosts").replaceChildren(...d.hosts.filter((h) => h.enabled || h.kind === "local").map((h) => hostCard(h, d)));
+    $("#ov-hosts").$default = d.hosts.map((h) => `host-${h.id}`);      // ordine di partenza per "Ripristina ordine"
+    if (window.AM.applyLayout) window.AM.applyLayout("ov-hosts");
     renderConnection(d.connection);
     renderBackup(d.backup, $("#ov-backup"));
     renderBackup(d.backup, $("#bk-summary"));
@@ -323,6 +325,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     every(30_000, load);                    // anche fuori dalla Panoramica: tiene aggiornato il numero nel menu
     window.AM.onView("panoramica", () => { greeting(); if (last) load(); });
+    window.AM.overview = () => last;                 // per la ricerca Ctrl K (servizi dei server)
     setInterval(greeting, 60_000);
   });
 })();
