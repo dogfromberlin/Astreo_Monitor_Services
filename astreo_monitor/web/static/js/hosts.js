@@ -6,6 +6,12 @@
                    DISABLED: ["wait", "disattivato"] };
   let hosts = [];
   window.AM.host = Number((location.hash.split("/")[1]) || 1) || 1;
+  // 4.1: dalla Panoramica si apre un server con #server/<id>
+  window.addEventListener("hashchange", () => {
+    if (!location.hash.startsWith("#server")) return;
+    const id = Number(location.hash.split("/")[1] || 1) || 1;
+    if (id !== window.AM.host) select(id);
+  });
 
   const cardClass = (h) => {
     if (h.status !== "OK") return STATUS[h.status][0];

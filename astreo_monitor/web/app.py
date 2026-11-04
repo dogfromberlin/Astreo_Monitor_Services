@@ -134,7 +134,7 @@ def create_app(cfg: Config) -> Flask:
 
     def viewer_allowed() -> bool:
         if request.method not in ("GET", "HEAD"):
-            return request.path == "/api/v1/terminal/lock"
+            return request.path in ("/api/v1/terminal/lock", "/api/v1/ui/prefs")   # preferenze della propria vista
         return not request.path.startswith(VIEWER_DENIED)
 
     # Integrazioni (Prometheus, Home Assistant): token dedicato, solo questi due indirizzi, solo lettura
@@ -286,8 +286,10 @@ def create_app(cfg: Config) -> Flask:
     @app.get("/")
     def dashboard():
         lang = current_language()
+        user = (request.authorization.username if request.authorization else "") or ""
         return render_template("index.html", version=__version__, lang=lang, languages=i18n.LANGUAGES,
-                               catalog=i18n.catalog(lang), service_user=service_user(), role=g.get("role", "admin"))
+                               catalog=i18n.catalog(lang), service_user=service_user(), role=g.get("role", "admin"),
+                               username=user)
 
     @app.get("/astreomonitor")  # vecchio indirizzo, mantenuto per i preferiti
     def legacy_dashboard():
@@ -777,6 +779,32 @@ def create_app(cfg: Config) -> Flask:
         mins = offline_minutes()
         with db.connect(cfg.database) as conn:
             return jsonify({"hosts": hosts_mod.listing(conn, mins), "offline_minutes": mins})
+
+    # ------------------------------------------------------ 4.1: panoramica e preferenze
+    from .. import overview as overview_mod
+    from .. import ui_prefs
+
+    @app.get("/api/v1/overview")
+    def api_overview():
+        with db.connect(cfg.database) as conn:
+            return jsonify(overview_mod.build(conn, cfg, current_language(), offline_minutes()))
+
+    def prefs_user() -> str:
+        return (request.authorization.username if request.authorization else "") or g.get("role", "admin")
+
+    @app.get("/api/v1/ui/prefs")
+    def api_ui_prefs():
+        with db.connect(cfg.database) as conn:
+            return jsonify(ui_prefs.load(conn, prefs_user()))
+
+    @app.put("/api/v1/ui/prefs")
+    def api_ui_prefs_update():
+        try:
+            data = ui_prefs.validate(request.get_json(silent=True))
+        except ValueError as exc:
+            abort(400, description=str(exc))
+        with db.connect(cfg.database) as conn:
+            return jsonify(ui_prefs.save(conn, prefs_user(), data))
 
     def install_commands(hid: int, kind: str, token: str) -> dict:
         import hashlib

@@ -83,16 +83,20 @@
   // ---------------------------------------------------------------- grafici
   const css = getComputedStyle(document.documentElement);
   const C = (name) => css.getPropertyValue(name).trim();
-  const PALETTE = ["#8ccba8", "#e8b85c", "#7382eb", "#d48fd1", "#ef7a62", "#b3c48e", "#6fd6c8", "#c9c27a"];
+  // colori delle serie leggibili sia sul tema scuro sia sul chiaro (menta e pervinca del logo per prime)
+  const PALETTE = ["#35B985", "#E0A22E", "#6F82F0", "#C46FC1", "#E5684F", "#8FA65A", "#2FB2A6", "#B39A3A"];
   const charts = {};
-  if (window.Chart) {
-    Chart.defaults.color = C("--text");
+  function applyChartTheme() {
+    if (!window.Chart) return;
+    Chart.defaults.color = C("--muted");
     Chart.defaults.borderColor = C("--line");
     Chart.defaults.font.family = C("--font");
+    Object.values(charts).forEach((c) => c.update("none"));
   }
+  applyChartTheme();
   // ------------------------------------------------- eventi sui grafici
-  const EVENT_COLOR = { reboot: "#d48fd1", outage: "#ef7a62", ip: "#7382eb", service: "#e8b85c", container: "#6fd6c8",
-                        pihole: "#c9c27a", check: "#8fb8ff", host: "#d98cf0", speedtest: "#f0a35e", alert: "#e8b85c" };
+  const EVENT_COLOR = { reboot: "#C46FC1", outage: "#E5684F", ip: "#6F82F0", service: "#E0A22E", container: "#2FB2A6",
+                        pihole: "#B39A3A", check: "#5B8FE8", host: "#B57AE0", speedtest: "#E8894A", alert: "#E0A22E" };
   const eventState = { visible: true, hidden: new Set(), cache: {} };
 
   function visibleEvents(list) {
@@ -114,7 +118,7 @@
         while (i < times.length - 2 && times[i + 1] <= ts) i++;
         const frac = Math.max(0, Math.min(1, (ts - times[i]) / ((times[i + 1] - times[i]) || 1)));
         const px = x.getPixelForValue(i) + frac * (x.getPixelForValue(i + 1) - x.getPixelForValue(i));
-        const color = EVENT_COLOR[e.kind] || "#e8b85c";
+        const color = EVENT_COLOR[e.kind] || "#E0A22E";
         ctx.save();
         ctx.strokeStyle = color; ctx.globalAlpha = .75; ctx.lineWidth = 1.2; ctx.setLineDash([3, 3]);
         ctx.beginPath(); ctx.moveTo(px, area.top); ctx.lineTo(px, area.bottom); ctx.stroke();
@@ -130,10 +134,10 @@
         ctx.font = "12px " + C("--font");
         const w = Math.max(...text.map((l) => ctx.measureText(l).width)) + 16;
         const bx = Math.min(Math.max(h.px - w / 2, area.left), area.right - w);
-        ctx.fillStyle = "rgba(13,8,34,.95)"; ctx.strokeStyle = EVENT_COLOR[h.e.kind] || "#e8b85c";
+        ctx.fillStyle = C("--surface"); ctx.strokeStyle = EVENT_COLOR[h.e.kind] || "#E0A22E";
         ctx.fillRect(bx, area.top + 8, w, 40); ctx.strokeRect(bx, area.top + 8, w, 40);
-        ctx.fillStyle = "#dcefd9"; ctx.fillText(text[0], bx + 8, area.top + 24);
-        ctx.fillStyle = "#b7c0b5"; ctx.fillText(text[1], bx + 8, area.top + 40);
+        ctx.fillStyle = C("--strong"); ctx.fillText(text[0], bx + 8, area.top + 24);
+        ctx.fillStyle = C("--text"); ctx.fillText(text[1], bx + 8, area.top + 40);
         ctx.restore();
       }
     },
@@ -190,13 +194,24 @@
   let currentView = null;
   // Se la pagina è già aperta su quella vista (link diretto, es. /#terminale), la carica subito
   function onView(name, fn) { viewHandlers[name] = fn; if (currentView === name) fn(); }
+  // 4.1: titolo della pagina = nome della vista (la Panoramica lo personalizza con il saluto)
+  function setTitle(title, sub = "") {
+    for (const id of ["#page-title", "#mobile-title"]) { const n = $(id); if (n) n.textContent = title; }
+    for (const id of ["#page-sub", "#mobile-sub"]) { const n = $(id); if (n) n.textContent = sub; }
+    document.title = title === t("Astreo Monitor") ? title : `${title} · Astreo Monitor`;
+  }
   function showView() {
-    const name = (location.hash || "#server").slice(1).split("/")[0] || "server";
+    const name = (location.hash || "#panoramica").slice(1).split("/")[0] || "panoramica";
     const viewerHidden = IS_VIEWER ? ["impostazioni", "terminale", "log"] : [];
     const valid = $$(".view[data-view]").map((v) => v.dataset.view).filter((v) => !viewerHidden.includes(v));
-    const view = valid.includes(name) ? name : "server";
+    const view = valid.includes(name) ? name : "panoramica";
     $$(".view[data-view]").forEach((v) => { v.hidden = v.dataset.view !== view; });
-    $$("[data-view-link]").forEach((a) => a.classList.toggle("active", a.dataset.viewLink === view));
+    $$("[data-view-link]").forEach((a) => {
+      a.classList.toggle("active", a.dataset.viewLink === view);
+      if (a.dataset.viewLink === view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+    const link = $(`[data-view-link="${view}"] span`);
+    if (link && view !== "panoramica") setTitle(link.textContent);
     document.body.dataset.currentView = view;   // NON data-view: verrebbe trattato come una vista
     if (currentView !== view) {
       currentView = view;
@@ -226,6 +241,7 @@
     return setInterval(run, ms);
   }
   const isView = (v) => currentView === v;
+  const reloadView = () => { if (viewHandlers[currentView]) viewHandlers[currentView](); };
 
   // selettore della lingua (piè di pagina): salva l'impostazione e ricarica
   document.addEventListener("click", async (ev) => {
@@ -235,7 +251,7 @@
     catch (e) { toast(e.message, "error"); }
   });
 
-  window.AM = { t, LANG, LOCALE, IS_VIEWER, $, $$, api, el, row, toast, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtFull, fmtDuration, fmtUptime,
+  window.AM = { t, LANG, LOCALE, IS_VIEWER, $, $$, api, el, row, toast, setTitle, applyChartTheme, reloadView, fmtNum, fmtGB, fmtTime, fmtDateTime, fmtFull, fmtDuration, fmtUptime,
                 level, toLocalInput, C, PALETTE, drawChart, ds, constLine, charts, onView, every, isView,
                 loadEvents, eventState, visibleEvents, redrawEvents, EVENT_COLOR };
   // Avvisi di installazione: database incompleto o pagina di una versione diversa dal server

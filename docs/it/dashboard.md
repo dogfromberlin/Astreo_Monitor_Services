@@ -7,14 +7,58 @@ Si apre all'indirizzo indicato al termine dell'installazione, di norma `https://
 
 | Vista | Contenuto | Utente in sola lettura |
 |---|---|---|
+| **Panoramica** | pagina iniziale: stato in una frase, cose da controllare, server, connessione, backup, ultimi eventi | sì (senza azioni) |
 | **Server** | risorse in tempo reale, controlli, servizi, dispositivi, moduli, processi, storico con eventi | sì (senza processi) |
 | **Connessione** | andamento, disponibilità, qualità e confronto della connessione Internet | sì |
 | **Impostazioni** | speedtest, notifiche, servizi, dispositivi, backup, moduli | no |
 | **Log** | journal dei servizi | no |
 | **Terminale** | shell nel browser (solo HTTPS) | no |
 
-In testata: nome del server, tempo dall'avvio, IP pubblico, ultimo speedtest e ultimo backup; sotto, la fila
-dei servizi monitorati (verde attivo, rosso fermo).
+Le viste si scelgono dal menu laterale (sul telefono dalla barra in basso). In cima alla vista **Server**:
+nome del server, tempo dall'avvio, IP pubblico, ultimo speedtest e ultimo backup; sotto, la fila dei servizi
+monitorati (verde attivo, rosso fermo).
+
+<a id="panoramica"></a>
+## Panoramica
+
+È la pagina che si apre per prima e si aggiorna da sola ogni 30 secondi.
+
+| Riquadro | Cosa mostra |
+|---|---|
+| Stato | una frase sola: *Tutto funziona*, *Tutto funziona · 1 cosa da controllare* o *Attenzione*, con il riepilogo di server, servizi, connessione e backup |
+| Numeri | server raggiungibili, servizi attivi, disponibilità della connessione negli ultimi 7 giorni, ora dell'ultimo backup |
+| Da controllare | l'elenco qui sotto |
+| Server | una scheda per server: CPU, memoria, disco più pieno, temperatura e servizi (prima quelli fermi); un clic apre il server |
+| Connessione, Sicurezza dei dati, Ultimi eventi | ultimo speedtest, latenza e IP pubblico; backup, copia e prova di ripristino; gli eventi delle ultime 24 ore |
+
+Il numero accanto a **Panoramica** nel menu indica quante cose ci sono da controllare.
+
+<a id="da-controllare"></a>
+## Da controllare
+
+Raccoglie in un posto solo quello che richiede attenzione, in ordine di importanza (**Urgente**, **Da
+guardare**, **Informazione**), e si svuota da solo quando il problema è risolto.
+
+| Cosa compare | Quando |
+|---|---|
+| server non raggiungibile | l'agente non invia dati da più dei minuti impostati in *Server collegati* |
+| servizio fermo | un servizio controllato, del server centrale o di un agente, non è attivo |
+| disco o temperatura | oltre le soglie di avviso o di allarme |
+| connessione | Internet assente o degradata |
+| backup | ultimo backup non riuscito, nessun backup da più di 36 ore, prova di ripristino non riuscita |
+| dispositivi | un controllo non risponde o risponde con un avviso |
+| scadenze | certificati e token vicini alla scadenza |
+| aggiornamenti | aggiornamenti di sicurezza da installare, riavvio necessario |
+
+Ogni voce ha l'azione suggerita: aprire il server o la vista interessata, oppure **Non controllarlo più** per un
+servizio che non serve più (lo toglie dai servizi controllati; si riattiva dalle impostazioni). L'utente in sola
+lettura vede le voci ma non le azioni che modificano qualcosa.
+
+<a id="tema"></a>
+## Tema chiaro e scuro
+
+Interruttore in alto a destra: **segui il sistema** (predefinito), **chiaro** o **scuro**. La scelta vale per
+l'utente, quindi è la stessa dal computer e dal telefono; la pagina parte subito con il tema giusto.
 
 <a id="impostazioni"></a>
 ## Impostazioni
@@ -36,14 +80,14 @@ lascia il campo com'è per conservarli, scrivi un valore nuovo per sostituirli.
 ## Aiuto in linea
 
 L'icona **?** accanto al titolo di ogni sezione apre questa guida nel punto che la riguarda, in un pannello
-laterale e nella lingua scelta; **Guida** in fondo alla pagina apre l'indice. I collegamenti tra le pagine si
+laterale e nella lingua scelta; **Guida** in fondo al menu laterale apre l'indice. I collegamenti tra le pagine si
 seguono senza uscire dalla dashboard (← per tornare indietro). È la stessa guida di `docs/` nel repository,
 sempre della versione installata.
 
 <a id="lingua"></a>
 ## Lingua
 
-Selettore **IT / EN** in fondo alla pagina: vale per dashboard, notifiche, bot Telegram e riepilogo
+Selettore **IT / EN** in fondo al menu laterale (sul telefono in fondo alla pagina): vale per dashboard, notifiche, bot Telegram e riepilogo
 settimanale. I campi data e ora seguono invece la lingua del browser.
 
 <a id="avvisi-pagina"></a>
@@ -58,6 +102,6 @@ settimanale. I campi data e ora seguono invece la lingua del browser.
 <a id="smartphone"></a>
 ## Smartphone e tablet
 
-La dashboard si adatta allo schermo (barra delle viste in basso). Si può installare come app: Chrome su
+La dashboard si adatta allo schermo: il menu laterale diventa la barra delle viste in basso. Si può installare come app: Chrome su
 Android, menu ⋮ → **Installa app**; Safari su iPhone, Condividi → **Aggiungi alla schermata Home**. Con HTTPS
 serve prima la CA installata sul telefono ([HTTPS e terminale](https-terminal.md#certificato)).

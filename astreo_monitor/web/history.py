@@ -133,11 +133,17 @@ def connectivity(conn, start: dt.datetime, end: dt.datetime) -> dict:
     out_series = {t: {"role": v["role"], "rtt": [v["rtt"].get(x) for x in labels], "loss": [v["loss"].get(x) for x in labels]}
                   for t, v in series.items()}
 
+    return {"bucket_s": b, "labels": labels, "series": out_series, **outages(conn, start, end)}
+
+
+def outages(conn, start: dt.datetime, end: dt.datetime) -> dict:
+    """Interruzioni della connessione Internet (minuti senza risposta da nessuna destinazione) e disponibilità."""
+    C = models.connectivity_samples
     # minuti senza risposta da nessuna destinazione Internet = interruzione
     minutes = db.rows(conn, select(C.c.timestamp.label("ts"), func.max(C.c.received).label("best"))
                       .where(C.c.role == "internet", C.c.timestamp >= start, C.c.timestamp < end)
                       .group_by(C.c.timestamp).order_by(C.c.timestamp))
-    outages, cur = [], None
+    found, cur = [], None
     for m in minutes:
         t = db.as_datetime(m["ts"])
         if m["best"] == 0:
@@ -146,14 +152,14 @@ def connectivity(conn, start: dt.datetime, end: dt.datetime) -> dict:
                 cur["samples"] += 1
             else:
                 cur = {"start": t, "end": t, "samples": 1}
-                outages.append(cur)
+                found.append(cur)
         else:
             cur = None
-    down = sum(o["samples"] for o in outages)
+    down = sum(o["samples"] for o in found)
     total = len(minutes)
     return {
-        "bucket_s": b, "labels": labels, "series": out_series, "samples": total, "down_minutes": down,
+        "samples": total, "down_minutes": down,
         "availability": round(100 - down / total * 100, 3) if total else None,
         "outages": [{"start": o["start"].isoformat(timespec="minutes"), "end": o["end"].isoformat(timespec="minutes"),
-                     "minutes": o["samples"]} for o in outages],
+                     "minutes": o["samples"]} for o in found],
     }

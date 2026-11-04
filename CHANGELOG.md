@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.1.0.dev1 — new front end, stage 1 of 3 (test build, not a Release)
+
+- **New layout**: side menu with the new "Orbita Classica" logo, page title at the top, bottom bar on phones. Fonts: Space Grotesk, Inter, JetBrains Mono.
+- **Overview** is the new start page: status in one sentence, key numbers (servers, services, 7-day connection availability, last backup), **To check** list with suggested actions (open the server, stop checking a service that is no longer needed), one card per server, connection, data safety and latest events. The number of things to check is shown next to Overview in the menu.
+- **Light and dark theme**: follow the system (default), light or dark; saved per user, so it is the same on computer and phone, and applied before the page is drawn.
+- New API: `GET /api/v1/overview`, `GET/PUT /api/v1/ui/prefs` (also allowed to the read-only user, for their own preferences only). Preferences are stored in `monitor_state`: no database migration.
+- Server view: name, uptime, public IP, speedtest, backup and services row moved from the old header to the top of the view.
+- New favicon and app icons from the logo (the large icons are provisional).
+- Guide: Overview, To check and theme in *The dashboard* (IT/EN).
+
 ## 4.0.2
 
 - Windows agent: the certificate check now compiles on PowerShell 7.5 / .NET 9 too (`Add-Type -IgnoreWarnings`, warning SYSLIB0057). Windows PowerShell 5.1, used by the agent on Windows, was not affected; the failing test had blocked the 4.0.0 and 4.0.1 Releases.
