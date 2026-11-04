@@ -80,5 +80,6 @@
     $("#bk-test").addEventListener("click", testAll);
     $("#bk-run").addEventListener("click", runNow);
     document.addEventListener("subtab", (ev) => { if (ev.detail.sub === "backup") load(); });
+    window.AM.onView("backup", load);
   });
 })();

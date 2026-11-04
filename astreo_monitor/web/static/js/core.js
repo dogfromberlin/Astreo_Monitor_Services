@@ -193,7 +193,9 @@
   const viewHandlers = {};
   let currentView = null;
   // Se la pagina è già aperta su quella vista (link diretto, es. /#terminale), la carica subito
-  function onView(name, fn) { viewHandlers[name] = fn; if (currentView === name) fn(); }
+  // 4.1: più script possono reagire alla stessa vista (prima l'ultimo sostituiva gli altri)
+  function onView(name, fn) { (viewHandlers[name] = viewHandlers[name] || []).push(fn); if (currentView === name) fn(); }
+  const runView = (name) => (viewHandlers[name] || []).forEach((fn) => fn());
   // 4.1: titolo della pagina = nome della vista (la Panoramica lo personalizza con il saluto)
   function setTitle(title, sub = "") {
     for (const id of ["#page-title", "#mobile-title"]) { const n = $(id); if (n) n.textContent = title; }
@@ -210,16 +212,34 @@
       a.classList.toggle("active", a.dataset.viewLink === view);
       if (a.dataset.viewLink === view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
+    const mb = $("#more-btn");
+    if (mb) mb.classList.toggle("has-active", !!$(`.more-item[data-view-link="${view}"]`));
     const link = $(`[data-view-link="${view}"] span`);
     if (link && view !== "panoramica") setTitle(link.textContent);
     document.body.dataset.currentView = view;   // NON data-view: verrebbe trattato come una vista
+    const sub = (location.hash.split("/")[1] || "");
+    const subBtn = sub && $(`.view[data-view="${view}"] button[data-sub="${sub}"]`);
+    if (subBtn && !subBtn.classList.contains("active")) setTimeout(() => subBtn.click(), 0);   // 4.1: link diretti a una scheda
     if (currentView !== view) {
       currentView = view;
-      if (viewHandlers[view]) viewHandlers[view]();
+      runView(view);
       Object.values(charts).forEach((c) => c.resize());
     }
   }
   window.addEventListener("hashchange", showView);
+  // telefono: «Altro» apre le viste che non stanno nella barra in basso
+  document.addEventListener("click", (ev) => {
+    const more = ev.target.closest("#more-btn");
+    if (more) {
+      const open = document.body.classList.toggle("more-open");
+      more.setAttribute("aria-expanded", String(open));
+      return;
+    }
+    if (document.body.classList.contains("more-open") && (ev.target.closest(".views a") || !ev.target.closest(".views"))) {
+      document.body.classList.remove("more-open");
+      const b = $("#more-btn"); if (b) b.setAttribute("aria-expanded", "false");
+    }
+  });
 
   function setupSubtabs() {
     $$("[data-subtabs]").forEach((bar) => {
@@ -241,7 +261,7 @@
     return setInterval(run, ms);
   }
   const isView = (v) => currentView === v;
-  const reloadView = () => { if (viewHandlers[currentView]) viewHandlers[currentView](); };
+  const reloadView = () => runView(currentView);
 
   // selettore della lingua (piè di pagina): salva l'impostazione e ricarica
   document.addEventListener("click", async (ev) => {

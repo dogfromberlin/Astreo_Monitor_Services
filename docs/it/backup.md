@@ -12,7 +12,8 @@ Ogni notte alle 02:30 (`astreo-backup.timer`) il database viene salvato, **verif
 | SQLite | copia coerente con l'API di backup + `integrity_check`, zstd | decompressione + `integrity_check` |
 
 Ogni backup è una cartella `backup-AAAAMMGG-HHMMSS` con i file, `SHA256SUMS` e `manifest.json`.
-Esito e avviso (evento *Backup database*) in **Impostazioni → Backup**, nella vista Server e nel riepilogo.
+Esito, copie ed **Esegui backup ora** nella sezione **Backup** (anche nella Panoramica, riquadro *Sicurezza dei
+dati*); destinazioni rclone in **Impostazioni → Backup**; avviso con l'evento *Backup database*, anche nel riepilogo.
 
 <a id="destinazioni"></a>
 ## Destinazioni

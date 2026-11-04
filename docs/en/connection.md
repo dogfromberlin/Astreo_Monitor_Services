@@ -1,7 +1,8 @@
 # Connection
 
-The **Connection** view gathers three sources: the **continuous check** (ping every minute), the periodic
-**speedtest** and the **public IP**. The period (6 hours … 1 year or custom range) applies to all tabs;
+The **Network and connection** view gathers three sources: the **continuous check** (ping every minute), the
+periodic **speedtest** and the **public IP**. At the top: current public IP, last speedtest and, opening *Public IP
+changes*, the address changes. The period (6 hours … 1 year or custom range) applies to all tabs;
 **Export CSV** downloads the period's speedtest measurements.
 
 <a id="continuo"></a>

@@ -15,7 +15,7 @@
     s.appendChild(u);
     return s;
   };
-  const hostHref = (id) => (id === LOCAL ? "#server" : `#server/${id}`);
+  const hostHref = (id) => `#server/${id}`;
   const pct = (v) => (v === null || v === undefined ? "–" : `${fmtNum(v, 0)} %`);
   const meterLevel = (v, warn, alert) => (v >= alert ? "alert" : v >= warn ? "warn" : "");
   const clock = (iso) => (iso ? new Date(iso).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" }) : "–");
@@ -131,7 +131,7 @@
       out.push(el("a", { class: "btn small", href: `#${a.view}` },
                   a.view === "connessione" ? t("Apri Connessione") : t("Apri le impostazioni")));
     }
-    if (a.kind === "check") out.push(el("a", { class: "btn small", href: "#server" }, t("Vedi i controlli")));
+    if (a.kind === "check") out.push(el("a", { class: "btn small", href: "#dispositivi" }, t("Apri Dispositivi")));
     if (a.kind === "help") out.push(el("button", { type: "button", class: "btn small", "data-help": a.page }, t("Cosa fare")));
     return out;
   }
@@ -248,8 +248,7 @@
     return li;
   }
 
-  function renderBackup(b) {
-    const box = $("#ov-backup");
+  function renderBackup(b, box) {
     const f = (k) => box.querySelector(`[data-f="${k}"]`);
     const rt = b.restore_test;
     const bad = b.status === "ALERT" || (rt && ["ALERT", "DOWN"].includes(rt.status));
@@ -285,6 +284,13 @@
     }));
   }
 
+  // vista Server, modo elenco (4.1): le stesse schede della Panoramica
+  function renderServerList() {
+    if (!last) return;
+    $("#srv-list-cards").replaceChildren(...last.hosts.filter((h) => h.enabled || h.kind === "local").map((h) => hostCard(h, last)));
+  }
+  window.AM.renderServerList = renderServerList;
+
   // ------------------------------------------------------------------ caricamento
   async function load() {
     if (document.hidden && last) return;
@@ -302,7 +308,9 @@
     renderTodo(d);
     $("#ov-hosts").replaceChildren(...d.hosts.filter((h) => h.enabled || h.kind === "local").map((h) => hostCard(h, d)));
     renderConnection(d.connection);
-    renderBackup(d.backup);
+    renderBackup(d.backup, $("#ov-backup"));
+    renderBackup(d.backup, $("#bk-summary"));
+    renderServerList();
     renderEvents(d.events, d.hosts.filter((h) => h.enabled).length > 1);
     greeting();
   }

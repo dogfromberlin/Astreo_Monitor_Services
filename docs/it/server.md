@@ -19,14 +19,14 @@ intervallo a scelta): CPU e load, memoria e disco, temperature, velocità della 
 ## Servizi
 
 I servizi systemd da monitorare si scelgono in **Impostazioni → Servizi** (tutte le unit del server, con
-ricerca): **Monitora** li mostra in testata e nella vista Server, **Avvisami** manda un avviso quando si
+ricerca): **Monitora** li mostra nella vista Server e nella Panoramica, **Avvisami** manda un avviso quando si
 fermano e quando ripartono, l'etichetta e l'ordine decidono come compaiono.
 Un clic su un servizio nella vista Server mostra `systemctl status` (solo amministratore).
 
 Per OpenVPN la unit reale è di norma `openvpn-server@server.service`: `openvpn.service` risulta sempre attiva.
 
 <a id="controlli"></a>
-## Riquadro Controlli
+## Manutenzione e controlli
 
 Stato a colpo d'occhio di: connessione (ping), heartbeat esterno, certificati e token in scadenza, dischi,
 aggiornamenti, verifica del ripristino. Dettagli in [Connessione](connection.md), [Notifiche](notifications.md#heartbeat)

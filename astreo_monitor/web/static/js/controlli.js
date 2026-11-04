@@ -22,9 +22,10 @@
       list = (await api("/api/v1/checks")).checks;
     } catch (e) { return; }
     const active = list.filter((c) => c.enabled);
-    $("#checks-panel").hidden = active.length === 0;
+    $("#checks-empty").hidden = active.length > 0;
+    $("#checks-table").hidden = active.length === 0;
     const down = active.filter((c) => (c.state || {}).status === "DOWN").length;
-    $("#checks-summary").textContent = down === 1 ? t("1 non raggiungibile su {p0}", { p0: active.length })
+    $("#checks-summary").textContent = !active.length ? "" : down === 1 ? t("1 non raggiungibile su {p0}", { p0: active.length })
       : down ? t("{p0} non raggiungibili su {p1}", { p0: down, p1: active.length })
       : t("{p0} controlli, tutti regolari", { p0: active.length });
     $("#checks-table tbody").replaceChildren(...active.map((c) => {
@@ -130,8 +131,8 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     load();
-    every(60_000, load, "server");
-    window.AM.onView("server", load);
+    every(60_000, load, "dispositivi");
+    window.AM.onView("dispositivi", load);
     $$("#check-period button").forEach((b) => b.addEventListener("click", () => current && openHistory(current, b.dataset.range)));
     if (window.AM.IS_VIEWER) return;
     form().elements.kind.addEventListener("change", syncKind);

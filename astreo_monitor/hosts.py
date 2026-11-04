@@ -45,6 +45,27 @@ def clean_services(text: str) -> str:
     return ",".join(dict.fromkeys(units))
 
 
+def only_configured(state: dict | None, services: str | None) -> dict | None:
+    """4.1: dello stato inviato dall'agente si tengono solo i servizi ancora da controllare.
+
+    L'agente riceve il nuovo elenco solo alla risposta del suo invio successivo: senza questo filtro un servizio
+    appena tolto resterebbe visibile (e negli avvisi) per uno o due cicli. Il server centrale non ne ha bisogno.
+    """
+    if not state or services is None:
+        return state
+    keep = {u.strip().lower() for u in services.split(",") if u.strip()}
+    return {**state, "services": [s for s in state.get("services", []) if str(s.get("unit", "")).lower() in keep]}
+
+
+def prune_services(conn, hid: int) -> None:
+    """Toglie subito dallo stato salvato i servizi non più controllati (dopo una modifica dell'elenco)."""
+    services = db.scalar(conn, select(H.c.services).where(H.c.id == hid))
+    key = f"host:{hid}:services"
+    state = db.state_get(conn, key)
+    if state:
+        db.state_set(conn, key, only_configured(state, services or ""))
+
+
 def create(conn, name: str, kind: str, services: str = "") -> tuple[int, str]:
     name = (name or "").strip()
     if not NAME_RE.match(name):
@@ -101,7 +122,7 @@ def listing(conn, offline_minutes: int) -> list[dict]:
             h["status"] = ("DISABLED" if not h["enabled"] else "WAITING" if not seen
                            else "DOWN" if (now - seen).total_seconds() > offline_minutes * 60 else "OK")
         h["snapshot"] = db.state_get(conn, f"host:{h['id']}:snapshot")
-        h["services_state"] = db.state_get(conn, f"host:{h['id']}:services")
+        h["services_state"] = only_configured(db.state_get(conn, f"host:{h['id']}:services"), h.get("services"))
         for k in ("created_at", "last_seen"):
             h[k] = db.as_datetime(h[k]).isoformat(timespec="seconds") if h[k] else None
         out.append(h)

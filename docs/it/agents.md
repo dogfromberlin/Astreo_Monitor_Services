@@ -7,11 +7,13 @@ centrale. Con il solo centrale la dashboard resta quella di sempre.
 <a id="panoramica"></a>
 ## Panoramica e server scelto
 
-Con almeno un server collegato, in cima alla vista **Server** compare la **panoramica**: una scheda per server con
-stato (verde, giallo se ha servizi fermi o il disco quasi pieno, rosso se non risponde), CPU, memoria, disco,
-servizi fermi e ultimo invio. Un clic sceglie il server: la vista mostra le sue risorse, i suoi servizi e il suo
-storico con gli eventi (riavvii, servizi fermi). Controlli, dispositivi, moduli, processi e speedtest sono del solo
-centrale e restano nascosti finché è scelto un altro server. La testata resta sempre del centrale.
+Con almeno un server collegato, la vista **Server** si apre sull'**elenco dei server**: una scheda per server con
+stato (verde, giallo se ha servizi fermi o il disco quasi pieno, rosso se non risponde), CPU, memoria, disco più
+pieno, servizi (prima quelli fermi) e ultimo invio; le stesse schede sono nella Panoramica. Un clic apre il
+**dettaglio** del server (indirizzo `#server/<numero>`, si torna all'elenco dal percorso *Server › nome*): le sue
+risorse, il suo storico con gli eventi (riavvii, servizi fermi), i suoi servizi e i suoi dischi. Manutenzione e
+controlli, moduli, processi e sensori sono del solo centrale e restano nascosti negli altri server. Un servizio tolto
+dai servizi controllati sparisce subito, senza aspettare il prossimo invio dell'agente.
 
 | Dato | Linux | Windows |
 |---|---|---|

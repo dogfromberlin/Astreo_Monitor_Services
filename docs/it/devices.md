@@ -32,8 +32,8 @@ guasto) e, per le pagine web, codici attesi, testo da cercare, verifica del cert
 <a id="dove"></a>
 ## Dove si vedono
 
-- **Server → Dispositivi e servizi**: stato, latenza, disponibilità nelle ultime 24 ore; un clic apre lo storico
-  (24 ore, 7 o 30 giorni).
+- Sezione **Dispositivi**: stato, latenza, disponibilità nelle ultime 24 ore; un clic apre lo storico (24 ore, 7
+  o 30 giorni). Un controllo che non risponde compare anche in **Da controllare** nella Panoramica.
 - Eventi sui grafici, avvisi (evento **Dispositivi e servizi**), comando `/controlli` del bot, riepilogo settimanale.
 
 `astreo-checks.timer` gira ogni minuto; ciascun controllo segue il suo intervallo. Risultati conservati 90 giorni.

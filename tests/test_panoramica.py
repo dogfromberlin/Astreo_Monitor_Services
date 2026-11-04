@@ -102,3 +102,27 @@ def test_preferenze_anche_in_sola_lettura(cfg):
         assert c.put("/api/v1/settings", json={}, headers=viewer).status_code == 403          # il resto resta vietato
         html = c.get("/", headers=viewer).get_data(as_text=True)
         assert 'data-user="famiglia"' in html and 'data-view="panoramica"' in html
+
+
+def test_servizio_tolto_sparisce_subito(dbcfg):
+    """4.1: un servizio tolto da un server collegato sparisce subito, senza aspettare il prossimo invio dell'agente."""
+    from sqlalchemy import update
+    from astreo_monitor import hosts
+    now = dt.datetime.now().replace(microsecond=0)
+    with db.connect(dbcfg.database) as conn:
+        conn.execute(insert(models.hosts).values(name="ATLAS", kind="windows", enabled=True, sort_order=1, created_at=now,
+                                                 last_seen=now, services="WinDefend,Spooler"))
+        db.state_set(conn, "host:2:services", {"time": now.isoformat(), "services": [
+            {"unit": "WinDefend", "label": "Defender", "up": False, "state": "stopped"},
+            {"unit": "Spooler", "label": "Stampa", "up": True, "state": "running"}]})
+    assert {x["key"] for x in build(dbcfg)["todo"]} >= {"service:2:WinDefend"}
+    with db.connect(dbcfg.database) as conn:
+        conn.execute(update(models.hosts).where(models.hosts.c.id == 2).values(services="Spooler"))
+        # anche prima della pulizia, la lettura mostra solo i servizi ancora configurati
+        atlas = next(h for h in hosts.listing(conn, 10) if h["id"] == 2)
+        assert [s["unit"] for s in atlas["services_state"]["services"]] == ["Spooler"]
+        hosts.prune_services(conn, 2)
+        assert [s["unit"] for s in db.state_get(conn, "host:2:services")["services"]] == ["Spooler"]
+    d = build(dbcfg)
+    assert not any(x["key"].startswith("service:2:") for x in d["todo"])
+    assert d["services"]["down"] == []

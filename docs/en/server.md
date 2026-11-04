@@ -19,14 +19,14 @@ range): CPU and load, memory and disk, temperatures, connection speed.
 ## Services
 
 The systemd services to monitor are chosen in **Settings → Services** (all units of the server, with search):
-**Monitor** shows them in the header and in the Server view, **Notify me** sends an alert when they stop and when
+**Monitor** shows them in the Server view and in the Overview, **Notify me** sends an alert when they stop and when
 they start again, label and order decide how they appear.
 Clicking a service in the Server view shows `systemctl status` (administrator only).
 
 For OpenVPN the real unit is usually `openvpn-server@server.service`: `openvpn.service` always looks active.
 
 <a id="controlli"></a>
-## Checks panel
+## Maintenance and checks
 
 At-a-glance status of: connection (ping), external heartbeat, expiring certificates and tokens, disks, updates,
 restore check. Details in [Connection](connection.md), [Notifications](notifications.md#heartbeat) and

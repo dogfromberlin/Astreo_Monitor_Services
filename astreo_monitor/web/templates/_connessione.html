@@ -1,4 +1,25 @@
 <div class="view" data-view="connessione" hidden>
+  <section class="panel net-strip" aria-label="{{ _("IP pubblico e speedtest") }}">
+    <div class="net">
+    <div class="net-item">
+      <span class="net-label">{{ _("IP pubblico") }}</span>
+      <strong id="public-ip">–</strong>
+      <small id="public-ip-since"></small>
+    </div>
+    <div class="net-item">
+      <span class="net-label">{{ _("Ultimo speedtest") }}</span>
+      <strong id="speed-latest">–</strong>
+      <small id="speed-latest-when"></small>
+    </div>
+  </div>
+    <details class="ip-history">
+      <summary>{{ _("Variazioni dell'IP pubblico") }}</summary>
+      <table class="data" id="ip-history">
+        <thead><tr><th>{{ _("Quando") }}</th><th>{{ _("Nuovo IP") }}</th><th>{{ _("Precedente") }}</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </details>
+  </section>
   <section class="panel">
     <div class="panel-head">
       <h2>{{ _("Connessione internet") }} <button type="button" class="help-btn" data-help="connection#schede" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>

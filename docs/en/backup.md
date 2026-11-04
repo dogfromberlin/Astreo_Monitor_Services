@@ -12,7 +12,8 @@ Every night at 02:30 (`astreo-backup.timer`) the database is backed up, **verifi
 | SQLite | consistent copy with the backup API + `integrity_check`, zstd | decompression + `integrity_check` |
 
 Every backup is a `backup-YYYYMMDD-HHMMSS` folder with the files, `SHA256SUMS` and `manifest.json`.
-Result and alert (event *Database backup*) in **Settings → Backup**, in the Server view and in the summary.
+Result, copies and **Run backup now** in the **Backup** section (also in the Overview, *Data safety* box); rclone
+destinations in **Settings → Backup**; alert with the event *Database backup*, also in the summary.
 
 <a id="destinazioni"></a>
 ## Destinations

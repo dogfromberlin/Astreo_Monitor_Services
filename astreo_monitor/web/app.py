@@ -851,6 +851,8 @@ def create_app(cfg: Config) -> Flask:
         with db.connect(cfg.database) as conn:
             if not vals or not conn.execute(sa_update(models.hosts).where(models.hosts.c.id == hid).values(**vals)).rowcount:
                 abort(404, description="Server inesistente")
+            if "services" in vals:
+                hosts_mod.prune_services(conn, hid)      # un servizio tolto sparisce subito, senza aspettare l'agente
         return jsonify({"updated": hid})
 
     @app.delete("/api/v1/hosts/<int:hid>")

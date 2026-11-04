@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.1.0.dev2 — new front end, stage 2 of 3 (test build, not a Release)
+
+- **Side menu** as in the new design: Overview, Server, Network and connection, Devices, Alerts and events, Backup, Logs, Terminal, Settings. On phones the bottom bar keeps four views and puts the others under **More**.
+- **Server**: with more than one server, `#server` shows the list of servers (same cards as the Overview) and `#server/<id>` the detail, with breadcrumb, state, resources, history, services, disks, maintenance and checks, modules, processes and sensors.
+- **Network and connection**: public IP, last speedtest and public IP changes at the top (they were in the old header and at the bottom of the Server view).
+- **Devices**, **Alerts and events** (events of all servers with filters by period, server, type and severity; notifications sent, administrator only) and **Backup** (data safety summary for everyone; last backup, copies and run now for the administrator) are now sections of their own. Links such as `#impostazioni/dispositivi` open a settings tab directly.
+- **Fix**: a service removed from a connected server (for example with *Stop checking it*) disappears immediately from the Overview, the Server view and the alerts, without waiting for the agent's next data.
+- Fix: several scripts can now react to the same view (before, only the last one registered was run when opening it).
+- Guide updated: dashboard, server, agents, devices, backup, connection (IT/EN).
+
 ## 4.1.0.dev1 — new front end, stage 1 of 3 (test build, not a Release)
 
 - **New layout**: side menu with the new "Orbita Classica" logo, page title at the top, bottom bar on phones. Fonts: Space Grotesk, Inter, JetBrains Mono.

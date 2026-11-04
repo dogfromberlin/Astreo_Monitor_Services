@@ -8,15 +8,17 @@ It opens at the address shown at the end of the installation, usually `https://<
 | View | Content | Read-only user |
 |---|---|---|
 | **Overview** | start page: status in one sentence, things to check, servers, connection, backup, latest events | yes (without actions) |
-| **Server** | real-time resources, checks, services, devices, modules, processes, history with events | yes (without processes) |
-| **Connection** | Internet connection trend, availability, quality and comparison | yes |
+| **Server** | list of servers; for each one real-time resources, history with events, services, disks, maintenance and checks, modules, processes | yes (without processes) |
+| **Network and connection** | public IP and its changes, last speedtest; Internet connection trend, availability, quality and comparison | yes |
+| **Devices** | checks of routers, NAS, printers, websites: state, latency, availability, history | yes |
+| **Alerts and events** | events of all servers with filters by period, server, type and severity; notifications sent | yes (without notifications sent) |
+| **Backup** | data safety, last backup with its copies, run now | yes (summary only) |
 | **Settings** | speedtest, notifications, services, devices, backup, modules | no |
 | **Logs** | service journal | no |
 | **Terminal** | shell in the browser (HTTPS only) | no |
 
-Views are chosen from the side menu (on the phone from the bar at the bottom). At the top of the **Server**
-view: server name, uptime, public IP, last speedtest and last backup; below, the row of monitored services
-(green running, red stopped).
+Views are chosen from the side menu; on the phone from the bar at the bottom, where the less used ones are under
+**More**. Direct links to a settings tab look like `#impostazioni/dispositivi`.
 
 <a id="panoramica"></a>
 ## Overview

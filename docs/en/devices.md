@@ -32,8 +32,8 @@ expected codes, text to look for, certificate verification and warning days.
 <a id="dove"></a>
 ## Where they appear
 
-- **Server → Devices and services**: state, latency, availability over the last 24 hours; a click opens the
-  history (24 hours, 7 or 30 days).
+- **Devices** section: state, latency, availability over the last 24 hours; a click opens the history (24 hours,
+  7 or 30 days). A check that does not respond also appears in **To check** in the Overview.
 - Events on charts, alerts (event **Devices and services**), the bot's `/checks` command, weekly summary.
 
 `astreo-checks.timer` runs every minute; each check follows its own interval. Results kept for 90 days.

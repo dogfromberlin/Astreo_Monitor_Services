@@ -41,6 +41,9 @@
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/></symbol>
   <symbol id="i-ok" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-devices" viewBox="0 0 24 24"><rect x="2" y="5" width="13" height="10" rx="1.5"/><path d="M6 19h5M8.5 15v4"/><rect x="17" y="8" width="5" height="11" rx="1"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
   <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.4M12 17h.01"/></symbol>
 </svg>
 
@@ -54,10 +57,14 @@
   <nav class="views" aria-label="{{ _("Sezioni") }}">
     <a href="#panoramica" data-view-link="panoramica"><svg class="icon"><use href="#i-overview"/></svg><span>{{ _("Panoramica") }}</span><span class="badge" id="nav-todo" hidden></span></a>
     <a href="#server" data-view-link="server"><svg class="icon"><use href="#i-server"/></svg><span>{{ _("Server") }}</span></a>
-    <a href="#connessione" data-view-link="connessione"><svg class="icon"><use href="#i-net"/></svg><span>{{ _("Connessione") }}</span></a>
-    <a href="#impostazioni" data-view-link="impostazioni" class="admin-only"><svg class="icon"><use href="#i-settings"/></svg><span>{{ _("Impostazioni") }}</span></a>
-    <a href="#log" data-view-link="log" class="admin-only"><svg class="icon"><use href="#i-log"/></svg><span>{{ _("Log") }}</span></a>
-    <a href="#terminale" data-view-link="terminale" class="admin-only"><svg class="icon"><use href="#i-terminal"/></svg><span>{{ _("Terminale") }}</span></a>
+    <a href="#connessione" data-view-link="connessione"><svg class="icon"><use href="#i-net"/></svg><span>{{ _("Rete e connessione") }}</span></a>
+    <a href="#dispositivi" data-view-link="dispositivi" class="more-item"><svg class="icon"><use href="#i-devices"/></svg><span>{{ _("Dispositivi") }}</span></a>
+    <a href="#avvisi" data-view-link="avvisi"><svg class="icon"><use href="#i-bell"/></svg><span>{{ _("Avvisi ed eventi") }}</span></a>
+    <a href="#backup" data-view-link="backup" class="more-item"><svg class="icon"><use href="#i-db"/></svg><span>{{ _("Backup") }}</span></a>
+    <a href="#impostazioni" data-view-link="impostazioni" class="admin-only more-item"><svg class="icon"><use href="#i-settings"/></svg><span>{{ _("Impostazioni") }}</span></a>
+    <a href="#log" data-view-link="log" class="admin-only more-item"><svg class="icon"><use href="#i-log"/></svg><span>{{ _("Log") }}</span></a>
+    <a href="#terminale" data-view-link="terminale" class="admin-only more-item"><svg class="icon"><use href="#i-terminal"/></svg><span>{{ _("Terminale") }}</span></a>
+    <button type="button" class="more-btn" id="more-btn" aria-expanded="false"><svg class="icon"><use href="#i-overview"/></svg><span>{{ _("Altro") }}</span></button>
   </nav>
   <div class="sidebar-foot">
     <div class="row">
@@ -123,48 +130,29 @@
       <ul class="steps" data-f="steps"></ul>
     </article>
     <article class="ov-card" id="ov-events">
-      <div class="card-head"><h2>{{ _("Ultimi eventi") }}</h2><a href="#server" class="small">{{ _("Tutti") }}</a></div>
+      <div class="card-head"><h2>{{ _("Ultimi eventi") }}</h2><a href="#avvisi" class="small">{{ _("Tutti") }}</a></div>
       <ol class="timeline" data-f="list"></ol>
     </article>
   </section>
 </div>
 <div class="view" data-view="server">
-  <section class="panel server-head" aria-label="{{ _("Server scelto") }}">
-    <div class="top">
-      <p class="host-meta">
-      <span>{{ _("Server") }} <strong id="hostname">–</strong></span>
-      <span>{{ _("acceso da") }} <strong id="uptime">–</strong></span>
-      <span>{{ _("aggiornato alle") }} <strong id="last-update">–</strong></span>
-    </p>
-      <div class="net">
-    <div class="net-item">
-      <span class="net-label">{{ _("IP pubblico") }}</span>
-      <strong id="public-ip">–</strong>
-      <small id="public-ip-since"></small>
-    </div>
-    <div class="net-item">
-      <span class="net-label">{{ _("Ultimo speedtest") }}</span>
-      <strong id="speed-latest">–</strong>
-      <small id="speed-latest-when"></small>
-    </div>
-    <div class="net-item">
-      <span class="net-label">{{ _("Ultimo backup") }}</span>
-      <strong id="backup-latest">–</strong>
-      <small id="backup-latest-when"></small>
-    </div>
-  </div>
-    </div>
-    <button type="button" class="svc-summary" id="svc-summary" aria-expanded="false" aria-controls="leds">
-    <span class="led" id="svc-summary-led" aria-hidden="true"></span><span id="svc-summary-text">{{ _("Servizi") }}</span>
-  </button>
-    <ul class="leds" id="leds" aria-label="{{ _("Stato servizi") }}"></ul>
-  </section>
 
-  <section class="panel hosts-panel" id="hosts-panel" hidden>
-    <div class="panel-head"><h2>{{ _("Server") }} <button type="button" class="help-btn" data-help="agents#panoramica" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="hosts-summary"></small></div>
-    <div class="host-cards" id="host-cards" role="tablist"></div>
+  <section class="srv-list" id="srv-list" aria-labelledby="h-srv-list" hidden>
+    <div class="section-head"><h2 id="h-srv-list">{{ _("Server") }} <button type="button" class="help-btn" data-help="agents#panoramica" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
+      <small id="srv-list-sum"></small><a class="end admin-only" href="#impostazioni/server">{{ _("+ Aggiungi un server") }}</a></div>
+    <div class="ov-hosts" id="srv-list-cards"></div>
   </section>
-  <p class="remote-note" id="remote-note" hidden></p>
+  <div class="srv-detail" id="srv-detail">
+  <nav class="crumbs" aria-label="{{ _("Percorso") }}" id="srv-crumbs" hidden><a href="#server">{{ _("Server") }}</a><span aria-hidden="true">›</span><span id="crumb-name">–</span></nav>
+  <section class="srv-head" aria-labelledby="srv-name">
+    <span class="ic" id="srv-ic" aria-hidden="true"><svg class="icon"><use href="#i-server"/></svg></span>
+    <div class="who">
+      <h2 id="srv-name">–</h2>
+      <p class="host-meta central-only"><span>{{ _("nome") }} <strong id="hostname">–</strong></span><span>{{ _("acceso da") }} <strong id="uptime">–</strong></span><span>{{ _("aggiornato alle") }} <strong id="last-update">–</strong></span></p>
+      <p class="remote-note" id="remote-note" hidden></p>
+    </div>
+    <span class="pill" id="srv-pill"><span class="dot ok" aria-hidden="true"></span><span>{{ _("regolare") }}</span></span>
+  </section>
   <section class="gauges" aria-label="{{ _("Risorse in tempo reale") }}">
     <article class="gauge" id="g-cpu">
       <h2>{{ _("CPU") }}</h2><p class="value"><span>–</span>%</p>
@@ -184,6 +172,35 @@
     </article>
   </section>
 
+  <section class="panel history">
+    <div class="panel-head">
+      <h2>{{ _("Storico") }} <button type="button" class="help-btn" data-help="server#eventi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
+      <div class="period" role="group" aria-label="{{ _("Periodo") }}">
+        <button type="button" data-range="24h" class="active">{{ _("24 ore") }}</button>
+        <button type="button" data-range="7d">{{ _("7 giorni") }}</button>
+        <button type="button" data-range="30d">{{ _("30 giorni") }}</button>
+        <button type="button" data-range="90d">{{ _("90 giorni") }}</button>
+        <button type="button" data-range="365d">{{ _("1 anno") }}</button>
+      </div>
+      <form class="custom-range" id="custom-range">
+        <label>{{ _("Dal") }} <input type="datetime-local" name="from" required></label>
+        <label>{{ _("al") }} <input type="datetime-local" name="to" required></label>
+        <button type="submit" class="ghost">{{ _("Mostra") }}</button>
+      </form>
+    </div>
+    <p class="history-error" id="history-error" hidden></p>
+    <div class="charts">
+      <figure><figcaption>{{ _("CPU e load") }}</figcaption><canvas id="chart-cpu"></canvas></figure>
+      <figure><figcaption>{{ _("Memoria e disco") }}</figcaption><canvas id="chart-mem"></canvas></figure>
+      <figure><figcaption>{{ _("Temperature") }}</figcaption><canvas id="chart-temp"></canvas></figure>
+      <figure class="central-only"><figcaption>{{ _("Velocità connessione") }}</figcaption><canvas id="chart-speed"></canvas></figure>
+    </div>
+    <div class="events-panel" id="server-events" hidden>
+      <div class="panel-head"><h3 class="sub-title">{{ _("Eventi del periodo") }}</h3><div class="event-filters" data-events-filters></div></div>
+      <ul class="event-list" data-events-list></ul>
+    </div>
+  </section>
+
   <section class="panel services-panel">
     <div class="panel-head">
       <h2>{{ _("Servizi") }} <button type="button" class="help-btn" data-help="server#servizi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
@@ -193,19 +210,10 @@
   </section>
 
   <section class="panel central-only">
-    <div class="panel-head"><h2>{{ _("Controlli") }} <button type="button" class="help-btn" data-help="server#controlli" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("connessione, dischi, aggiornamenti, backup e scadenze") }}</small></div>
+    <div class="panel-head"><h2>{{ _("Manutenzione e controlli") }} <button type="button" class="help-btn" data-help="server#controlli" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("connessione, dischi, aggiornamenti, backup e scadenze") }}</small></div>
     <ul class="checks" id="checks"></ul>
   </section>
 
-  <section class="panel central-only" id="checks-panel" hidden>
-    <div class="panel-head"><h2>{{ _("Dispositivi e servizi") }} <button type="button" class="help-btn" data-help="devices#dove" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="checks-summary"></small></div>
-    <div class="scroll">
-      <table class="data" id="checks-table">
-        <thead><tr><th>{{ _("Nome") }}</th><th>{{ _("Controllo") }}</th><th>{{ _("Stato") }}</th><th class="num">{{ _("Latenza") }}</th><th class="num">{{ _("Disponibilità 24 ore") }}</th><th>{{ _("Dal") }}</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
 
   <section class="panel module central-only" id="mod-docker" hidden>
     <div class="panel-head"><h2>{{ _("Docker") }} <button type="button" class="help-btn" data-help="modules#docker" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="docker-info"></small></div>
@@ -254,43 +262,65 @@
     </div>
   </div>
 
-  <section class="panel history">
-    <div class="panel-head">
-      <h2>{{ _("Storico") }} <button type="button" class="help-btn" data-help="server#eventi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
-      <div class="period" role="group" aria-label="{{ _("Periodo") }}">
+  </div>
+</div>
+{% include "_connessione.html" %}
+<div class="view" data-view="dispositivi" hidden>
+  <section class="panel" id="checks-panel">
+    <div class="panel-head"><h2>{{ _("Dispositivi e servizi") }} <button type="button" class="help-btn" data-help="devices#dove" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="checks-summary"></small>
+      <a class="end admin-only" href="#impostazioni/dispositivi">{{ _("Aggiungi o modifica") }}</a></div>
+    <p class="hint" id="checks-empty" hidden>{{ _("Nessun controllo configurato. Router, NAS, stampanti e siti web si aggiungono da Impostazioni → Dispositivi.") }}</p>
+    <div class="scroll">
+      <table class="data" id="checks-table">
+        <thead><tr><th>{{ _("Nome") }}</th><th>{{ _("Controllo") }}</th><th>{{ _("Stato") }}</th><th class="num">{{ _("Latenza") }}</th><th class="num">{{ _("Disponibilità 24 ore") }}</th><th>{{ _("Dal") }}</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div class="view" data-view="avvisi" hidden>
+  <section class="panel" aria-labelledby="h-events">
+    <div class="panel-head"><h2 id="h-events">{{ _("Eventi") }} <button type="button" class="help-btn" data-help="server#eventi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
+      <small id="ev-sum"></small></div>
+    <div class="ev-filters">
+      <div class="period" role="group" aria-label="{{ _("Periodo") }}" id="ev-period">
         <button type="button" data-range="24h" class="active">{{ _("24 ore") }}</button>
         <button type="button" data-range="7d">{{ _("7 giorni") }}</button>
         <button type="button" data-range="30d">{{ _("30 giorni") }}</button>
-        <button type="button" data-range="90d">{{ _("90 giorni") }}</button>
-        <button type="button" data-range="365d">{{ _("1 anno") }}</button>
       </div>
-      <form class="custom-range" id="custom-range">
-        <label>{{ _("Dal") }} <input type="datetime-local" name="from" required></label>
-        <label>{{ _("al") }} <input type="datetime-local" name="to" required></label>
-        <button type="submit" class="ghost">{{ _("Mostra") }}</button>
-      </form>
+      <label>{{ _("Server") }} <select id="ev-host"><option value="">{{ _("Tutti") }}</option></select></label>
+      <label>{{ _("Tipo") }} <select id="ev-kind"><option value="">{{ _("Tutti") }}</option></select></label>
+      <label>{{ _("Gravità") }} <select id="ev-sev"><option value="">{{ _("Tutte") }}</option><option value="alert">{{ _("Allarme") }}</option><option value="warning">{{ _("Avviso") }}</option><option value="info">{{ _("Informazione") }}</option></select></label>
     </div>
-    <p class="history-error" id="history-error" hidden></p>
-    <div class="charts">
-      <figure><figcaption>{{ _("CPU e load") }}</figcaption><canvas id="chart-cpu"></canvas></figure>
-      <figure><figcaption>{{ _("Memoria e disco") }}</figcaption><canvas id="chart-mem"></canvas></figure>
-      <figure><figcaption>{{ _("Temperature") }}</figcaption><canvas id="chart-temp"></canvas></figure>
-      <figure class="central-only"><figcaption>{{ _("Velocità connessione") }}</figcaption><canvas id="chart-speed"></canvas></figure>
-    </div>
-    <div class="events-panel" id="server-events" hidden>
-      <div class="panel-head"><h3 class="sub-title">{{ _("Eventi del periodo") }}</h3><div class="event-filters" data-events-filters></div></div>
-      <ul class="event-list" data-events-list></ul>
-    </div>
-    <details class="ip-history">
-      <summary>{{ _("Variazioni dell'IP pubblico") }}</summary>
-      <table class="data" id="ip-history">
-        <thead><tr><th>{{ _("Quando") }}</th><th>{{ _("Nuovo IP") }}</th><th>{{ _("Precedente") }}</th></tr></thead>
+    <ol class="ev-list" id="ev-list"></ol>
+  </section>
+  <section class="panel admin-only" aria-labelledby="h-sent">
+    <div class="panel-head"><h2 id="h-sent">{{ _("Notifiche inviate") }} <button type="button" class="help-btn" data-help="notifications" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
+      <small id="sent-sum"></small><a class="end" href="#impostazioni/notifiche">{{ _("Canali e regole") }}</a></div>
+    <div class="scroll">
+      <table class="data" id="sent-log">
+        <thead><tr><th>{{ _("Quando") }}</th><th>{{ _("Canale") }}</th><th>{{ _("Oggetto") }}</th><th>{{ _("Esito") }}</th></tr></thead>
         <tbody></tbody>
       </table>
-    </details>
+    </div>
   </section>
 </div>
-{% include "_connessione.html" %}
+
+<div class="view" data-view="backup" hidden>
+  <section class="ov-card" id="bk-summary" aria-labelledby="h-bk-sum">
+    <div class="card-head"><h2 id="h-bk-sum">{{ _("Sicurezza dei dati") }} <button type="button" class="help-btn" data-help="backup#come-funziona" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><span class="pill wait" data-f="pill">–</span></div>
+    <ul class="steps" data-f="steps"></ul>
+  </section>
+  <section class="panel admin-only" aria-labelledby="h-bk-last">
+    <div class="panel-head"><h2 id="h-bk-last">{{ _("Ultimo backup") }}</h2><a class="end" href="#impostazioni/backup">{{ _("Destinazioni e impostazioni") }}</a></div>
+    <div class="stats" id="bk-stats"></div>
+    <ul class="bk-dest" id="bk-dest-results"></ul>
+    <p class="hint" id="bk-where"></p>
+    <button type="button" class="btn primary" id="bk-run">{{ _("Esegui backup ora") }}</button>
+  </section>
+</div>
+
 {% include "_impostazioni.html" %}
 {% include "_log.html" %}
 {% include "_terminale.html" %}
@@ -352,5 +382,6 @@
 <script src="{{ url_for('static', filename='js/impostazioni.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/terminale.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/panoramica.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/avvisi.js') }}?v={{ version }}"></script>
 </body>
 </html>

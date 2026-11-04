@@ -7,12 +7,13 @@ central server. With the central server alone, the dashboard stays as it always 
 <a id="panoramica"></a>
 ## Overview and chosen server
 
-With at least one connected server, the **overview** appears at the top of the **Server** view: one card per server
-with state (green, yellow if it has stopped services or an almost full disk, red if it does not respond), CPU,
-memory, disk, stopped services and last data received. A click chooses the server: the view shows its resources,
-its services and its history with events (reboots, stopped services). Checks, devices, modules, processes and
-speedtest belong to the central server only and stay hidden while another server is chosen. The header always
-shows the central server.
+With at least one connected server, the **Server** view opens on the **list of servers**: one card per server with
+state (green, yellow if it has stopped services or an almost full disk, red if it does not respond), CPU, memory,
+fullest disk, services (stopped ones first) and last data received; the same cards are in the Overview. A click
+opens the server **detail** (address `#server/<number>`, back to the list from the *Server › name* breadcrumb): its
+resources, its history with events (reboots, stopped services), its services and its disks. Maintenance and checks,
+modules, processes and sensors belong to the central server only and stay hidden on the other servers. A service
+removed from the checked services disappears immediately, without waiting for the next data from the agent.
 
 | Data | Linux | Windows |
 |---|---|---|

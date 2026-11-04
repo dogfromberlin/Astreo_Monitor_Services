@@ -79,12 +79,7 @@
         li.title = `${s.label} — ${s.unit}: ${s.state}`;
         return li;
       });
-      $("#leds").replaceChildren(...leds);
-      const down = list.filter((s) => !s.up);
-      $("#svc-summary-text").textContent = down.length
-        ? t("{p0} {p1} su {p2}", { p0: down.length, p1: down.length === 1 ? t("servizio fermo") : t("servizi fermi"), p2: list.length })
-        : t("{p0}/{p1} servizi attivi", { p0: list.length, p1: list.length });
-      $("#svc-summary-led").className = `led ${down.length ? "down" : "up"}`;
+      void leds;                                              // 4.1: niente più fila di LED in testata
       if (remote()) return;
       $("#services").replaceChildren(...list.map((s) => {
         const li = el("li", { class: s.up ? "up" : "down" });
@@ -122,7 +117,7 @@
         $("#speed-latest").textContent = `↓ ${fmtNum(st.download_mbps, 0)}  ↑ ${fmtNum(st.upload_mbps, 0)} Mbps`;
         $("#speed-latest-when").textContent = t("{p0} alle {p1}", { p0: st.status, p1: fmtDateTime(st.timestamp) });
       }
-      if (n.backup) {
+      if (n.backup && $("#backup-latest")) {
         const b = n.backup;
         const total = (b.databases || []).reduce((a, d) => a + d.zst_bytes, 0);
         const el = $("#backup-latest");
@@ -241,19 +236,16 @@
 
   // -------------------------------------------------------------- avvio
   document.addEventListener("DOMContentLoaded", () => {
-    every(REFRESH.system, loadSystem);                 // la testata usa hostname e uptime
-    every(REFRESH.services, loadServices);             // LED nella testata, sempre aggiornati
-    every(REFRESH.network, loadNetwork);
+    every(REFRESH.system, loadSystem, "server");
+    every(REFRESH.services, loadServices, "server");
+    every(REFRESH.network, loadNetwork, "connessione");   // 4.1: IP pubblico e speedtest stanno in Rete e connessione
+    window.AM.onView("connessione", loadNetwork);
     every(REFRESH.processes, loadProcesses, "server");
     every(60_000, loadChecks, "server");
     every(REFRESH.temps, loadTemperatures, "server");
     every(REFRESH.history, loadHistory, "server");
     document.addEventListener("services-changed", loadServices);
-    $("#svc-summary").addEventListener("click", () => {
-      const open = document.body.classList.toggle("leds-open");
-      $("#svc-summary").setAttribute("aria-expanded", String(open));
-    });
-    window.AM.onView("server", () => { loadProcesses(); loadTemperatures(); loadHistory(); loadChecks(); });
+    window.AM.onView("server", () => { loadSystem(); loadServices(); loadProcesses(); loadTemperatures(); loadHistory(); loadChecks(); });
     document.addEventListener("host-changed", () => { loadSystem(); loadServices(); loadTemperatures(); loadHistory(); });
   });
 })();

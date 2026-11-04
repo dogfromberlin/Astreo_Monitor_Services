@@ -9,43 +9,44 @@
   // 4.1: dalla Panoramica si apre un server con #server/<id>
   window.addEventListener("hashchange", () => {
     if (!location.hash.startsWith("#server")) return;
-    const id = Number(location.hash.split("/")[1] || 1) || 1;
-    if (id !== window.AM.host) select(id);
+    const id = detailId();
+    if (id && id !== window.AM.host) select(id); else layout();
   });
 
-  const cardClass = (h) => {
-    if (h.status !== "OK") return STATUS[h.status][0];
-    const down = ((h.services_state || {}).services || []).some((s) => !s.up);
-    const s = h.snapshot || {};
-    return down || (s.disk_used_pct || 0) >= 85 ? "warn" : "ok";
-  };
+
+  // 4.1: #server = elenco dei server (se più di uno), #server/<id> = dettaglio del server
+  const detailId = () => { const m = location.hash.match(/^#server\/(\d+)/); return m ? Number(m[1]) : 0; };
+  const listMode = () => hosts.length > 1 && !detailId();
+
+  function layout() {
+    const list = listMode();
+    $("#srv-list").hidden = !list;
+    $("#srv-detail").hidden = list;
+    $("#srv-crumbs").hidden = hosts.length <= 1;
+    const down = hosts.filter((h) => h.status === "DOWN").length;
+    $("#srv-list-sum").textContent = down ? t("{p0} su {p1} non raggiungibili", { p0: down, p1: hosts.length })
+      : t("{p0} server", { p0: hosts.length });
+    if (list && window.AM.renderServerList) window.AM.renderServerList();
+    const h = hosts.find((x) => x.id === window.AM.host);
+    if (!h) return;
+    $("#srv-name").textContent = h.name;
+    $("#crumb-name").textContent = h.name;
+    $("#srv-ic").className = `ic${h.kind === "local" ? "" : " remote"}`;
+    const stopped = ((h.services_state || {}).services || []).filter((x) => !x.up).length;
+    let [cls, label] = h.kind === "local" ? ["", t("regolare")] : [STATUS[h.status][0], t(STATUS[h.status][1])];
+    if (cls === "ok") cls = "";
+    if (h.status === "OK" && stopped) { cls = "warn"; label = stopped === 1 ? t("1 servizio fermo") : t("{p0} servizi fermi", { p0: stopped }); }
+    const pill = $("#srv-pill");
+    pill.className = `pill ${cls}`;
+    pill.replaceChildren(el("span", { class: `dot ${cls || "ok"}`, "aria-hidden": "true" }), el("span", {}, label));
+  }
 
   async function load() {
     try { hosts = (await api("/api/v1/hosts")).hosts; } catch (e) { return; }
-    const show = hosts.length > 1;
-    $("#hosts-panel").hidden = !show;
-    if (!show) { select(1, false); return; }
     if (!hosts.some((h) => h.id === window.AM.host)) window.AM.host = 1;
-    const down = hosts.filter((h) => h.status === "DOWN").length;
-    $("#hosts-summary").textContent = down ? t("{p0} su {p1} non raggiungibili", { p0: down, p1: hosts.length })
-      : t("{p0} server", { p0: hosts.length });
-    $("#host-cards").replaceChildren(...hosts.map((h) => {
-      const s = h.snapshot || {};
-      const svc = (h.services_state || {}).services || [];
-      const b = el("button", { type: "button", role: "tab", class: `host-card ${h.kind === "local" ? "ok" : cardClass(h)}`,
-                               "aria-selected": String(h.id === window.AM.host) });
-      const vals = el("div", { class: "vals" });
-      if (h.kind === "local") vals.append(el("span", {}, t("server centrale")));
-      else if (s.cpu_pct != null) vals.append(el("span", {}, `CPU ${fmtNum(s.cpu_pct, 0)}%`), el("span", {}, `RAM ${fmtNum(s.mem_used_pct, 0)}%`),
-                                         el("span", {}, `${t("Disco")} ${fmtNum(s.disk_used_pct, 0)}%`));
-      const stopped = svc.filter((x) => !x.up).length;
-      b.append(el("span", { class: "name" }, h.name), vals,
-               el("span", { class: "meta" }, h.kind === "local" ? "" : [t(STATUS[h.status][1]),
-                 stopped === 1 ? t("1 servizio fermo") : stopped ? t("{p0} servizi fermi", { p0: stopped }) : "",
-                 h.last_seen ? t("ultimo invio {p0}", { p0: fmtDateTime(h.last_seen) }) : ""].filter(Boolean).join(" · ")));
-      b.addEventListener("click", () => select(h.id));
-      return b;
-    }));
+    const want = detailId();
+    if (want && want !== window.AM.host && hosts.some((h) => h.id === want)) { select(want); return; }
+    layout();
     if (window.AM.host !== 1) renderRemote();
   }
 
@@ -53,8 +54,8 @@
     const changed = window.AM.host !== id;
     window.AM.host = id;
     document.body.dataset.remote = id === 1 ? "0" : "1";
-    if (location.hash.startsWith("#server")) history.replaceState(null, "", id === 1 ? "#server" : `#server/${id}`);
-    [...document.querySelectorAll(".host-card")].forEach((c, i) => c.setAttribute("aria-selected", String(hosts[i] && hosts[i].id === id)));
+    if (location.hash.startsWith("#server") && hosts.length > 1 && detailId() !== id) history.replaceState(null, "", `#server/${id}`);
+    layout();
     if (id !== 1) renderRemote();
     else { $("#remote-note").hidden = true; $("#g-disk h2").textContent = t("Disco /"); }
     if (changed && notify) document.dispatchEvent(new CustomEvent("host-changed"));

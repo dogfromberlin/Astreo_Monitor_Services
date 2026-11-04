@@ -306,15 +306,7 @@
 
     <!-- ============================== BACKUP -->
     <div data-subpanel="set:backup" hidden>
-      <div class="settings-form">
-      <fieldset>
-        <legend>{{ _("Ultimo backup") }} <button type="button" class="help-btn" data-help="backup#come-funziona" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
-        <div class="stats" id="bk-stats"></div>
-        <ul class="bk-dest" id="bk-dest-results"></ul>
-        <p class="hint" id="bk-where"></p>
-        <button type="button" id="bk-run">{{ _("Esegui backup ora") }}</button>
-      </fieldset>
-      </div>
+      <p class="hint">{{ _("Ultimo backup, esito delle copie ed esecuzione immediata sono nella sezione Backup.") }} <a href="#backup">{{ _("Apri Backup") }}</a></p>
       <form class="settings-form" id="form-backup" autocomplete="off">
         <fieldset>
           <legend>{{ _("Copie con rclone") }} <button type="button" class="help-btn" data-help="backup#rclone" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>

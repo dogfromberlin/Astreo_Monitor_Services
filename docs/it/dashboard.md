@@ -8,15 +8,17 @@ Si apre all'indirizzo indicato al termine dell'installazione, di norma `https://
 | Vista | Contenuto | Utente in sola lettura |
 |---|---|---|
 | **Panoramica** | pagina iniziale: stato in una frase, cose da controllare, server, connessione, backup, ultimi eventi | sì (senza azioni) |
-| **Server** | risorse in tempo reale, controlli, servizi, dispositivi, moduli, processi, storico con eventi | sì (senza processi) |
-| **Connessione** | andamento, disponibilità, qualità e confronto della connessione Internet | sì |
+| **Server** | elenco dei server; per ognuno risorse in tempo reale, storico con eventi, servizi, dischi, manutenzione e controlli, moduli, processi | sì (senza processi) |
+| **Rete e connessione** | IP pubblico e sue variazioni, ultimo speedtest; andamento, disponibilità, qualità e confronto della connessione Internet | sì |
+| **Dispositivi** | controlli di router, NAS, stampanti, siti web: stato, latenza, disponibilità, storico | sì |
+| **Avvisi ed eventi** | eventi di tutti i server con filtri per periodo, server, tipo e gravità; notifiche inviate | sì (senza notifiche inviate) |
+| **Backup** | sicurezza dei dati, ultimo backup con le copie, esegui ora | sì (solo il riepilogo) |
 | **Impostazioni** | speedtest, notifiche, servizi, dispositivi, backup, moduli | no |
 | **Log** | journal dei servizi | no |
 | **Terminale** | shell nel browser (solo HTTPS) | no |
 
-Le viste si scelgono dal menu laterale (sul telefono dalla barra in basso). In cima alla vista **Server**:
-nome del server, tempo dall'avvio, IP pubblico, ultimo speedtest e ultimo backup; sotto, la fila dei servizi
-monitorati (verde attivo, rosso fermo).
+Le viste si scelgono dal menu laterale; sul telefono dalla barra in basso, dove le meno usate stanno sotto
+**Altro**. I collegamenti diretti a una scheda delle impostazioni hanno la forma `#impostazioni/dispositivi`.
 
 <a id="panoramica"></a>
 ## Panoramica

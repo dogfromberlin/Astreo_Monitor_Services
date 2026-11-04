@@ -1,7 +1,8 @@
 # Connessione
 
-La vista **Connessione** raccoglie tre fonti: il **controllo continuo** (ping ogni minuto), lo **speedtest**
-periodico e l'**IP pubblico**. Il periodo (6 ore … 1 anno o intervallo libero) vale per tutte le schede;
+La vista **Rete e connessione** raccoglie tre fonti: il **controllo continuo** (ping ogni minuto), lo **speedtest**
+periodico e l'**IP pubblico**. In cima: IP pubblico attuale, ultimo speedtest e, aprendo *Variazioni dell'IP
+pubblico*, i cambi di indirizzo. Il periodo (6 ore … 1 anno o intervallo libero) vale per tutte le schede;
 **Esporta CSV** scarica le misure dello speedtest del periodo.
 
 <a id="continuo"></a>

@@ -11,7 +11,7 @@ sections).
 |---|---|
 | [Installation and update](installation.md) | requirements, `install.sh`, `update.sh`, HTTPS, files generated from templates |
 | [Configuration and users](configuration.md) | `config.ini`, passwords, read-only user |
-| [The dashboard](dashboard.md) | views, Overview, things to check, theme, settings, languages, smartphones |
+| [The dashboard](dashboard.md) | views (Overview, Server, Network, Devices, Alerts and events, Backup), things to check, theme, settings, languages, smartphones |
 | [Server](server.md) | resources, temperatures, processes, services, events on charts |
 | [Connection](connection.md) | continuous check, speedtest, public IP |
 | [Connected servers](agents.md) | Linux and Windows agents, overview, alerts |
