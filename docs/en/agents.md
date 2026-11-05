@@ -11,8 +11,9 @@ With at least one connected server, the **Server** view opens on the **list of s
 state (green, yellow if it has stopped services or an almost full disk, red if it does not respond), CPU, memory,
 fullest disk, services (stopped ones first) and last data received; the same cards are in the Overview. A click
 opens the server **detail** (address `#server/<number>`, back to the list from the *Server › name* breadcrumb): its
-resources, its history with events (reboots, stopped services), its services and its disks. Maintenance and checks,
-modules, processes and sensors belong to the central server only and stay hidden on the other servers. A service
+resources, its history with events (reboots, stopped services), its services, its disks and its
+[maintenance](#salute). The central server's maintenance and checks, modules, processes and sensors belong to the
+central server only and stay hidden on the other servers. A service
 removed from the checked services disappears immediately, without waiting for the next data from the agent.
 
 | Data | Linux | Windows |
@@ -23,6 +24,19 @@ removed from the checked services disappears immediately, without waiting for th
 | Temperatures | yes (`lm-sensors`) | not available |
 | Chosen services | systemd, on every change | Windows services, on every change |
 | Reboots | yes | yes |
+| Disk health (4.2) | SMART, if `smartmontools` is installed; every 6 hours | health status of the physical disks; every 6 hours |
+| Updates and reboot required (4.2) | `apt`; every 6 hours | Windows Update; every 6 hours |
+| Docker containers (4.2) | if Docker is present; every 5 minutes | if Docker is present; every 5 minutes |
+
+<a id="salute"></a>
+### Maintenance of a connected server
+
+With a 4.2 agent the server detail has the **Maintenance** panel: health of each disk (temperature and wear when the
+disk provides them), available and security updates, reboot required, Docker containers. The same data appears in
+*To check* and raises the *Disk health*, *System updates* and *Docker containers* alerts, with the rules in
+[Notifications](notifications.md#regole). On Linux SMART needs the `smartmontools` package (`sudo apt install
+smartmontools`). On Windows the update search can take a few minutes: this is why the 4.2 agent's scheduled task has
+a 15-minute limit instead of 2.
 
 <a id="impostazioni-server"></a>
 ## Settings of a server
@@ -34,7 +48,7 @@ servers**. Empty fields use the general settings (shown in grey).
 |---|---|
 | Alert when unreachable | when off, a switched-off server shows as grey information (*off*) and sends no alerts: for computers switched off on purpose |
 | Unreachable after (minutes) | minutes without data before it counts as unreachable (general: in *Connected servers*) |
-| Disk and temperature thresholds | warning and alert for this server; they apply to the Overview, *To check* and alerts |
+| Disk, temperature, CPU and memory thresholds | warning and alert for this server; they apply to the Overview, *To check* and alerts (CPU and memory only if their [alerts](notifications.md#cpu-memoria) are on) |
 
 The central server only has the thresholds. To avoid alerts about short problems there is also **Alert after** in
 the [alert rules](notifications.md#regole).

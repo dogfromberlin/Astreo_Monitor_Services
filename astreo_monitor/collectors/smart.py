@@ -69,6 +69,10 @@ def evaluate(disk: dict, temp_warning: float, wear_warning: float) -> tuple[str,
         alert.append(f"{disk['uncorrectable']} settori non correggibili")
     if disk.get("media_errors"):
         alert.append(f"{disk['media_errors']} errori del supporto (NVMe)")
+    if disk.get("os_health") == "Unhealthy":            # 4.2: stato del disco secondo Windows
+        alert.append("Windows segnala il disco come guasto")
+    elif disk.get("os_health") == "Warning":
+        warn.append("Windows segnala un problema sul disco")
     if disk.get("reallocated"):
         warn.append(f"{disk['reallocated']} settori riallocati")
     if disk.get("wear_used_pct") is not None and disk["wear_used_pct"] >= wear_warning:

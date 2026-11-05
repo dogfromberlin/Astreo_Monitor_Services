@@ -32,6 +32,17 @@ def level(value: float, warning: float, alert: float) -> str:
     return "OK"
 
 
+def top_processes(_, field: str, n: int = 3) -> str:
+    """I processi che usano più CPU o memoria, per capire subito chi è il responsabile."""
+    try:
+        rows = sorted(system.processes(limit=50, sample=0.5), key=lambda r: r.get(field) or 0, reverse=True)[:n]
+    except Exception:                                   # noqa: BLE001 - l'avviso parte comunque
+        return ""
+    return _("Processi più pesanti:") + "\n" + "\n".join(
+        f"- {r.get('name') or r.get('command', '')[:40]} (PID {r['pid']}): CPU {r.get('cpu_pct', 0):g}%, RAM {r.get('mem_pct', 0):g}%"
+        for r in rows)
+
+
 def main(cfg: Config, dry_run: bool) -> int:
     now = dt.datetime.now()
     curr_times = system.cpu_times_snapshot()
@@ -74,7 +85,7 @@ def main(cfg: Config, dry_run: bool) -> int:
         values = settings_mod.load(conn, cfg)
         lang = i18n.lang_of(values)
         _ = i18n.translator(lang)
-        lim = hosts_mod.local_limits(conn, cfg)          # 4.2: soglie del server centrale (o quelle generali)
+        lim = hosts_mod.local_limits(conn, cfg, values)  # 4.2: soglie del server centrale (o quelle generali)
         checks = []
         if temps:
             hottest = max(temps, key=lambda t: t["value"])
@@ -92,11 +103,22 @@ def main(cfg: Config, dry_run: bool) -> int:
             + _("Soglie: warning {w}%, alert {a}%", w=lim["disk_warning"], a=lim["disk_alert"]),
         ))
 
+        # 4.2: CPU e memoria, solo se attivati (Impostazioni → Notifiche)
+        if values["load.alerts_enabled"]:
+            for key, value, w, a, label in (("cpu", cpu, lim["cpu_warning"], lim["cpu_alert"], "CPU"),
+                                            ("memory", mem["used_pct"], lim["mem_warning"], lim["mem_alert"], "Memoria")):
+                st = level(value, w, a)
+                text = (_("{nome} al {pct}%", nome=_(label), pct=round(value)) + "\n"
+                        + _("Soglie: warning {w}%, alert {a}%", w=w, a=a))
+                if st != "OK":
+                    text += "\n" + top_processes(_, "cpu_pct" if key == "cpu" else "mem_pct")
+                checks.append((key, st, text))
+
         for key, status, text in checks:
             state = notifier.AlertState(conn, key)
             should_notify, reason, previous = state.evaluate(status, settings_mod.policy(values, key))
             if should_notify:
-                name = _({"temperature": "Temperatura", "disk": "Disco"}[key])
+                name = _({"temperature": "Temperatura", "disk": "Disco", "cpu": "CPU", "memory": "Memoria"}[key])
                 subject = _("Allarme {nome} rientrato", nome=name.lower()) if status == "OK" else f"{name}: {status}"
                 body = "\n".join(x for x in (notifier.reason_line(reason, state, lang), text,
                                               _("Stato precedente: {stato}", stato=previous or "n/d")) if x)

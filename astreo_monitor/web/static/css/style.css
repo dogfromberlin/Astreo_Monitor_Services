@@ -596,6 +596,8 @@ dialog.help-drawer::backdrop { background: var(--overlay); }
 .host-card .vals { display: flex; gap: .7rem; font-size: .82rem; flex-wrap: wrap; }
 .remote-note { margin: 0; padding: .5rem .8rem; border-radius: 6px; background: var(--raised); color: var(--off); font-size: .85rem; }
 body[data-remote="1"] .central-only { display: none !important; }
+body:not([data-remote="1"]) .remote-only { display: none !important; }
+.sub-head { font-size: .95rem; margin: 1rem 0 .5rem; }
 .install-box { margin: .8rem 0; padding: .8rem 1rem; border: 1px solid var(--sage); border-radius: 8px; }
 #hosts-admin input { width: 100%; min-width: 12rem; background: var(--raised); color: var(--text); border: 1px solid var(--line);
                      border-radius: 6px; padding: .3rem .5rem; font: inherit; font-size: .85rem; }

@@ -14,7 +14,9 @@ import datetime as dt
 from sqlalchemy import select, true
 
 from . import db, events, hosts as hosts_mod, i18n, models, services_store
-from .collectors import sensors, services, system
+from . import settings as settings_mod
+from .collectors import sensors, services, smart, system
+from .integrations import docker as docker_mod
 from .web import history
 
 SEVERITY_ORDER = {"alert": 0, "warn": 1, "info": 2}
@@ -37,7 +39,7 @@ def _age_hours(iso: str | None, now: dt.datetime) -> float | None:
         return None
 
 
-def _local_host(cfg, row: dict, svc: list[dict]) -> dict:
+def _local_host(cfg, row: dict, svc: list[dict], values: dict | None = None) -> dict:
     snap = system.snapshot(cfg.metrics.root_disk)
     temps = sensors.read()
     disks = [{"mountpoint": d["mountpoint"], "used_pct": d["used_pct"]} for d in snap.get("disks", [])]
@@ -48,11 +50,11 @@ def _local_host(cfg, row: dict, svc: list[dict]) -> dict:
         "mem_pct": snap["memory"]["used_pct"], "disk_pct": snap["root_disk_pct"], "disks": disks,
         "temperature_max": max((t["value"] for t in temps), default=None),
         "services": [{"unit": s["unit"], "label": s["label"], "up": s["up"], "state": s["state"]} for s in svc],
-        "notify_offline": True, "limits": hosts_mod.limits(row, cfg),
+        "notify_offline": True, "limits": hosts_mod.limits(row, cfg, values),
     }
 
 
-def _remote_host(h: dict, cfg) -> dict:
+def _remote_host(h: dict, cfg, values: dict | None = None) -> dict:
     snap = h.get("snapshot") or {}
     online = h["status"] == "OK"
     disks = [{"mountpoint": d.get("mountpoint"), "used_pct": d.get("used_pct")}
@@ -68,7 +70,8 @@ def _remote_host(h: dict, cfg) -> dict:
         "temperature_max": snap.get("temperature_max") if online else None,
         "services": [{"unit": s["unit"], "label": s["label"], "up": bool(s["up"]), "state": s.get("state")}
                      for s in (h.get("services_state") or {}).get("services", [])] if online else [],
-        "notify_offline": bool(h.get("notify_offline", True)), "limits": hosts_mod.limits(h, cfg),
+        "notify_offline": bool(h.get("notify_offline", True)), "limits": hosts_mod.limits(h, cfg, values),
+        "health": h.get("health"), "containers": (h.get("containers") or {}).get("containers"),
     }
 
 
@@ -98,7 +101,10 @@ def _backup(conn) -> dict:
     }
 
 
-def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.datetime, lang: str) -> list[dict]:
+def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.datetime, lang: str,
+          values: dict | None = None) -> list[dict]:
+    values = values or {}
+    load_alerts = bool(values.get("load.alerts_enabled"))
     _ = i18n.translator(lang)
     items: list[dict] = []
 
@@ -138,6 +144,33 @@ def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.d
                                                                p0=worst["mountpoint"] if worst else "/",
                                                                p1=round(worst["used_pct"] if worst else h["disk_pct"])),
                 _("libera spazio o amplia il disco"), host=h["id"], action={"kind": "host", "host": h["id"]})
+        if load_alerts:                                           # 4.2: CPU e memoria, se attivati
+            for key, val, w, a, txt in (("cpu", h["cpu_pct"], m["cpu_warning"], m["cpu_alert"], _("CPU al {p0}%", p0=round(h["cpu_pct"] or 0))),
+                                        ("mem", h["mem_pct"], m["mem_warning"], m["mem_alert"], _("memoria al {p0}%", p0=round(h["mem_pct"] or 0)))):
+                lv = _level(val, w, a)
+                if lv:
+                    add(lv, f"{key}:{h['id']}", f"{h['name']} · {txt}", _("misura attuale; l'avviso parte se dura oltre l'attesa impostata"),
+                        host=h["id"], action={"kind": "host", "host": h["id"]})
+        # 4.2: dischi, aggiornamenti e container dei server collegati (dati inviati dagli agenti)
+        hl = h.get("health") or {}
+        for d in hl.get("disks", []):
+            st, why = smart.evaluate(d, values.get("smart.temp_warning", 55), values.get("smart.wear_warning", 80))
+            if st in ("WARNING", "ALERT"):
+                add("alert" if st == "ALERT" else "warn", f"smart:{h['id']}:{d['device']}",
+                    f"{h['name']} · " + _("disco {p0}", p0=f"{d['device']} {d.get('model') or ''}".strip()),
+                    "; ".join(i18n.translate_stored(r, lang) for r in why), host=h["id"], action={"kind": "host", "host": h["id"]})
+        upd = hl.get("updates") or {}
+        if upd.get("security_count"):
+            add("info", f"updates:{h['id']}", f"{h['name']} · " + _("{p0} aggiornamenti di sicurezza da installare", p0=upd["security_count"]),
+                "", host=h["id"], action={"kind": "host", "host": h["id"]})
+        if (upd.get("reboot") or {}).get("required"):
+            add("info", f"reboot:{h['id']}", f"{h['name']} · " + _("riavvio richiesto"), "", host=h["id"], action={"kind": "host", "host": h["id"]})
+        for c in h.get("containers") or []:
+            st = docker_mod.evaluate(c)
+            if st != "OK":
+                add("alert" if st == "ALERT" else "warn", f"docker:{h['id']}:{c['name']}",
+                    f"{h['name']} · " + _("container {p0}: {p1}", p0=c["name"], p1=c["state"]), c.get("status") or "",
+                    host=h["id"], action={"kind": "host", "host": h["id"]})
         lvl = _level(h["temperature_max"], m["temp_warning"], m["temp_alert"])
         if lvl:
             add(lvl, f"temp:{h['id']}", f"{h['name']} · " + _("temperatura {p0} °C", p0=round(h["temperature_max"])),
@@ -208,16 +241,17 @@ def build(conn, cfg, lang: str, offline_minutes: int) -> dict:
     now = dt.datetime.now()
     rows = hosts_mod.listing(conn, offline_minutes)
     local_svc = services.statuses(services_store.monitored(conn, cfg))
-    hosts = [_local_host(cfg, r, local_svc) if r["id"] == hosts_mod.LOCAL_ID else _remote_host(r, cfg) for r in rows]
+    values = settings_mod.load(conn, cfg)
+    hosts = [_local_host(cfg, r, local_svc, values) if r["id"] == hosts_mod.LOCAL_ID else _remote_host(r, cfg, values) for r in rows]
     if not any(h["id"] == hosts_mod.LOCAL_ID for h in hosts):           # tabella hosts vuota (installazione vecchia)
-        hosts.insert(0, _local_host(cfg, {"id": hosts_mod.LOCAL_ID, "name": None}, local_svc))
+        hosts.insert(0, _local_host(cfg, {"id": hosts_mod.LOCAL_ID, "name": None}, local_svc, values))
 
     active = [h for h in hosts if h["enabled"] and (h["status"] != "DOWN" or h["notify_offline"])]
     reachable = [h for h in active if h["status"] == "OK"]
     svc = [s for h in reachable for s in h["services"]]
     conn_info = _connection(conn, now)
     backup = _backup(conn)
-    todo = _todo(conn, cfg, hosts, conn_info, backup, now, lang)
+    todo = _todo(conn, cfg, hosts, conn_info, backup, now, lang, values)
 
     worst = todo[0]["severity"] if todo else "ok"
     n_check = sum(1 for x in todo if x["severity"] in ("alert", "warn"))

@@ -783,7 +783,7 @@ def create_app(cfg: Config) -> Flask:
         mins = offline_minutes()
         with db.connect(cfg.database) as conn:
             return jsonify({"hosts": hosts_mod.listing(conn, mins), "offline_minutes": mins,
-                            "defaults": hosts_mod.limits({}, cfg)})      # 4.2: soglie generali per i campi vuoti
+                            "defaults": hosts_mod.limits({}, cfg, settings_mod.load(conn, cfg))})   # 4.2: soglie generali
 
     # ------------------------------------------------------ 4.1: panoramica e preferenze
     from .. import overview as overview_mod

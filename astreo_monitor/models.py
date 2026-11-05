@@ -167,6 +167,8 @@ hosts = Table(
     Column("offline_minutes", Integer),
     Column("disk_warning", Float), Column("disk_alert", Float),
     Column("temp_warning", Float), Column("temp_alert", Float),
+    Column("cpu_warning", Float), Column("cpu_alert", Float),
+    Column("mem_warning", Float), Column("mem_alert", Float),
     Index("UX_hosts_token", "token_hash", unique=True, mssql_where=Column("token_hash").isnot(None),
           postgresql_where=Column("token_hash").isnot(None), sqlite_where=Column("token_hash").isnot(None)),
 )

@@ -46,20 +46,27 @@ def clean_services(text: str) -> str:
 
 
 # ----------------------------------------------------------------------------- 4.2: impostazioni per server
-LIMIT_KEYS = ("disk_warning", "disk_alert", "temp_warning", "temp_alert")
-LIMIT_RANGE = {"disk_warning": (1, 100), "disk_alert": (1, 100), "temp_warning": (20, 120), "temp_alert": (20, 120)}
+LIMIT_KEYS = ("disk_warning", "disk_alert", "temp_warning", "temp_alert", "cpu_warning", "cpu_alert", "mem_warning", "mem_alert")
+LIMIT_RANGE = {"disk_warning": (1, 100), "disk_alert": (1, 100), "temp_warning": (20, 120), "temp_alert": (20, 120),
+               "cpu_warning": (10, 100), "cpu_alert": (10, 100), "mem_warning": (10, 100), "mem_alert": (10, 100)}
+LOAD_DEFAULTS = {"cpu_warning": 90.0, "cpu_alert": 98.0, "mem_warning": 90.0, "mem_alert": 97.0}
 
 
-def limits(h: dict, cfg) -> dict:
-    """Soglie effettive di un server: le sue, oppure quelle generali dove sono vuote."""
+def limits(h: dict, cfg, values: dict | None = None) -> dict:
+    """Soglie effettive di un server: le sue, oppure quelle generali dove sono vuote.
+
+    Disco e temperatura generali vengono da config.ini; CPU e memoria dalle impostazioni della dashboard (values).
+    """
     m = cfg.metrics
-    general = {"disk_warning": m.disk_warning, "disk_alert": m.disk_alert, "temp_warning": m.temp_warning, "temp_alert": m.temp_alert}
+    v = values or {}
+    general = {"disk_warning": m.disk_warning, "disk_alert": m.disk_alert, "temp_warning": m.temp_warning, "temp_alert": m.temp_alert,
+               **{k: float(v.get(f"load.{k}", d)) for k, d in LOAD_DEFAULTS.items()}}
     return {k: (h.get(k) if h.get(k) is not None else general[k]) for k in LIMIT_KEYS}
 
 
-def local_limits(conn, cfg) -> dict:
+def local_limits(conn, cfg, values: dict | None = None) -> dict:
     row = db.rows(conn, select(*[H.c[k] for k in LIMIT_KEYS]).where(H.c.id == LOCAL_ID))
-    return limits(row[0] if row else {}, cfg)
+    return limits(row[0] if row else {}, cfg, values)
 
 
 def clean_settings(data: dict, hid: int) -> dict:
@@ -79,7 +86,7 @@ def clean_settings(data: dict, hid: int) -> dict:
             if not lo <= f <= hi:
                 raise HostError(f"{k}: valore tra {lo} e {hi}")
             out[k] = f
-    for w, a in (("disk_warning", "disk_alert"), ("temp_warning", "temp_alert")):
+    for w, a in (("disk_warning", "disk_alert"), ("temp_warning", "temp_alert"), ("cpu_warning", "cpu_alert"), ("mem_warning", "mem_alert")):
         if out.get(w) is not None and out.get(a) is not None and out[w] >= out[a]:
             raise HostError("La soglia di avviso deve essere più bassa di quella di allarme")
     if hid != LOCAL_ID:                                     # il centrale è sempre raggiungibile da sé stesso
@@ -179,6 +186,9 @@ def listing(conn, offline_minutes: int) -> list[dict]:
                            else "DOWN" if (now - seen).total_seconds() > mins * 60 else "OK")
         h["snapshot"] = db.state_get(conn, f"host:{h['id']}:snapshot")
         h["services_state"] = only_configured(db.state_get(conn, f"host:{h['id']}:services"), h.get("services"))
+        if h["id"] != LOCAL_ID:                                    # 4.2: dati di salute e Docker degli agenti
+            h["health"] = db.state_get(conn, f"host:{h['id']}:health")
+            h["containers"] = db.state_get(conn, f"host:{h['id']}:containers")
         for k in ("created_at", "last_seen"):
             h[k] = db.as_datetime(h[k]).isoformat(timespec="seconds") if h[k] else None
         out.append(h)
@@ -279,6 +289,16 @@ def _item(conn, host: dict, it, now: dt.datetime, metrics: list, temps: list, la
         current = [{"unit": _txt(s.get("unit"), 120), "label": _txt(s.get("label") or s.get("unit"), 100),
                     "up": bool(s.get("up")), "state": _txt(s.get("state"), 40)} for s in svc]
         _services(conn, host, current, t)
+    elif kind == "health":                       # 4.2: dischi (SMART / stato Windows) e aggiornamenti, ogni 6 ore
+        db.state_set(conn, f"host:{hid}:health", {"time": t.isoformat(timespec="seconds"), **_health(it)})
+    elif kind == "containers":                   # 4.2: container Docker del server collegato
+        conts = it.get("containers") or []
+        if not isinstance(conts, list) or len(conts) > 200:
+            raise HostError("container non validi")
+        db.state_set(conn, f"host:{hid}:containers", {"time": t.isoformat(timespec="seconds"), "containers": [
+            {"name": _txt(c.get("name"), 120), "image": _txt(c.get("image"), 200), "state": _txt(c.get("state"), 20),
+             "status": _txt(c.get("status"), 80), "health": _txt(c.get("health"), 20) or None,
+             "restart_policy": _txt(c.get("restart_policy"), 20)} for c in conts if isinstance(c, dict)]})
     elif kind == "boot":
         bt = _time(it.get("boot_time"), now, max_age_days=30)
         events.record(conn, "boot", "info", "Riavvio del server", "", ref=f"boot:{hid}:{bt.isoformat()}",
@@ -286,6 +306,31 @@ def _item(conn, host: dict, it, now: dt.datetime, metrics: list, temps: list, la
     else:
         raise HostError(f"tipo sconosciuto: {_txt(kind, 20)}")
     return latest
+
+
+def _health(it: dict) -> dict:
+    """Normalizza i dati di salute inviati dall'agente (stessi campi di collectors.smart.parse)."""
+    disks = []
+    for d in (it.get("disks") or [])[:16]:
+        if not isinstance(d, dict):
+            continue
+        n = lambda k, hi: _num(d.get(k), 0, hi)  # noqa: E731
+        disks.append({"device": _txt(d.get("device"), 60), "model": _txt(d.get("model"), 120),
+                      "passed": d.get("passed") if isinstance(d.get("passed"), bool) else None,
+                      "os_health": _txt(d.get("os_health"), 20) or None, "temperature": n("temperature", 150),
+                      "wear_used_pct": n("wear_used_pct", 255), "reallocated": int(n("reallocated", 1e9) or 0),
+                      "pending": int(n("pending", 1e9) or 0), "uncorrectable": int(n("uncorrectable", 1e9) or 0),
+                      "media_errors": int(n("media_errors", 1e12) or 0), "error": _txt(d.get("error"), 200) or None})
+    out = {"disks": disks, "smart_available": bool(it.get("smart_available", bool(disks)))}
+    u = it.get("updates")
+    if isinstance(u, dict):
+        sec = [_txt(x, 80) for x in (u.get("security") or [])[:100] if isinstance(x, str)]
+        rb = u.get("reboot") or {}
+        out["updates"] = {"total": int(_num(u.get("total"), 0, 1e6) or 0), "security": sec,
+                          "security_count": int(_num(u.get("security_count"), 0, 1e6) or len(sec)),
+                          "reboot": {"required": bool(rb.get("required")) if isinstance(rb, dict) else False},
+                          "error": _txt(u.get("error"), 200) or None}
+    return out
 
 
 def _finish(conn, host, agent, items, metrics, temps, latest, rejected, now) -> dict:

@@ -215,3 +215,81 @@ def test_impostazioni_per_server(dbcfg):
     d = build(dbcfg)
     pc = next(x for x in d["todo"] if x["key"] == "host:2")
     assert pc["severity"] == "info" and d["status"]["level"] == "ok"
+
+
+def test_avvisi_cpu_e_memoria_spenti_di_serie(dbcfg):
+    """4.2: gli avvisi di CPU e memoria esistono ma sono spenti; attivati, compaiono in Da controllare."""
+    from astreo_monitor import hosts, settings
+    from sqlalchemy import update
+    with db.connect(dbcfg.database) as conn:
+        values = settings.load(conn, dbcfg)
+        assert values["load.alerts_enabled"] is False
+        assert values["alert.cpu.delay_minutes"] == 15 and values["alert.memory.delay_minutes"] == 10
+        assert hosts.limits({}, dbcfg, values)["cpu_warning"] == 90
+        conn.execute(update(models.hosts).where(models.hosts.c.id == 1).values(cpu_warning=10, cpu_alert=20))
+    busy = {**SNAP, "cpu_pct": 50.0}
+    with mock.patch.object(overview.system, "snapshot", return_value=busy), \
+         mock.patch.object(overview.sensors, "read", return_value=[]), \
+         mock.patch.object(overview.services, "statuses", return_value=[]), db.connect(dbcfg.database) as conn:
+        assert not any(x["key"].startswith("cpu:") for x in overview.build(conn, dbcfg, "it", 10)["todo"])
+        settings.save(conn, dbcfg, {"load.alerts_enabled": True})
+        d = overview.build(conn, dbcfg, "it", 10)
+    cpu = next(x for x in d["todo"] if x["key"] == "cpu:1")
+    assert cpu["severity"] == "alert" and d["hosts"][0]["limits"]["cpu_alert"] == 20
+
+
+def test_salute_e_docker_dagli_agenti(dbcfg):
+    """4.2: l'agente invia dischi, aggiornamenti e container; il centrale li mostra in Da controllare."""
+    from astreo_monitor import hosts
+    now = dt.datetime.now().replace(microsecond=0).isoformat()
+    with db.connect(dbcfg.database) as conn:
+        hid, _token = hosts.create(conn, "NAS", "linux", "")
+        host = next(h for h in db.rows(conn, models.hosts.select()) if h["id"] == hid)
+        r = hosts.ingest(conn, host, {"agent": {"version": "4.2.0", "kind": "linux"}, "items": [
+            {"type": "metrics", "time": now, "cpu_pct": 5, "mem_used_pct": 20, "disk_used_pct": 30},
+            {"type": "health", "time": now, "smart_available": True,
+             "disks": [{"device": "sda", "model": "WD Red", "passed": True, "pending": 8, "temperature": 41},
+                       {"device": "disk1", "model": "Samsung", "os_health": "Warning"}],
+             "updates": {"total": 12, "security": ["openssl"], "security_count": 1, "reboot": {"required": True}}},
+            {"type": "containers", "time": now, "containers": [
+                {"name": "web", "image": "nginx", "state": "exited", "status": "Exited (1)", "restart_policy": "always"},
+                {"name": "db", "image": "postgres", "state": "running", "status": "Up 2 days", "restart_policy": "always"}]}]})
+        assert r["accepted"] == 3 and not r["rejected"]
+        h = next(x for x in hosts.listing(conn, 10) if x["id"] == hid)
+        assert h["health"]["disks"][0]["pending"] == 8 and h["health"]["updates"]["security_count"] == 1
+        assert len(h["containers"]["containers"]) == 2
+    keys = {x["key"]: x["severity"] for x in build(dbcfg)["todo"]}
+    assert keys[f"smart:{hid}:sda"] == "alert" and keys[f"smart:{hid}:disk1"] == "warn"
+    assert keys[f"docker:{hid}:web"] == "alert" and f"docker:{hid}:db" not in keys
+    assert keys[f"updates:{hid}"] == "info" and keys[f"reboot:{hid}"] == "info"
+
+
+def test_agenti_vecchi_senza_salute(dbcfg):
+    """Un agente 4.0/4.1 non invia salute né container: nessun errore, nessuna voce nuova."""
+    from astreo_monitor import hosts
+    now = dt.datetime.now().replace(microsecond=0).isoformat()
+    with db.connect(dbcfg.database) as conn:
+        hid, _t = hosts.create(conn, "OLD", "windows", "")
+        host = next(h for h in db.rows(conn, models.hosts.select()) if h["id"] == hid)
+        hosts.ingest(conn, host, {"agent": {"version": "4.0.2"}, "items": [{"type": "metrics", "time": now, "cpu_pct": 1}]})
+        h = next(x for x in hosts.listing(conn, 10) if x["id"] == hid)
+        assert h["health"] is None and h["containers"] is None
+    assert not any(x["key"].startswith(("smart:", "docker:")) for x in build(dbcfg)["todo"])
+
+
+def test_job_server_collegati_con_salute(dbcfg):
+    """Il job degli avvisi dei server collegati valuta dischi, aggiornamenti e container senza errori."""
+    from astreo_monitor import hosts, notifier
+    from astreo_monitor.jobs import hosts as job
+    now = dt.datetime.now().replace(microsecond=0).isoformat()
+    with db.connect(dbcfg.database) as conn:
+        hid, _t = hosts.create(conn, "NAS", "linux", "")
+        host = next(h for h in db.rows(conn, models.hosts.select()) if h["id"] == hid)
+        hosts.ingest(conn, host, {"agent": {"version": "4.2.0"}, "items": [
+            {"type": "metrics", "time": now, "cpu_pct": 99, "mem_used_pct": 20},
+            {"type": "health", "time": now, "disks": [{"device": "sda", "passed": False}], "updates": {"total": 0}},
+            {"type": "containers", "time": now, "containers": [{"name": "web", "state": "restarting", "restart_policy": "always"}]}]})
+    with mock.patch.object(notifier, "dispatch", return_value=True) as sent:
+        assert job.main(dbcfg, False) == 0
+    subjects = " | ".join(c.args[3] for c in sent.call_args_list)
+    assert "Disco sda" in subjects and "Container web" in subjects and "CPU" not in subjects   # CPU: avvisi spenti

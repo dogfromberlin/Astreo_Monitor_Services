@@ -33,6 +33,8 @@ SOURCES = {
     "restoretest": "Verifica del ripristino",
     "checks": "Dispositivi e servizi",
     "hosts": "Server collegati",
+    "cpu": "CPU",
+    "memory": "Memoria",
     "docker": "Container Docker",
     "pihole": "Pi-hole",
     "summary": "Riepilogo settimanale",
@@ -41,7 +43,9 @@ SOURCES = {
 
 # Monitoraggi con stato (OK/WARNING/ALERT...) a cui si applica una regola di avviso
 POLICY_SOURCES = ("connectivity", "speedtest", "temperature", "disk", "services", "backup", "expiry",
-                  "smart", "updates", "restoretest", "docker", "pihole", "checks", "hosts")
+                  "smart", "updates", "restoretest", "docker", "pihole", "checks", "hosts", "cpu", "memory")
+# 4.2: attesa predefinita prima dell'avviso; CPU e memoria hanno picchi brevi normali
+DELAY_DEFAULT = {"cpu": 15.0, "memory": 10.0}
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -129,6 +133,12 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         # --- moduli: visibilità nella dashboard (compaiono solo se rilevati sul server)
         "ui.language": Spec(str, "it", label="Lingua", choices=("it", "en")),
         "hosts.offline_minutes": Spec(int, 10, 2, 1440, label="Server non raggiungibile dopo (minuti)"),
+        # --- 4.2: avvisi di CPU e memoria (spenti di serie; soglie generali, modificabili per server)
+        "load.alerts_enabled": Spec(bool, False, label="Avvisi di CPU e memoria"),
+        "load.cpu_warning": Spec(float, 90, 10, 100, label="CPU: avviso (%)"),
+        "load.cpu_alert": Spec(float, 98, 10, 100, label="CPU: allarme (%)"),
+        "load.mem_warning": Spec(float, 90, 10, 100, label="Memoria: avviso (%)"),
+        "load.mem_alert": Spec(float, 97, 10, 100, label="Memoria: allarme (%)"),
         "api.token": Spec(str, "", secret=True, label="Token per le integrazioni (Prometheus, Home Assistant)"),
         "ui.docker": Spec(bool, True, label="Mostra la sezione Docker"),
         "ui.pihole": Spec(bool, True, label="Mostra la sezione Pi-hole"),
@@ -159,7 +169,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "speedtest": s.notify, "temperature": cfg.metrics.notify, "disk": cfg.metrics.notify,
         "services": True, "backup": cfg.backup.notify if cfg.backup else True, "publicip": cfg.publicip.notify,
         "connectivity": True, "expiry": True, "smart": True, "updates": True, "restoretest": True, "summary": True,
-        "docker": True, "pihole": True, "checks": True, "hosts": True,
+        "docker": True, "pihole": True, "checks": True, "hosts": True, "cpu": True, "memory": True,
     }
     # --- regole di avviso per monitoraggio
     backup_rem = cfg.backup.reminder_hours if cfg.backup else 24
@@ -171,6 +181,8 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "docker": ("change", True, 24.0),
         "checks": ("change", True, 0.0),
         "hosts": ("change", True, 0.0),
+        "cpu": ("escalation", True, 24.0),
+        "memory": ("escalation", True, 24.0),
         "pihole": ("change", True, 24.0),
         "expiry": ("escalation", True, 24.0),
         "speedtest": ("escalation", False, 36.0),
@@ -183,7 +195,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         spec[f"alert.{src}.mode"] = Spec(str, mode, choices=("escalation", "change"))
         spec[f"alert.{src}.recovery"] = Spec(bool, rec)
         spec[f"alert.{src}.reminder_hours"] = Spec(float, float(rem), 0, 720)
-        spec[f"alert.{src}.delay_minutes"] = Spec(float, 0.0, 0, 1440)
+        spec[f"alert.{src}.delay_minutes"] = Spec(float, DELAY_DEFAULT.get(src, 0.0), 0, 1440)
     for src in SOURCES:
         spec[f"route.{src}.email"] = Spec(bool, email_default[src])
         for ch in CHANNELS[1:]:

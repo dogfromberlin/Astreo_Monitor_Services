@@ -1,11 +1,12 @@
 #Requires -Version 5.1
 <#
-  Astreo Monitor - agente per Windows (4.0).
+  Astreo Monitor - agente per Windows (4.2).
   Raccoglie i dati di questo server e li invia al server centrale. Avviato ogni minuto da un'attivita'
   pianificata come SYSTEM; non apre porte. Cio' che non si riesce a inviare resta in coda fino a 24 ore.
     servizi: a ogni cambio di stato e comunque ogni 5 minuti
     metriche (CPU, memoria, file di paging, disco di sistema, uptime): ogni 5 minuti
     riavvio: quando l'ora di avvio cambia
+    4.2: stato dei dischi fisici e aggiornamenti di Windows: ogni 6 ore; container Docker: ogni 5 minuti
   Guida: docs/it/agents.md
 #>
 param(
@@ -14,12 +15,13 @@ param(
   [switch]$TestConnection
 )
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '4.0.2'
+$AgentVersion = '4.2.0'
 $Dir = Split-Path -Parent $ConfigPath
 $QueueDir = Join-Path $Dir 'queue'
 $StatePath = Join-Path $Dir 'state.json'
 $LogPath = Join-Path $Dir 'agent.log'
 $MetricsEvery = 290
+$HealthEvery = 21600
 $Batch = 200
 
 function Write-AgentLog([string]$Level, [string]$Message) {
@@ -126,6 +128,57 @@ if (($epoch - [int](Get-StateValue 'metrics_sent' 0)) -ge $MetricsEvery) {
   })
   [void]$items.Add($item)
   Set-StateValue 'metrics_sent' $epoch
+
+  # 4.2: container Docker, se Docker e' installato
+  $docker = Get-Command docker -ErrorAction SilentlyContinue
+  if ($docker) {
+    try {
+      $conts = @(& $docker.Source ps -a --no-trunc --format '{{json .}}' 2>$null | Where-Object { $_ } | ForEach-Object { $_ | ConvertFrom-Json } | Select-Object -First 200)
+      $list = @(foreach ($c in $conts) {
+        $pol = ''; $hl = $null
+        try {
+          $ins = (& $docker.Source inspect $c.ID 2>$null | Out-String | ConvertFrom-Json)[0]
+          $pol = [string]$ins.HostConfig.RestartPolicy.Name
+          if ($ins.State.Health) { $hl = [string]$ins.State.Health.Status }
+        } catch { }
+        @{ name = [string]$c.Names; image = [string]$c.Image; state = [string]$c.State; status = [string]$c.Status; health = $hl; restart_policy = $pol }
+      })
+      [void]$items.Add(@{ type = 'containers'; time = $iso; containers = $list })
+    } catch { Write-AgentLog 'WARN' ('Docker non leggibile: {0}' -f $_.Exception.Message) }
+  }
+}
+
+# --- 4.2: dischi fisici e aggiornamenti di Windows, ogni 6 ore
+if (($epoch - [int](Get-StateValue 'health_sent' 0)) -ge $HealthEvery) {
+  Set-StateValue 'health_sent' $epoch
+  $disks = @()
+  try {
+    $disks = @(Get-PhysicalDisk -ErrorAction Stop | Select-Object -First 16 | ForEach-Object {
+      $d = @{ device = ('disk{0}' -f $_.DeviceId); model = [string]$_.FriendlyName; os_health = [string]$_.HealthStatus }
+      if ($_.HealthStatus -eq 'Healthy') { $d.passed = $true } elseif ($_.HealthStatus -eq 'Unhealthy') { $d.passed = $false }
+      try {
+        $rc = $_ | Get-StorageReliabilityCounter -ErrorAction Stop
+        if ($rc.Temperature -gt 0) { $d.temperature = [int]$rc.Temperature }
+        if ($null -ne $rc.Wear) { $d.wear_used_pct = [int]$rc.Wear }
+        if ($rc.ReadErrorsUncorrected -gt 0) { $d.uncorrectable = [int]$rc.ReadErrorsUncorrected }
+      } catch { }
+      $d
+    })
+  } catch { Write-AgentLog 'WARN' ('Stato dei dischi non leggibile: {0}' -f $_.Exception.Message) }
+  $upd = @{ total = 0; security = @(); security_count = 0; reboot = @{ required = $false } }
+  try {
+    # ricerca di Windows Update: puo' richiedere qualche minuto, per questo solo ogni 6 ore
+    $searcher = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
+    $res = $searcher.Search("IsInstalled=0 and IsHidden=0 and Type='Software'")
+    $sec = @(foreach ($u in $res.Updates) {
+      if (@($u.Categories | Where-Object { $_.Name -eq 'Security Updates' }).Count -gt 0 -or $u.MsrcSeverity) { [string]$u.Title }
+    })
+    $upd.total = [int]$res.Updates.Count; $upd.security = @($sec | Select-Object -First 100); $upd.security_count = $sec.Count
+  } catch { $upd.error = ('Windows Update non leggibile: {0}' -f $_.Exception.Message) }
+  $rb = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') -or
+        (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending')
+  $upd.reboot = @{ required = [bool]$rb }
+  [void]$items.Add(@{ type = 'health'; time = $iso; smart_available = ($disks.Count -gt 0); disks = $disks; updates = $upd })
 }
 
 if ($DryRun) { $items | ConvertTo-Json -Depth 6; exit 0 }

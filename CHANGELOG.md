@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.2.0.dev2 — data from the agents and CPU/memory alerts, stage 2 of 3 (test build, not a Release)
+
+- **Agents 4.2** (Linux and Windows) also send, every 6 hours, the **health of the disks** (Linux: SMART with `smartmontools`; Windows: health status, temperature and wear of the physical disks) and **pending updates** with reboot required (Linux: apt; Windows: Windows Update), and every 5 minutes the **Docker containers** if Docker is present. Older agents keep working without these data.
+- Server detail of a connected server: new **Maintenance** panel with disks, updates, reboot and containers; the same data appears in *To check* and raises the *Disk health*, *System updates* and *Docker containers* alerts.
+- **CPU and memory alerts**, off by default (Settings → Notifications → CPU and memory alerts): general thresholds (CPU 90/98%, memory 90/97%), per-server thresholds in *Settings of this server*, *Alert after* 15 and 10 minutes by default; for the central server the alert lists the three heaviest processes. The dashboard bars now follow the thresholds of each server.
+- Windows agent: the scheduled task limit goes from 2 to 15 minutes (the Windows Update search can be slow).
+- Database migration 0006 (CPU and memory thresholds in `hosts`), applied by `update.sh`.
+- Guide: agents (data sent, maintenance), notifications (CPU and memory) (IT/EN).
+
 ## 4.2.0.dev1 — settings per server and alert delay, stage 1 of 3 (test build, not a Release)
 
 - **Alert after (minutes)** in every alert rule (Settings → Notifications): the alert is sent only if the problem lasts at least that many minutes in a row; if it clears earlier nothing is sent, not even the recovery. Useful for short line drops (e.g. Connection at 3 minutes) and services that restart by themselves. The dashboard and the history still show every problem. Default 0 = as before.

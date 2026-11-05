@@ -90,6 +90,7 @@
       { text: fmtGB(d.used_mb), cls: "num" }, { text: fmtGB(d.free_mb), cls: "num" },
       { text: fmtNum(d.used_pct), cls: `num ${level(d.used_pct, 85, 95)}` },
     ])));
+    renderAgentHealth(h);
     const svc = (h.services_state || {}).services || [];
     $("#services").replaceChildren(...(svc.length ? svc.map((x) => {
       const li = el("li", { class: x.up ? "up" : "down" });
@@ -99,6 +100,44 @@
       li.append(b);
       return li;
     }) : [el("li", { class: "hint" }, t("Nessun servizio indicato per questo server (Impostazioni → Server collegati)."))]));
+  }
+
+  // 4.2: dischi, aggiornamenti e Docker inviati dall'agente
+  function renderAgentHealth(h) {
+    const hl = h.health;
+    const cont = (h.containers || {}).containers || [];
+    const step = (cls, title, sub) => {
+      const li = el("li", { class: cls });
+      const d = el("div"); d.append(el("strong", {}, title)); if (sub) d.append(el("span", {}, sub));
+      li.append(el("span", { class: `dot ${cls === "ok" ? "ok" : cls}`, "aria-hidden": "true" }), d);
+      return li;
+    };
+    $("#ah-none").hidden = !!hl;
+    if (!hl) $("#ah-none").textContent = t("L'agente {p0} non invia dischi e aggiornamenti: aggiornalo alla 4.2 (guida, Server collegati).", { p0: h.agent_version || "" });
+    $("#ah-time").textContent = hl ? t("aggiornato {p0} · ogni 6 ore", { p0: fmtDateTime(hl.time) }) : "";
+    const items = [];
+    if (hl) {
+      if (!hl.disks.length) items.push(step("wait", t("Dischi"), hl.smart_available ? t("nessun disco letto") : t("SMART non disponibile (installa smartmontools)")));
+      hl.disks.forEach((d) => {
+        const bad = d.passed === false || d.os_health === "Unhealthy" || d.pending || d.uncorrectable || d.media_errors;
+        const warn = d.os_health === "Warning" || d.reallocated;
+        const extra = [d.temperature != null ? `${d.temperature} °C` : "", d.wear_used_pct != null ? t("usura {p0}%", { p0: d.wear_used_pct }) : "",
+                       d.error || ""].filter(Boolean).join(" · ");
+        items.push(step(bad ? "alert" : warn ? "warn" : "ok", `${t("Disco")} ${d.device} ${d.model || ""}`.trim(),
+                        (bad ? t("guasto o settori danneggiati") : warn ? t("da tenere d'occhio") : t("regolare")) + (extra ? ` · ${extra}` : "")));
+      });
+      const u = hl.updates;
+      if (u) {
+        if (u.error) items.push(step("wait", t("Aggiornamenti"), u.error));
+        else items.push(step(u.security_count ? "warn" : "ok", t("Aggiornamenti"),
+          u.total ? t("{p0} disponibili, {p1} di sicurezza", { p0: u.total, p1: u.security_count || 0 }) : t("tutto aggiornato")));
+        if (u.reboot && u.reboot.required) items.push(step("warn", t("Riavvio richiesto"), t("per completare gli aggiornamenti")));
+      }
+    }
+    $("#ah-list").replaceChildren(...items);
+    $("#ah-docker").hidden = $("#ah-docker-h").hidden = !cont.length;
+    $("#ah-docker tbody").replaceChildren(...cont.map((c) => row([
+      { text: c.name }, { text: c.image }, { text: c.status || c.state, cls: c.state === "running" ? "" : "alert" }])));
   }
 
   // ------------------------------------------------------------ Impostazioni → Server collegati
@@ -176,7 +215,7 @@
     const remote = editing.kind !== "local";
     $$("#hs-form .remote-only-field").forEach((x) => { x.hidden = !remote; });
     f.notify_offline.checked = editing.notify_offline !== false;
-    for (const k of ["offline_minutes", "disk_warning", "disk_alert", "temp_warning", "temp_alert"]) {
+    for (const k of ["offline_minutes", "disk_warning", "disk_alert", "temp_warning", "temp_alert", "cpu_warning", "cpu_alert", "mem_warning", "mem_alert"]) {
       f[k].value = editing[k] ?? "";
       f[k].placeholder = defaults[k] != null ? String(defaults[k]) : "";
     }
@@ -186,7 +225,9 @@
     ev.preventDefault();
     const f = $("#hs-form");
     const data = {};
-    for (const k of ["disk_warning", "disk_alert", "temp_warning", "temp_alert"]) data[k] = f[k].value === "" ? null : Number(f[k].value);
+    for (const k of ["disk_warning", "disk_alert", "temp_warning", "temp_alert", "cpu_warning", "cpu_alert", "mem_warning", "mem_alert"]) {
+      data[k] = f[k].value === "" ? null : Number(f[k].value);
+    }
     if (editing.kind !== "local") {
       data.notify_offline = f.notify_offline.checked;
       data.offline_minutes = f.offline_minutes.value === "" ? null : Number(f.offline_minutes.value);

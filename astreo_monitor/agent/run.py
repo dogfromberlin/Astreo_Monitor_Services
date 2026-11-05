@@ -4,6 +4,7 @@ Avviato ogni minuto da astreo-agent.timer. Non apre porte, non ha database né d
   - servizi: a ogni cambio di stato e comunque ogni 5 minuti
   - metriche (CPU media esatta del periodo, load, memoria, swap, disco) e temperature: ogni 5 minuti
   - riavvio: quando l'ora di avvio cambia
+  - 4.2: dischi (SMART, se c'è smartctl) e aggiornamenti in sospeso: ogni 6 ore; container Docker: ogni 5 minuti
 Ciò che non si riesce a inviare resta in coda (state_dir/queue) fino a 24 ore.
 
     python -m astreo_monitor.agent.run [-c /etc/astreo-agent/agent.ini] [--dry-run]
@@ -20,15 +21,21 @@ import platform
 import sys
 import time
 
+import glob
+import shutil
+import subprocess
+
 import requests
 
 from .. import __version__
-from ..collectors import sensors, services, system
+from ..collectors import sensors, services, smart, system, updates
+from ..integrations import docker as docker_mod
 
 log = logging.getLogger("agent")
 DEFAULT_CONFIG = "/etc/astreo-agent/agent.ini"
 METRICS_EVERY = 290          # secondi (il timer gira ogni minuto)
 SERVICES_EVERY = 290
+HEALTH_EVERY = 6 * 3600       # 4.2: dischi e aggiornamenti
 QUEUE_MAX_AGE = 24 * 3600
 BATCH = 200
 
@@ -88,6 +95,12 @@ class Agent:
             if temps:
                 items.append({"type": "temperatures", "time": iso, "sensors": temps[:64]})
             self.state["cpu_times"], self.state["metrics_sent"] = curr, time.time()
+            conts = containers()
+            if conts is not None:
+                items.append({"type": "containers", "time": iso, "containers": conts})
+        if time.time() - self.state.get("health_sent", 0) >= HEALTH_EVERY:
+            items.append({"type": "health", "time": iso, **health(now)})
+            self.state["health_sent"] = time.time()
         return items
 
     # ---------------------------------------------------------------- coda e invio
@@ -153,6 +166,51 @@ class Agent:
         with open(self.state_path + ".tmp", "w", encoding="utf-8") as f:
             json.dump(self.state, f)
         os.replace(self.state_path + ".tmp", self.state_path)
+
+
+def smart_disks(now: dt.datetime) -> tuple[bool, list[dict]]:
+    """4.2: SMART dei dischi con smartctl (l'agente gira come root). Senza smartctl: nessun dato."""
+    exe = shutil.which("smartctl") or ("/usr/sbin/smartctl" if os.path.exists("/usr/sbin/smartctl") else None)
+    if not exe:
+        return False, []
+    try:
+        scan = subprocess.run([exe, "--scan"], capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return True, []
+    out = []
+    for line in scan.splitlines()[:16]:
+        dev = line.split(" ", 1)[0]
+        if not dev.startswith("/dev/"):
+            continue
+        try:
+            res = subprocess.run([exe, "--json=c", "-a", dev], capture_output=True, text=True, timeout=60)
+            d = smart.parse(json.loads(res.stdout), os.path.basename(dev), now)
+        except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+            d = {"device": os.path.basename(dev), "error": f"lettura non riuscita: {exc.__class__.__name__}"}
+        out.append({k: d.get(k) for k in ("device", "model", "passed", "temperature", "wear_used_pct", "reallocated",
+                                           "pending", "uncorrectable", "media_errors", "error")})
+    return True, out
+
+
+def health(now: dt.datetime) -> dict:
+    available, disks = smart_disks(now)
+    data = {"smart_available": available, "disks": disks}
+    if shutil.which("apt"):
+        p = updates.pending()
+        data["updates"] = {"total": p.get("total", 0), "security": p.get("security", [])[:100],
+                           "security_count": len(p.get("security", [])), "reboot": updates.reboot(), "error": p.get("error")}
+    elif glob.glob("/var/run/reboot-required"):
+        data["updates"] = {"total": 0, "security": [], "reboot": {"required": True}}
+    return data
+
+
+def containers() -> list[dict] | None:
+    """4.2: container Docker, se Docker è presente (None = niente Docker su questo server)."""
+    present, _ = docker_mod.detect()
+    if not present:
+        return None
+    return [{k: c.get(k) for k in ("name", "image", "state", "status", "health", "restart_policy")}
+            for c in docker_mod.containers(with_stats=False)][:200]
 
 
 def os_info() -> str:

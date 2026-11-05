@@ -56,6 +56,18 @@ recovery: useful for short line outages (Connection at 3 minutes) or for a servi
 dashboard and the history still show every problem, even a one-minute one, and count it in the availability. The
 reminder starts only after the first alert has been sent.
 
+<a id="cpu-memoria"></a>
+## CPU and memory alerts
+
+Off by default: they are turned on in **Settings → Notifications → CPU and memory alerts**. General thresholds (CPU
+warning 90%, alert 98%; memory warning 90%, alert 97%) apply to all servers; each server can have its own in
+**Settings of this server** ([connected servers](agents.md#impostazioni-server)).
+
+CPU and memory are measured every 5 minutes, on the central server and on the agents. The *CPU* and *Memory* rules
+have **Alert after** 15 and 10 minutes by default: the alert is sent only for a sustained load, not for the peaks
+of updates or backups. For the central server the alert also lists the three processes using the most CPU or
+memory. With the alerts on, a load above the thresholds also appears in *To check*.
+
 <a id="silenzio"></a>
 ## Quiet hours
 

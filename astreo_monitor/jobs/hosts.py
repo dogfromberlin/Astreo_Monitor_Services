@@ -11,6 +11,8 @@ import logging
 
 from .. import db, events, hosts, i18n, notifier
 from .. import settings as settings_mod
+from ..collectors import smart
+from ..integrations import docker as docker_mod
 from ..config import Config
 from .base import run
 
@@ -43,7 +45,7 @@ def main(cfg: Config, dry_run: bool) -> int:
                            tr("{p0}: di nuovo raggiungibile", p0=name) if online else tr("{p0}: non raggiungibile", p0=name),
                            tr("Ultimo invio dei dati alle {p0}.", p0=last)))
             snap = h["snapshot"] or {}
-            lim = hosts.limits(h, cfg)                                  # 4.2: soglie del server
+            lim = hosts.limits(h, cfg, values)                          # 4.2: soglie del server
             if online and snap:
                 disks = [x for x in (snap.get("disks") or []) if x.get("used_pct") is not None]
                 worst = max(disks, key=lambda x: x["used_pct"]) if disks else {"mountpoint": "/", "used_pct": snap.get("disk_used_pct")}
@@ -57,12 +59,47 @@ def main(cfg: Config, dry_run: bool) -> int:
                     checks.append(("temperature", "temperature", st,
                                    f"[{name}] " + (tr("Allarme {nome} rientrato", nome=tr("Temperatura").lower()) if st == "OK" else f"{tr('Temperatura')}: {st}"),
                                    tr("Temperatura massima {t} °C ({sensore})", t=f"{tmax:.1f}", sensore=name)))
+                if values["load.alerts_enabled"]:                       # 4.2: CPU e memoria, se attivati
+                    for key, field, w, a2, label in (("cpu", "cpu_pct", "cpu_warning", "cpu_alert", "CPU"),
+                                                     ("memory", "mem_used_pct", "mem_warning", "mem_alert", "Memoria")):
+                        v = snap.get(field)
+                        if v is None:
+                            continue
+                        st = level(v, lim[w], lim[a2])
+                        checks.append((key, key, st, f"[{name}] " + (tr("Allarme {nome} rientrato", nome=tr(label).lower()) if st == "OK" else f"{tr(label)}: {st}"),
+                                       tr("{nome} al {pct}%", nome=tr(label), pct=round(v)) + " · "
+                                       + tr("Soglie: warning {w}%, alert {a}%", w=lim[w], a=lim[a2])))
                 for s in (h["services_state"] or {}).get("services", []):
                     st = "OK" if s["up"] else "ALERT"
                     checks.append((f"service:{s['unit']}", "services", st,
                                    f"[{name}] " + (tr("Servizio {nome} di nuovo attivo", nome=s["label"]) if s["up"]
                                                    else tr("Servizio {nome} fermo ({stato})", nome=s["label"], stato=s["state"])),
                                    tr("Servizio: {nome} ({unit})", nome=s["label"], unit=s["unit"])))
+            if online:                                                   # 4.2: dischi, aggiornamenti e Docker dagli agenti
+                health = h.get("health") or {}
+                for d in health.get("disks", []):
+                    st, why = smart.evaluate(d, values["smart.temp_warning"], values["smart.wear_warning"])
+                    if st == "UNKNOWN":
+                        continue
+                    label = f"{d['device']} {d.get('model') or ''}".strip()
+                    checks.append((f"smart:{d['device']}", "smart", st,
+                                   f"[{name}] " + (tr("Disco {p0}: di nuovo regolare", p0=label) if st == "OK" else tr("Disco {p0}: {p1}", p0=label, p1=st)),
+                                   "; ".join(i18n.translate_stored(r, lang) for r in why) or tr("Salute del disco regolare")))
+                upd = health.get("updates")
+                if upd and not upd.get("error"):
+                    sec, rb = upd.get("security_count", 0), upd.get("reboot", {}).get("required")
+                    st = "WARNING" if sec or rb else "OK"
+                    parts = ([tr("{p0} aggiornamenti di sicurezza da installare", p0=sec)] if sec else []) + \
+                            ([tr("riavvio richiesto")] if rb else [])
+                    checks.append(("updates", "updates", st,
+                                   f"[{name}] " + (tr("Aggiornamenti installati") if st == "OK" else tr("Aggiornamenti in sospeso")),
+                                   "; ".join(parts) or tr("{p0} aggiornamenti disponibili", p0=upd.get("total", 0))))
+                for c in (h.get("containers") or {}).get("containers", []):
+                    st = docker_mod.evaluate(c)
+                    checks.append((f"docker:{c['name']}", "docker", st,
+                                   f"[{name}] " + (tr("Container {p0} di nuovo regolare", p0=c["name"]) if st == "OK"
+                                                   else tr("Container {p0}: {p1}", p0=c["name"], p1=c["state"])),
+                                   f"{c['image']} · {c['status']}"))
             for key, source, status, subject, text in checks:
                 state = notifier.AlertState(conn, f"host:{h['id']}:{key}")
                 prev = state.status

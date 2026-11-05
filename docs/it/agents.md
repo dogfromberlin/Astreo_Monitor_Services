@@ -11,8 +11,8 @@ Con almeno un server collegato, la vista **Server** si apre sull'**elenco dei se
 stato (verde, giallo se ha servizi fermi o il disco quasi pieno, rosso se non risponde), CPU, memoria, disco più
 pieno, servizi (prima quelli fermi) e ultimo invio; le stesse schede sono nella Panoramica. Un clic apre il
 **dettaglio** del server (indirizzo `#server/<numero>`, si torna all'elenco dal percorso *Server › nome*): le sue
-risorse, il suo storico con gli eventi (riavvii, servizi fermi), i suoi servizi e i suoi dischi. Manutenzione e
-controlli, moduli, processi e sensori sono del solo centrale e restano nascosti negli altri server. Un servizio tolto
+risorse, il suo storico con gli eventi (riavvii, servizi fermi), i suoi servizi, i suoi dischi e la sua
+[manutenzione](#salute). Manutenzione e controlli del centrale, moduli, processi e sensori sono del solo centrale e restano nascosti negli altri server. Un servizio tolto
 dai servizi controllati sparisce subito, senza aspettare il prossimo invio dell'agente.
 
 | Dato | Linux | Windows |
@@ -23,6 +23,19 @@ dai servizi controllati sparisce subito, senza aspettare il prossimo invio dell'
 | Temperature | sì (`lm-sensors`) | non disponibili |
 | Servizi scelti | systemd, a ogni cambio | servizi di Windows, a ogni cambio |
 | Riavvii | sì | sì |
+| Stato dei dischi (4.2) | SMART, se c'è `smartmontools`; ogni 6 ore | stato di salute dei dischi fisici; ogni 6 ore |
+| Aggiornamenti e riavvio richiesto (4.2) | `apt`; ogni 6 ore | Windows Update; ogni 6 ore |
+| Container Docker (4.2) | se c'è Docker; ogni 5 minuti | se c'è Docker; ogni 5 minuti |
+
+<a id="salute"></a>
+### Manutenzione di un server collegato
+
+Con un agente 4.2 il dettaglio del server ha il pannello **Manutenzione**: stato di ogni disco (temperatura e usura
+quando il disco le fornisce), aggiornamenti disponibili e di sicurezza, riavvio richiesto, container Docker. Gli
+stessi dati compaiono in *Da controllare* e generano gli avvisi *Salute dei dischi*, *Aggiornamenti di sistema* e
+*Container Docker*, con le regole di [Notifiche](notifications.md#regole). Su Linux SMART richiede il pacchetto
+`smartmontools` (`sudo apt install smartmontools`). Su Windows la ricerca degli aggiornamenti può richiedere qualche
+minuto: per questo l'attività pianificata dell'agente 4.2 ha un limite di 15 minuti invece di 2.
 
 <a id="impostazioni-server"></a>
 ## Impostazioni di un server
@@ -34,7 +47,7 @@ collegati**. I campi vuoti usano le impostazioni generali (mostrate in grigio).
 |---|---|
 | Avvisa se non raggiungibile | disattivato, un server spento compare come informazione grigia (*spento*) e non manda avvisi: per i computer che si spengono volutamente |
 | Non raggiungibile dopo (minuti) | minuti senza dati prima di considerarlo non raggiungibile (generale: in *Server collegati*) |
-| Soglie di disco e temperatura | avviso e allarme per questo server; valgono per Panoramica, *Da controllare* e avvisi |
+| Soglie di disco, temperatura, CPU e memoria | avviso e allarme per questo server; valgono per Panoramica, *Da controllare* e avvisi (CPU e memoria solo se i loro [avvisi](notifications.md#cpu-memoria) sono attivi) |
 
 Il server centrale ha solo le soglie. Per non ricevere avvisi su problemi brevi c'è anche **Avvisa dopo** nelle
 [regole di avviso](notifications.md#regole).

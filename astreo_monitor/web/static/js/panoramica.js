@@ -205,9 +205,10 @@
 
     if (h.status === "OK") {
       const m = el("div", { class: "metrics" });
-      m.append(metric(t("CPU"), pct(h.cpu_pct), h.cpu_pct, meterLevel(h.cpu_pct, 70, 90)),
-               metric(t("Memoria"), pct(h.mem_pct), h.mem_pct, meterLevel(h.mem_pct, 80, 92)),
-               metric(h.disks.length > 1 ? t("Disco più pieno") : t("Disco"), pct(h.disk_pct), h.disk_pct, meterLevel(h.disk_pct, 85, 95)),
+      const L = h.limits || {};                       // 4.2: soglie del server (o generali)
+      m.append(metric(t("CPU"), pct(h.cpu_pct), h.cpu_pct, meterLevel(h.cpu_pct, L.cpu_warning ?? 90, L.cpu_alert ?? 98)),
+               metric(t("Memoria"), pct(h.mem_pct), h.mem_pct, meterLevel(h.mem_pct, L.mem_warning ?? 90, L.mem_alert ?? 97)),
+               metric(h.disks.length > 1 ? t("Disco più pieno") : t("Disco"), pct(h.disk_pct), h.disk_pct, meterLevel(h.disk_pct, L.disk_warning ?? 85, L.disk_alert ?? 95)),
                h.temperature_max !== null && h.temperature_max !== undefined
                  ? metric(t("Temperatura"), `${fmtNum(h.temperature_max, 0)} °C`, null)
                  : metric(t("Acceso da"), h.uptime_s ? fmtUptime(h.uptime_s) : "–", null));

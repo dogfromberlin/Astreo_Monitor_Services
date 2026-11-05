@@ -178,6 +178,18 @@
         </fieldset>
 
         <fieldset>
+          <legend>{{ _("Avvisi di CPU e memoria") }} <button type="button" class="help-btn" data-help="notifications#cpu-memoria" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
+          <label class="switch"><input type="checkbox" data-key="load.alerts_enabled"><span>{{ _("Attiva") }}</span></label>
+          <div class="grid-fields">
+            <label>{{ _("CPU: avviso (%)") }}<input type="number" min="10" max="100" step="1" data-key="load.cpu_warning"></label>
+            <label>{{ _("CPU: allarme (%)") }}<input type="number" min="10" max="100" step="1" data-key="load.cpu_alert"></label>
+            <label>{{ _("Memoria: avviso (%)") }}<input type="number" min="10" max="100" step="1" data-key="load.mem_warning"></label>
+            <label>{{ _("Memoria: allarme (%)") }}<input type="number" min="10" max="100" step="1" data-key="load.mem_alert"></label>
+          </div>
+          <p class="hint">{{ _("Spenti di serie. Valgono per tutti i server; ogni server può avere soglie sue (Impostazioni di questo server). CPU e memoria si misurano ogni 5 minuti: l'attesa di «Avvisa dopo» (CPU e Memoria nelle regole qui sotto) conta a passi di 5 minuti.") }}</p>
+        </fieldset>
+
+        <fieldset>
           <legend>{{ _("Fascia di silenzio") }} <button type="button" class="help-btn" data-help="notifications#silenzio" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <label class="switch"><input type="checkbox" data-key="quiet.enabled"><span>{{ _("Attiva") }}</span></label>
           <div class="grid-fields quiet-fields">

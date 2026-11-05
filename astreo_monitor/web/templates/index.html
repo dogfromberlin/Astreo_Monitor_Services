@@ -218,6 +218,15 @@
     <ul class="services" id="services"></ul>
   </section>
 
+  <section class="panel remote-only" data-card="agent-health" id="agent-health" aria-labelledby="h-ah">
+    <div class="panel-head"><h2 id="h-ah">{{ _("Manutenzione") }} <button type="button" class="help-btn" data-help="agents#salute" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small id="ah-time"></small></div>
+    <p class="hint" id="ah-none" hidden></p>
+    <ul class="steps" id="ah-list"></ul>
+    <h3 class="sub-head" id="ah-docker-h" hidden>{{ _("Container Docker") }}</h3>
+    <div class="scroll"><table class="data" id="ah-docker" hidden>
+      <thead><tr><th>{{ _("Nome") }}</th><th>{{ _("Immagine") }}</th><th>{{ _("Stato") }}</th></tr></thead><tbody></tbody>
+    </table></div>
+  </section>
   <section class="panel central-only" data-card="maintenance">
     <div class="panel-head"><h2>{{ _("Manutenzione e controlli") }} <button type="button" class="help-btn" data-help="server#controlli" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><small>{{ _("connessione, dischi, aggiornamenti, backup e scadenze") }}</small></div>
     <ul class="checks" id="checks"></ul>
@@ -381,7 +390,12 @@
         <label>{{ _("Disco: allarme (%)") }}<input type="number" name="disk_alert" min="1" max="100" step="1"></label>
         <label>{{ _("Temperatura: avviso (°C)") }}<input type="number" name="temp_warning" min="20" max="120" step="1"></label>
         <label>{{ _("Temperatura: allarme (°C)") }}<input type="number" name="temp_alert" min="20" max="120" step="1"></label>
+        <label>{{ _("CPU: avviso (%)") }}<input type="number" name="cpu_warning" min="10" max="100" step="1"></label>
+        <label>{{ _("CPU: allarme (%)") }}<input type="number" name="cpu_alert" min="10" max="100" step="1"></label>
+        <label>{{ _("Memoria: avviso (%)") }}<input type="number" name="mem_warning" min="10" max="100" step="1"></label>
+        <label>{{ _("Memoria: allarme (%)") }}<input type="number" name="mem_alert" min="10" max="100" step="1"></label>
       </div>
+      <p class="hint" id="hs-load-hint">{{ _("Gli avvisi di CPU e memoria si attivano in Impostazioni → Notifiche.") }}</p>
     </fieldset>
     <div class="form-actions">
       <button type="button" class="btn" id="hs-cancel">{{ _("Annulla") }}</button>

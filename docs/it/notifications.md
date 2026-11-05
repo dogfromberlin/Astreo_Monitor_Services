@@ -56,6 +56,18 @@ utile per le brevi interruzioni della linea (Connessione a 3 minuti) o per un se
 La dashboard e lo storico mostrano comunque ogni anomalia, anche quella di un minuto, e la contano nella
 disponibilità. Il promemoria parte solo dopo che è partito il primo avviso.
 
+<a id="cpu-memoria"></a>
+## Avvisi di CPU e memoria
+
+Spenti di serie: si attivano in **Impostazioni → Notifiche → Avvisi di CPU e memoria**. Soglie generali (CPU
+avviso 90%, allarme 98%; memoria avviso 90%, allarme 97%) valide per tutti i server; ogni server può averne di sue
+in **Impostazioni di questo server** ([server collegati](agents.md#impostazioni-server)).
+
+CPU e memoria si misurano ogni 5 minuti, sul centrale e sugli agenti. Le regole *CPU* e *Memoria* hanno di serie
+**Avvisa dopo** 15 e 10 minuti: l'avviso parte solo per un carico prolungato, non per i picchi di aggiornamenti o
+backup. Per il server centrale l'avviso riporta anche i tre processi che usano più CPU o memoria. Con gli avvisi
+attivi, il carico sopra soglia compare anche in *Da controllare*.
+
 <a id="silenzio"></a>
 ## Fascia di silenzio
 
