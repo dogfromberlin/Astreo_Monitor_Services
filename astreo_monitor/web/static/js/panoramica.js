@@ -90,7 +90,9 @@
     const b = d.backup;
     if (!b.status) kpi("#kpi-backup", "–", "", t("nessun backup registrato"), "warn");
     else {
-      const where = b.github ? t("copia su GitHub") : b.destinations ? t("{p0} destinazioni", { p0: b.destinations }) : t("solo copia locale");
+      const ext = b.external || [];
+      const where = !ext.length ? t("solo copia locale") : ext.includes("github") && b.github ? t("copia su GitHub")
+        : b.destinations ? t("{p0} destinazioni", { p0: b.destinations }) : t("copia esterna non riuscita");
       kpi("#kpi-backup", clock(b.time), dayLabel(b.time),
           b.status === "OK" ? `${b.databases === 1 ? t("1 database") : t("{p0} database", { p0: b.databases })} · ${where}` : t("non riuscito"),
           b.status === "OK" ? "ok" : "alert");
@@ -132,6 +134,12 @@
                   a.view === "connessione" ? t("Apri Connessione") : t("Apri le impostazioni")));
     }
     if (a.kind === "check") out.push(el("a", { class: "btn small", href: "#dispositivi" }, t("Apri Dispositivi")));
+    if (a.kind === "nobackup") {
+      if (!IS_VIEWER) out.push(el("a", { class: "btn small", href: "#impostazioni/backup" }, t("Configura il backup")));
+      const later = el("button", { type: "button", class: "btn small" }, t("Ricordamelo più tardi"));
+      later.addEventListener("click", laterNoBackup);
+      out.push(later);
+    }
     if (a.kind === "help") out.push(el("button", { type: "button", class: "btn small", "data-help": a.page }, t("Cosa fare")));
     return out;
   }
@@ -261,8 +269,11 @@
     else {
       steps.push(step(b.status === "OK" ? "ok" : "alert", b.status === "OK" ? t("Backup completato") : t("Backup non riuscito"),
                       `${fmtDateTime(b.time)} · ${b.databases === 1 ? t("1 database") : t("{p0} database", { p0: b.databases })}`));
-      steps.push(step(b.github || b.destinations ? "ok" : "wait", b.github ? t("Copia su GitHub") : b.destinations ? t("Copia su altre destinazioni") : t("Solo copia locale"),
-                      b.destinations ? (b.destinations === 1 ? t("1 destinazione") : t("{p0} destinazioni", { p0: b.destinations })) : ""));
+      const ext = b.external || [];
+      const gh = ext.includes("github"), rc = ext.filter((x) => x.startsWith("rclone:")).length;
+      if (gh) steps.push(step(b.github ? "ok" : "warn", t("Copia su GitHub"), b.github ? "" : t("non riuscita nell'ultimo backup")));
+      if (rc) steps.push(step(b.destinations ? "ok" : "warn", t("Copia su altre destinazioni"), rc === 1 ? t("1 destinazione") : t("{p0} destinazioni", { p0: rc })));
+      if (!ext.length) steps.push(step("warn", t("Solo copia locale"), t("nessuna copia fuori dal server")));
     }
     if (rt && rt.status) {
       steps.push(step(rt.status === "OK" ? "ok" : "alert", rt.status === "OK" ? t("Prova di ripristino riuscita") : t("Prova di ripristino non riuscita"),
@@ -293,6 +304,24 @@
   }
   window.AM.renderServerList = renderServerList;
 
+  // ------------------------------------------------------------------ 4.2: avviso "nessun backup"
+  const LATER = "astreo-nobackup-later", COMPACT = "astreo-nobackup-compact";
+  const store = (k, v) => { try { if (v === undefined) return k === LATER ? sessionStorage.getItem(k) : localStorage.getItem(k);
+                                   (k === LATER ? sessionStorage : localStorage).setItem(k, v); } catch (e) { return null; } return null; };
+  function renderNoBackup(b) {
+    const box = $("#nobackup");
+    const show = !!b.warning && !store(LATER);
+    box.hidden = !show;
+    if (!show) return;
+    box.classList.toggle("pending", b.warning === "pending");
+    box.classList.toggle("compact", store(COMPACT) === b.warning);
+    $("#nb-title").textContent = b.warning === "none" ? t("Nessun backup fuori dal server") : t("Backup configurato: in attesa del primo backup riuscito");
+    $("#nb-text").textContent = b.warning === "none"
+      ? t("La copia locale non protegge da un guasto del disco di questo server. Configura una copia su GitHub o una destinazione rclone (NAS, cartella di rete, cloud).")
+      : t("L'avviso sparisce da solo appena un backup arriva su GitHub o su una destinazione rclone.");
+  }
+  function laterNoBackup() { store(LATER, "1"); load(); }
+
   // ------------------------------------------------------------------ caricamento
   async function load() {
     if (document.hidden && last) return;
@@ -304,6 +333,7 @@
       $("#ov-hero").dataset.level = "alert";
       return;
     }
+    if (store(LATER)) d.todo = d.todo.filter((x) => x.key !== "nobackup");     // "ricordamelo più tardi"
     last = d;
     renderHero(d);
     renderKpis(d);
@@ -312,6 +342,7 @@
     $("#ov-hosts").$default = d.hosts.map((h) => `host-${h.id}`);      // ordine di partenza per "Ripristina ordine"
     if (window.AM.applyLayout) window.AM.applyLayout("ov-hosts");
     renderConnection(d.connection);
+    renderNoBackup(d.backup);
     renderBackup(d.backup, $("#ov-backup"));
     renderBackup(d.backup, $("#bk-summary"));
     renderServerList();
@@ -325,6 +356,13 @@
   });
 
   document.addEventListener("DOMContentLoaded", () => {
+    $("#nb-later").addEventListener("click", laterNoBackup);
+    $("#nb-keep").addEventListener("click", () => { if (last) { store(COMPACT, last.backup.warning); renderNoBackup(last.backup); } });
+    $("#nb-never").addEventListener("click", async () => {
+      if (!confirm(t("Non mostrare più l'avviso? Puoi riattivarlo in Impostazioni → Backup."))) return;
+      try { await api("/api/v1/settings", { method: "PUT", json: { "backup.no_backup_dismissed": true } }); load(); }
+      catch (e) { toast(e.message, "error"); }
+    });
     every(30_000, load);
     document.addEventListener("hosts-changed", load);                    // anche fuori dalla Panoramica: tiene aggiornato il numero nel menu
     window.AM.onView("panoramica", () => { greeting(); if (last) load(); });

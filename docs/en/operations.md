@@ -25,6 +25,18 @@ journalctl -u 'astreo-*' -p warning --since "7 days ago" --no-pager
 journalctl -u astreo-monitor-web.service -f                       # live
 ```
 
+<a id="lentezza"></a>
+### Slow dashboard
+
+Since 4.2 every dashboard request over 2 seconds and every database transaction open for more than 5 seconds (of the
+dashboard or of a job) end up in the log, with the time spent waiting for the database (the log lines are in
+Italian):
+```bash
+journalctl -u 'astreo-*' --since today --no-pager | grep -E "Richiesta lenta|Transazione lunga"
+```
+Lines with almost the same time show who made whom wait: for example a job's *Transazione lunga* right before a
+dashboard *Richiesta lenta*.
+
 <a id="job"></a>
 ## Running or pausing a job
 

@@ -22,6 +22,8 @@ def dbcfg(cfg, tmp_path):
     with db.connect(dbc) as conn:
         for t in reversed(models.metadata.sorted_tables):
             conn.execute(delete(t).where(t.c.id != 1) if t is models.hosts else delete(t))
+        from astreo_monitor import settings as _s
+        _s.save(conn, c, {"backup.no_backup_dismissed": True})    # l'avviso "nessun backup" ha il suo test
     yield c
     db._engines.clear()
 
@@ -293,3 +295,104 @@ def test_job_server_collegati_con_salute(dbcfg):
         assert job.main(dbcfg, False) == 0
     subjects = " | ".join(c.args[3] for c in sent.call_args_list)
     assert "Disco sda" in subjects and "Container web" in subjects and "CPU" not in subjects   # CPU: avvisi spenti
+
+
+
+def test_avviso_nessun_backup(dbcfg):
+    """4.2: senza copie fuori dal server c'è l'avviso; con una destinazione aspetta il primo backup riuscito."""
+    from astreo_monitor import settings
+    with db.connect(dbcfg.database) as conn:
+        settings.save(conn, dbcfg, {"backup.no_backup_dismissed": False, "backup.github_enabled": False})
+        db.state_set(conn, "backup:last", {"time": dt.datetime.now().isoformat(), "status": "OK", "destinations": []})
+    d = build(dbcfg)
+    assert d["backup"]["warning"] == "none" and any(x["key"] == "nobackup" and x["severity"] == "warn" for x in d["todo"])
+    with db.connect(dbcfg.database) as conn:
+        settings.save(conn, dbcfg, {"backup.rclone_destinations": "/mnt/nas/astreo"})
+    assert build(dbcfg)["backup"]["warning"] == "pending"                       # configurato, ma nessun backup ancora
+    with db.connect(dbcfg.database) as conn:
+        db.state_set(conn, "backup:last", {"time": dt.datetime.now().isoformat(), "status": "OK",
+                                           "destinations": [{"dest": "/mnt/nas/astreo", "ok": True}]})
+    d = build(dbcfg)
+    assert d["backup"]["warning"] is None and not any(x["key"] == "nobackup" for x in d["todo"])
+    with db.connect(dbcfg.database) as conn:                                   # tolte tutte le destinazioni: ricompare
+        settings.save(conn, dbcfg, {"backup.rclone_destinations": ""})
+    assert build(dbcfg)["backup"]["warning"] == "none"
+    with db.connect(dbcfg.database) as conn:                                   # "non mostrare più"
+        settings.save(conn, dbcfg, {"backup.no_backup_dismissed": True})
+    assert build(dbcfg)["backup"]["warning"] is None
+    with pytest.raises(settings.SettingsError):
+        with db.connect(dbcfg.database) as conn:
+            settings.save(conn, dbcfg, {"backup.github_enabled": True, "backup.github_repo": ""})
+    with pytest.raises(settings.SettingsError):
+        with db.connect(dbcfg.database) as conn:
+            settings.save(conn, dbcfg, {"backup.github_repo": "non valido"})
+
+
+def test_tempi_del_database_misurati(dbcfg):
+    """4.2: le query vengono misurate per il registro delle richieste lente."""
+    st = db.start_stats("prova")
+    with db.connect(dbcfg.database) as conn:
+        conn.exec_driver_sql("select 1")
+    assert st["query"] > 0 and st["connect"] > 0 and "connessione al database" in db.describe(st)
+
+
+def test_bot_stato_di_un_server_e_riepilogo(dbcfg):
+    """4.2: /stato nome-server e la sezione per server del riepilogo settimanale."""
+    from astreo_monitor import hosts, telegram_bot
+    from astreo_monitor.jobs import weekly_summary
+    now = dt.datetime.now().replace(microsecond=0)
+    with db.connect(dbcfg.database) as conn:
+        hid, _t = hosts.create(conn, "ATLAS", "windows", "WinDefend")
+        host = next(h for h in db.rows(conn, models.hosts.select()) if h["id"] == hid)
+        hosts.ingest(conn, host, {"agent": {"version": "4.2.0"}, "items": [
+            {"type": "metrics", "time": now.isoformat(), "cpu_pct": 12, "mem_used_pct": 40, "disk_used_pct": 55, "uptime_s": 7200},
+            {"type": "services", "time": now.isoformat(), "services": [{"unit": "WinDefend", "label": "Defender", "up": False, "state": "stopped"}]}]})
+        lines = weekly_summary.per_host(conn, now - dt.timedelta(days=7), now + dt.timedelta(minutes=1), lambda text, **k: text.format(**k))
+    assert "SERVER ATLAS" in lines and any("Picchi: CPU 12%" in x for x in lines)
+    bot = telegram_bot.Bot.__new__(telegram_bot.Bot)
+    bot.cfg, bot.lang, sent = dbcfg, "it", []
+    bot.send = lambda chat, text: sent.append(text)
+    bot.handle("x", "status", "atl")                               # comando inglese, nome abbreviato
+    bot.handle("x", "servizi", "ATLAS")
+    bot.handle("x", "stato", "nessuno")
+    assert "ATLAS" in sent[0] and "Servizi fermi: Defender" in sent[0]
+    assert "Defender" in sent[1] and "Nessun server di nome" in sent[2]
+
+
+def test_salvataggio_senza_connessioni_annidate(dbcfg):
+    """4.2: salvare le impostazioni non deve aprire una seconda connessione mentre la prima ha righe modificate
+    (su SQL Server restava bloccata fino al timeout di 30 secondi)."""
+    import base64
+    from werkzeug.security import generate_password_hash
+    from astreo_monitor.web import app as webapp
+    web = dataclasses.replace(dbcfg.web, password_hash=generate_password_hash("prova"))
+    app = webapp.create_app(dataclasses.replace(dbcfg, web=web))
+    app.testing = True
+    auth = {"Authorization": "Basic " + base64.b64encode(f"{web.username}:prova".encode()).decode()}
+    real, depth, worst = db.connect, [0], [0]
+
+    @contextlib.contextmanager
+    def counting(*a, **k):
+        depth[0] += 1
+        worst[0] = max(worst[0], depth[0])
+        try:
+            with real(*a, **k) as c:
+                yield c
+        finally:
+            depth[0] -= 1
+
+    with mock.patch.object(db, "connect", counting), mock.patch("astreo_monitor.schema.check", return_value=[]):
+        c = app.test_client()
+        for _ in range(2):
+            webapp_lang_expired(app)
+            worst[0] = 0
+            r = c.put("/api/v1/settings", json={"alert.connectivity.delay_minutes": 3}, headers=auth)
+            assert r.status_code == 200 and worst[0] == 1, worst[0]
+
+
+def webapp_lang_expired(app):
+    """Fa scadere la lingua in cache, come dopo 30 secondi senza richieste (il caso che bloccava)."""
+    for cell in (app.view_functions["api_settings_update"].__closure__ or ()):
+        v = cell.cell_contents
+        if isinstance(v, dict) and "checked" in v and "lang" in v:
+            v["checked"] = 0.0

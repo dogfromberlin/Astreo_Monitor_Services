@@ -69,19 +69,27 @@ def metrics(conn, cfg) -> str:
     """Testo nel formato di esposizione di Prometheus."""
     out: list[str] = []
 
-    def metric(name: str, help_: str, values: list[tuple[dict, float | None]], kind: str = "gauge"):
+    series: dict[str, tuple[str, str, list[str]]] = {}
+    central = ""                                       # 4.2: etichetta host su tutte le metriche
+
+    def metric(name: str, help_: str, values: list[tuple[dict, float | None]], kind: str = "gauge", host: str | None = None):
         vals = [(lbl, v) for lbl, v in values if v is not None]
         if not vals:
             return
-        out.append(f"# HELP astreo_{name} {help_}")
-        out.append(f"# TYPE astreo_{name} {kind}")
+        h, k, lines = series.setdefault(name, (help_, kind, []))
         for lbl, v in vals:
-            labels = ",".join(f'{k}="{_label(x)}"' for k, x in lbl.items())
-            out.append(f"astreo_{name}{{{labels}}} {float(v):g}" if labels else f"astreo_{name} {float(v):g}")
+            labels = ",".join(f'{k2}="{_label(x)}"' for k2, x in {"host": host or central, **lbl}.items())
+            lines.append(f"astreo_{name}{{{labels}}} {float(v):g}")
 
     snap = system.snapshot(cfg.metrics.root_disk)
     s = status(conn, cfg, snap)
+    from . import hosts as hosts_mod
+    from . import settings as settings_mod
+    values = settings_mod.load(conn, cfg)
+    host_list = hosts_mod.listing(conn, int(values["hosts.offline_minutes"]))
+    central = next((h["name"] for h in host_list if h["id"] == hosts_mod.LOCAL_ID and h.get("name")), s["hostname"])
     metric("info", "Versione di Astreo Monitor", [({"version": __version__, "hostname": s["hostname"]}, 1)])
+    metric("host_up", "Server raggiungibile (1) o no (0)", [({"kind": "local"}, 1)])
     metric("uptime_seconds", "Secondi dall'avvio del server", [({}, s["uptime_s"])])
     metric("cpu_percent", "Uso della CPU", [({}, s["cpu_percent"])])
     metric("load1", "Load average a 1 minuto", [({}, snap["load"]["load1"])])
@@ -90,9 +98,29 @@ def metrics(conn, cfg) -> str:
     metric("disk_used_percent", "Disco radice usato", [({}, s["disk_percent"])])
     metric("temperature_celsius", "Temperature dei sensori",
            [({"sensor": f"{t['adapter']} - {t['device']}"}, t["value"]) for t in sensors.read()])
-    metric("service_up", "Servizio systemd attivo (1) o fermo (0)",
+    metric("service_up", "Servizio attivo (1) o fermo (0)",
            [({"unit": x["unit"], "label": x["label"]}, 1 if x["up"] else 0)
             for x in services.statuses(services_store.monitored(conn, cfg))])
+    # 4.2: i server collegati, con le stesse metriche e la loro etichetta host
+    for h in host_list:
+        if h["id"] == hosts_mod.LOCAL_ID or not h["enabled"]:
+            continue
+        name, snap_h, up = h["name"], h.get("snapshot") or {}, h["status"] == "OK"
+        metric("host_up", "Server raggiungibile (1) o no (0)", [({"kind": h["kind"]}, 1 if up else 0)], host=name)
+        if not up:
+            continue
+        metric("uptime_seconds", "", [({}, snap_h.get("uptime_s"))], host=name)
+        metric("cpu_percent", "", [({}, snap_h.get("cpu_pct"))], host=name)
+        metric("load1", "", [({}, snap_h.get("load1"))], host=name)
+        metric("load5", "", [({}, snap_h.get("load5"))], host=name)
+        metric("memory_used_percent", "", [({}, snap_h.get("mem_used_pct"))], host=name)
+        metric("disk_used_percent", "", [({}, snap_h.get("disk_used_pct"))], host=name)
+        metric("temperature_celsius", "", [({"sensor": "max"}, snap_h.get("temperature_max"))], host=name)
+        metric("service_up", "", [({"unit": x["unit"], "label": x["label"]}, 1 if x["up"] else 0)
+                                  for x in (h.get("services_state") or {}).get("services", [])], host=name)
+        upd = (h.get("health") or {}).get("updates") or {}
+        metric("updates_security_pending", "", [({}, upd.get("security_count"))], host=name)
+        metric("reboot_required", "", [({}, None if not upd else int(bool((upd.get("reboot") or {}).get("required"))))], host=name)
     con = db.state_get(conn, "connectivity:last") or {}
     metric("connectivity_status", "Connessione: 0 OK, 1 WARNING, 2 DOWN", [({}, LEVEL.get(con.get("status")))])
     for key, name, help_ in (("rtt_avg_ms", "connectivity_rtt_ms", "Latenza media del ping"),
@@ -118,6 +146,10 @@ def metrics(conn, cfg) -> str:
             for c in s["checks"]])
     metric("check_latency_ms", "Latenza dell'ultimo controllo",
            [({"name": c["name"], "kind": c["kind"]}, c["latency_ms"]) for c in s["checks"]])
+    for name, (help_, kind, lines) in series.items():
+        out.append(f"# HELP astreo_{name} {help_}")
+        out.append(f"# TYPE astreo_{name} {kind}")
+        out.extend(lines)
     return "\n".join(out) + "\n"
 
 

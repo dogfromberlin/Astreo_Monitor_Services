@@ -28,10 +28,10 @@ API = "https://api.telegram.org/bot{token}/{method}"
 # (comando italiano, comando inglese, descrizione): entrambi i comandi funzionano sempre;
 # il menu di Telegram mostra quelli della lingua scelta nella dashboard.
 COMMANDS = [
-    ("stato", "status", "Riepilogo del server"),
+    ("stato", "status", "Riepilogo; con un nome (/stato ATLAS) il dettaglio di quel server"),
     ("connessione", "connection", "Connessione: ping, ultimo speedtest, disponibilità"),
     ("speedtest", "speedtest", "Avvia uno speedtest e mostra il risultato"),
-    ("servizi", "services", "Stato dei servizi monitorati"),
+    ("servizi", "services", "Servizi monitorati; con un nome (/servizi ATLAS) quelli di quel server"),
     ("controlli", "checks", "Dischi, aggiornamenti, scadenze, backup"),
     ("aiuto", "help", "Elenco dei comandi"),
 ]
@@ -133,13 +133,15 @@ class Bot:
                 if not msg or not msg.get("text", "").startswith("/"):
                     continue
                 chat = str(msg["chat"]["id"])
-                cmd = msg["text"].split()[0][1:].split("@")[0].lower()
+                parts = msg["text"].split(maxsplit=1)
+                cmd = parts[0][1:].split("@")[0].lower()
+                arg = parts[1].strip()[:64] if len(parts) > 1 else ""
                 who = (msg.get("from") or {}).get("username") or (msg.get("from") or {}).get("first_name", "?")
                 if chat != self.chat_id:
                     log.warning("Comando /%s ignorato: chat %s non autorizzata (da %s)", cmd, chat, who)
                     continue
                 log.info("Comando /%s da %s", cmd, who)
-                threading.Thread(target=self.handle, args=(chat, cmd), daemon=True).start()
+                threading.Thread(target=self.handle, args=(chat, cmd, arg), daemon=True).start()
 
     # -------------------------------------------------------- comandi
     def tr(self, text, **kw):
@@ -153,10 +155,13 @@ class Bot:
         except db.DatabaseError:
             pass
 
-    def handle(self, chat, cmd: str) -> None:
+    def handle(self, chat, cmd: str, arg: str = "") -> None:
         cmd = ALIASES.get(cmd, cmd)
         self.refresh_language()
         try:
+            if arg and cmd in ("stato", "servizi"):          # 4.2: /stato nome-server, /servizi nome-server
+                self.cmd_host(chat, arg, services_only=cmd == "servizi")
+                return
             handler = {"stato": self.cmd_stato, "connessione": self.cmd_connessione, "speedtest": self.cmd_speedtest,
                        "servizi": self.cmd_servizi, "controlli": self.cmd_controlli}.get(cmd, self.cmd_aiuto)
             handler(chat)
@@ -216,6 +221,64 @@ class Bot:
                    if h["status"] == "OK" and h["snapshot"] else (" — " + self.tr("non raggiungibile") if h["status"] == "DOWN" else ""))
                 for h in others]
         lines += ["", self.tr("Allarmi attivi:")] + active if active else ["", self.tr("Nessun allarme attivo.")]
+        self.send(chat, "\n".join(lines))
+
+    # -------------------------------------------------------- 4.2: un server per nome
+    def find_host(self, name: str):
+        from . import hosts as hosts_mod
+        with db.connect(self.cfg.database) as conn:
+            values = settings_mod.load(conn, self.cfg)
+            lst = hosts_mod.listing(conn, int(values["hosts.offline_minutes"]))
+        n = name.lower()
+        exact = [h for h in lst if (h["name"] or "").lower() == n]
+        part = exact or [h for h in lst if (h["name"] or "").lower().startswith(n)] or \
+            [h for h in lst if n in (h["name"] or "").lower()]
+        return part, lst
+
+    def cmd_host(self, chat, name: str, services_only: bool = False) -> None:
+        found, lst = self.find_host(name)
+        if len(found) != 1:
+            names = ", ".join(h["name"] for h in lst)
+            self.send(chat, (self.tr("Più server corrispondono a «{p0}»: {p1}", p0=name, p1=", ".join(h["name"] for h in found)) if found
+                             else self.tr("Nessun server di nome «{p0}». Server: {p1}", p0=name, p1=names)))
+            return
+        h = found[0]
+        if h["kind"] == "local":                              # il centrale: come i comandi senza nome
+            (self.cmd_servizi if services_only else self.cmd_stato)(chat)
+            return
+        icon = {"OK": "🟢", "DOWN": "🔴", "WAITING": "⚪", "DISABLED": "⚪"}
+        svc = (h.get("services_state") or {}).get("services", [])
+        if services_only:
+            body = "\n".join(f"{'🟢' if x['up'] else '🔴'} {x['label']} ({x.get('state') or '–'})" for x in svc) or \
+                self.tr("Nessun servizio indicato per questo server (Impostazioni → Server collegati).")
+            self.send(chat, self.tr("Servizi di {p0}:", p0=h["name"]) + "\n" + body)
+            return
+        snap = h.get("snapshot") or {}
+        lines = [f"{icon.get(h['status'], '⚪')} {h['name']} — " + {
+            "OK": self.tr("raggiungibile"), "DOWN": self.tr("non raggiungibile"), "WAITING": self.tr("in attesa del primo invio"),
+            "DISABLED": self.tr("disattivato")}.get(h["status"], h["status"]),
+            self.tr("{os} · agente {ver} · ultimo invio {quando}", os=h.get("os_info") or h["kind"], ver=h.get("agent_version") or "–",
+                    quando=(h.get("last_seen") or "–")[:16].replace("T", " "))]
+        if h["status"] == "OK" and snap:
+            up = dt.timedelta(seconds=int(snap.get("uptime_s") or 0))
+            lines.append(self.tr("CPU {cpu}% · RAM {ram}% · disco {disco}% · acceso da {g} g {o} h",
+                                 cpu=f"{snap.get('cpu_pct') or 0:.0f}", ram=f"{snap.get('mem_used_pct') or 0:.0f}",
+                                 disco=f"{snap.get('disk_used_pct') or 0:.0f}", g=up.days, o=up.seconds // 3600)
+                         + (f" · {snap['temperature_max']:.0f} °C" if snap.get("temperature_max") is not None else ""))
+            down = [x["label"] for x in svc if not x["up"]]
+            lines.append(("🟢 " + self.tr("Servizi: tutti attivi ({n})", n=len(svc))) if not down
+                         else "🔴 " + self.tr("Servizi fermi: {elenco}", elenco=", ".join(down)))
+        hl = h.get("health") or {}
+        upd = hl.get("updates") or {}
+        if upd.get("security_count"):
+            lines.append("🟡 " + self.tr("{p0} aggiornamenti di sicurezza da installare", p0=upd["security_count"]))
+        if (upd.get("reboot") or {}).get("required"):
+            lines.append("🟡 " + self.tr("riavvio richiesto"))
+        conts = (h.get("containers") or {}).get("containers", [])
+        if conts:
+            stopped = [c["name"] for c in conts if c.get("state") != "running"]
+            lines.append(("🟢 " + self.tr("Container: tutti in esecuzione ({n})", n=len(conts))) if not stopped
+                         else "🔴 " + self.tr("Container fermi: {elenco}", elenco=", ".join(stopped)))
         self.send(chat, "\n".join(lines))
 
     def cmd_connessione(self, chat) -> None:

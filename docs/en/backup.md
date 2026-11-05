@@ -21,10 +21,33 @@ destinations in **Settings → Backup**; alert with the event *Database backup*,
 | Destination | Where it is set | How many backups are kept |
 |---|---|---|
 | Local folder | `[backup] local_dir` | `local_keep` (default 7) |
-| GitHub (Releases of a **private** repository) | `[backup] github_repo`, with the `gh` CLI authenticated | `github_keep` (default 30) |
+| GitHub (Releases of a **private** repository), optional | **Settings → Backup → Copy on GitHub**, with the `gh` CLI authenticated | your choice (default 30) |
 | rclone: NAS, network share, SFTP, Backblaze B2, S3, Google Drive… | **Settings → Backup** | per destination (default 30) |
 
 A failed copy turns the backup into **ALERT**, even if the local copy succeeded.
+
+<a id="github"></a>
+### Copy on GitHub
+
+Optional: turn it on in **Settings → Backup → Copy on GitHub** with the repository (`owner/name`) and the number of
+backups to keep; **Test GitHub** checks that `gh` is installed and authenticated for the services user and that the
+repository is reachable (and warns if it is public). `[backup] github_repo` and `github_keep` in `config.ini` are
+only the initial values.
+
+<a id="nessun-backup"></a>
+### «No backup» warning
+
+The local copy sits on the same disk as the database and does not protect against its failure: until there is at
+least one copy **off the server** (GitHub or rclone) the Overview shows the warning *No backup off the server*, also in
+*To check*. With a destination configured but no successful backup yet the warning becomes *waiting for the first
+successful backup*; it disappears by itself at the first backup that reaches somewhere off the server and comes back
+if all the destinations are later removed.
+
+| Button | Effect |
+|---|---|
+| Remind me later | hides it until the next time the dashboard is opened |
+| Keep the warning | keeps it, in a smaller form, until a backup off the server succeeds |
+| Do not show again | turns it off for everyone (administrator only); it can be turned back on in **Settings → Backup** |
 
 <a id="rclone"></a>
 ## Copies with rclone

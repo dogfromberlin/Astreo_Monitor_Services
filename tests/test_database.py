@@ -191,8 +191,11 @@ def test_esportazione_prometheus_e_stato(dbcfg):
         text = exporter.metrics(conn, dbcfg)
         st = exporter.status(conn, dbcfg)
     assert exporter.valid_metric_text(text), text
-    assert "astreo_speedtest_download_mbps 600" in text and "astreo_connectivity_status 1" in text
-    assert 'astreo_connectivity_rtt_ms{target="1.1.1.1",role="internet"} 12.5' in text
+    import re
+    # 4.2: ogni serie ha l'etichetta host (il server centrale)
+    assert re.search(r'astreo_speedtest_download_mbps\{host="[^"]+"\} 600', text) and re.search(r'astreo_connectivity_status\{host="[^"]+"\} 1', text)
+    assert re.search(r'astreo_connectivity_rtt_ms\{host="[^"]+",target="1.1.1.1",role="internet"\} 12.5', text)
+    assert text.count("# TYPE astreo_cpu_percent") == 1                     # un solo blocco per metrica
     assert st["speedtest"]["download_mbps"] == 600.0 and st["connection"] == "WARNING"
 
 

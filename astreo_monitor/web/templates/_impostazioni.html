@@ -322,8 +322,22 @@
       <p class="hint">{{ _("Ultimo backup, esito delle copie ed esecuzione immediata sono nella sezione Backup.") }} <a href="#backup">{{ _("Apri Backup") }}</a></p>
       <form class="settings-form" id="form-backup" autocomplete="off">
         <fieldset>
+          <legend>{{ _("Copia su GitHub") }} <button type="button" class="help-btn" data-help="backup#github" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
+          <label class="switch"><input type="checkbox" data-key="backup.github_enabled"><span>{{ _("Attiva") }}</span></label>
+          <div class="grid-fields">
+            <label>{{ _("Repository privato (proprietario/nome)") }}<input type="text" data-key="backup.github_repo" placeholder="utente/astreo-backup" autocomplete="off"></label>
+            <label class="narrow">{{ _("Backup da conservare su GitHub") }}<input type="number" min="1" max="1000" data-key="backup.github_keep"></label>
+          </div>
+          <p class="hint">{{ _("Facoltativa. Ogni backup diventa una Release del repository, caricata con la CLI gh autenticata sul server per l'utente dei servizi.") }} <span id="bk-gh-result"></span></p>
+          <button type="button" class="ghost" id="bk-gh-test">{{ _("Prova GitHub") }}</button>
+        </fieldset>
+        <fieldset>
+          <legend>{{ _("Avviso «nessun backup»") }}</legend>
+          <label class="switch"><input type="checkbox" data-key="backup.no_backup_dismissed"><span>{{ _("Non mostrare l'avviso quando non c'è nessuna copia fuori dal server") }}</span></label>
+        </fieldset>
+        <fieldset>
           <legend>{{ _("Copie con rclone") }} <button type="button" class="help-btn" data-help="backup#rclone" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
-          <p class="hint">{{ _("Oltre alla copia locale (e a quella su GitHub, se configurata), ogni backup può essere copiato e verificato su altre destinazioni: cartella di rete o NAS montati, SFTP, Backblaze B2, S3, Google Drive, OneDrive…") }}</p>
+          <p class="hint">{{ _("Oltre alla copia locale (e a quella su GitHub, se attiva), ogni backup può essere copiato e verificato su altre destinazioni: cartella di rete o NAS montati, SFTP, Backblaze B2, S3, Google Drive, OneDrive…") }}</p>
           <label>{{ _("Destinazioni (una per riga: remote:percorso oppure un percorso assoluto)") }}
             <textarea data-key="backup.rclone_destinations" rows="3" placeholder="nas:backup/astreo&#10;/mnt/disco-esterno/astreo"></textarea></label>
           <label class="narrow">{{ _("Backup da conservare per destinazione") }}<input type="number" min="1" max="1000" data-key="backup.rclone_keep"></label>

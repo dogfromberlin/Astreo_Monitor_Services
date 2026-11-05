@@ -91,10 +91,10 @@ sono ignorati e registrati):
 
 | Comando | Risposta |
 |---|---|
-| `/stato` · `/status` | CPU, RAM, disco, temperatura, connessione, servizi fermi, allarmi attivi |
+| `/stato` · `/status` | CPU, RAM, disco, temperatura, connessione, servizi fermi, allarmi attivi; con un nome (`/stato ATLAS`, basta l'inizio) il dettaglio di quel server: stato, risorse, servizi, aggiornamenti, container |
 | `/connessione` · `/connection` | ping, disponibilità delle ultime 24 ore, ultimo speedtest |
 | `/speedtest` | avvia uno speedtest e invia il risultato |
-| `/servizi` · `/services` | stato dei servizi monitorati |
+| `/servizi` · `/services` | stato dei servizi monitorati; con un nome (`/servizi ATLAS`) quelli di quel server |
 | `/controlli` · `/checks` | dischi, aggiornamenti, scadenze, backup, ripristino, heartbeat, dispositivi |
 | `/aiuto` · `/help` | elenco dei comandi |
 
@@ -102,5 +102,7 @@ sono ignorati e registrati):
 ## Riepilogo settimanale
 
 Ogni lunedì alle 08:00, sui canali scelti per *Riepilogo settimanale*: disponibilità e interruzioni, speedtest,
-risorse, avvisi inviati, dispositivi, backup e verifica del ripristino, dischi, aggiornamenti, scadenze.
+risorse, avvisi inviati, dispositivi, backup e verifica del ripristino, dischi, aggiornamenti, scadenze; poi una
+sezione per ogni server collegato (dati ricevuti, riavvii, servizi fermati, picchi di CPU, memoria e disco,
+aggiornamenti).
 **Invia ora il riepilogo settimanale** lo manda subito, come prova.

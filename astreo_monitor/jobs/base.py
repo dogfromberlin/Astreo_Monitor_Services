@@ -30,6 +30,8 @@ def run(name: str, description: str, func: Callable[[config_mod.Config, bool], i
         log.error("%s", exc)
         sys.exit(2)
 
+    from .. import db as _db
+    _db.start_stats(f"job {name}")                 # 4.2: "Transazione lunga" nel registro, con il nome del job
     # Lock: impedisce due esecuzioni contemporanee dello stesso job
     lock_path = os.path.join(tempfile.gettempdir(), f"astreo-monitor-{name}.lock")
     lock_file = open(lock_path, "w")  # noqa: SIM115

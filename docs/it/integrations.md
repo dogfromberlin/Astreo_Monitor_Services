@@ -32,7 +32,14 @@ scrape_configs:
 Metriche principali: `astreo_cpu_percent`, `astreo_memory_used_percent`, `astreo_disk_used_percent`,
 `astreo_temperature_celsius`, `astreo_service_up`, `astreo_connectivity_status`, `astreo_connectivity_rtt_ms`,
 `astreo_speedtest_download_mbps`, `astreo_backup_ok`, `astreo_disk_smart_status`,
-`astreo_updates_security_pending`, `astreo_expiry_days`, `astreo_check_up`, `astreo_check_latency_ms`.
+`astreo_updates_security_pending`, `astreo_expiry_days`, `astreo_check_up`, `astreo_check_latency_ms`,
+`astreo_host_up`.
+
+Dalla 4.2 **ogni serie ha l'etichetta `host`** con il nome del server: le metriche dei server collegati (CPU, memoria,
+disco, uptime, temperatura massima, servizi, aggiornamenti, riavvio, raggiungibilità) hanno lo stesso nome di quelle
+del centrale e si distinguono per `host`, es. `astreo_cpu_percent{host="ATLAS"}`. Le query e i grafici scritti per
+la 4.1 continuano a funzionare se non confrontano l'elenco esatto delle etichette; quelli che usano
+`{}` o `without()` vanno rivisti, ad esempio filtrando `{host="astreo"}`.
 
 <a id="home-assistant"></a>
 ## Home Assistant

@@ -98,6 +98,16 @@
 <main>
 <div class="banner" id="schema-banner" role="alert" hidden></div>
 <div class="view" data-view="panoramica">
+  <section class="nobackup" id="nobackup" role="status" aria-labelledby="nb-title" hidden>
+    <svg class="icon" aria-hidden="true"><use href="#i-db"/></svg>
+    <div class="txt"><strong id="nb-title"></strong><span id="nb-text"></span></div>
+    <div class="acts">
+      <a class="btn small primary admin-only" href="#impostazioni/backup">{{ _("Configura il backup") }}</a>
+      <button type="button" class="btn small" id="nb-later" title="{{ _("Ricompare alla prossima apertura della dashboard") }}">{{ _("Ricordamelo più tardi") }}</button>
+      <button type="button" class="btn small" id="nb-keep" title="{{ _("Resta finché un backup fuori dal server non riesce") }}">{{ _("Lascia l'avviso") }}</button>
+      <button type="button" class="btn small admin-only" id="nb-never">{{ _("Non mostrare più") }}</button>
+    </div>
+  </section>
   <section class="hero" id="ov-hero" data-level="ok" aria-live="polite">
     <svg class="ring" viewBox="0 0 52 52" aria-hidden="true"><circle class="bg" cx="26" cy="26" r="22"/><circle class="val" id="ov-ring" cx="26" cy="26" r="22" stroke-dasharray="0 139"/></svg>
     <div class="txt"><h2 id="ov-headline">{{ _("Caricamento…") }}</h2><p id="ov-summary"></p></div>
@@ -397,6 +407,7 @@
       </div>
       <p class="hint" id="hs-load-hint">{{ _("Gli avvisi di CPU e memoria si attivano in Impostazioni → Notifiche.") }}</p>
     </fieldset>
+    <p class="form-error" id="hs-error" role="alert" hidden></p>
     <div class="form-actions">
       <button type="button" class="btn" id="hs-cancel">{{ _("Annulla") }}</button>
       <button type="submit" class="btn primary">{{ _("Salva") }}</button>

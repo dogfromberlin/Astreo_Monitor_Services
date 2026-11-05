@@ -22,6 +22,34 @@ def _f(v, d=0, suffix=""):
     return "n/d" if v is None else f"{float(v):.{d}f}{suffix}"
 
 
+def per_host(conn, start: dt.datetime, now: dt.datetime, tr) -> list[str]:
+    """Disponibilità (dati ricevuti), riavvii, servizi fermi, picchi e manutenzione di ogni server collegato."""
+    H, M, E = models.hosts, models.system_metrics, models.events
+    out = []
+    expected = max(1, int((now - start).total_seconds() // 300))      # un invio ogni 5 minuti
+    for h in db.rows(conn, select(H.c.id, H.c.name, H.c.kind).where(H.c.id != 1, H.c.enabled == sa_true()).order_by(H.c.sort_order, H.c.id)):
+        m = db.one(conn, select(func.count().label("n"), func.max(M.c.cpu_pct).label("cpu"), func.max(M.c.mem_used_pct).label("mem"),
+                                func.max(M.c.disk_used_pct).label("disk"))
+                   .where(M.c.host_id == h["id"], M.c.timestamp >= start, M.c.timestamp < now)) or {}
+        ev = {r["kind"]: r["n"] for r in db.rows(conn, select(E.c.kind, func.count().label("n"))
+                                                  .where(E.c.host_id == h["id"], E.c.timestamp >= start, E.c.timestamp < now)
+                                                  .group_by(E.c.kind))}
+        stops = db.scalar(conn, select(func.count()).select_from(E).where(
+            E.c.host_id == h["id"], E.c.kind == "service", E.c.severity == "alert", E.c.timestamp >= start, E.c.timestamp < now)) or 0
+        out += ["", tr("SERVER {nome}", nome=h["name"].upper())]
+        n = m.get("n") or 0
+        out.append(tr("- Dati ricevuti: {pct}% del tempo", pct=f"{min(100, 100 * n / expected):.1f}"))
+        out.append(tr("- Riavvii: {r} · servizi fermati: {s}", r=ev.get("boot", 0), s=stops))
+        if n:
+            out.append(tr("- Picchi: CPU {cpu}% · memoria {mem}% · disco {disco}%", cpu=f"{m['cpu'] or 0:.0f}",
+                          mem=f"{m['mem'] or 0:.0f}", disco=f"{m['disk'] or 0:.0f}"))
+        u = ((db.state_get(conn, f"host:{h['id']}:health") or {}).get("updates")) or {}
+        if u:
+            out.append(tr("- Aggiornamenti: {tot} in sospeso, {sic} di sicurezza", tot=u.get("total", 0), sic=u.get("security_count", 0))
+                       + (tr(", riavvio richiesto") if (u.get("reboot") or {}).get("required") else ""))
+    return out
+
+
 def build(conn, now: dt.datetime, values: dict | None = None) -> tuple[str, str]:
     from .. import i18n
     from .. import settings as settings_mod
@@ -104,6 +132,9 @@ def build(conn, now: dt.datetime, values: dict | None = None) -> tuple[str, str]
     for it in exp.get("items", []):
         if it.get("days") is not None:
             lines.append(tr("- {nome}: scade tra {giorni} giorni", nome=i18n.translate_stored(it["name"], lang), giorni=int(it["days"])))
+
+    # --- 4.2: una sezione per ogni server collegato
+    lines += per_host(conn, start, now, tr)
 
     bad = (c["outages"] and len(c["outages"]) > 0) or bk.get("status") not in (None, "OK")
     subject = tr("Riepilogo settimanale {data}", data=f"{now:%d/%m}") + (tr(" — con anomalie") if bad else "")

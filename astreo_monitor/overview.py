@@ -89,11 +89,17 @@ def _connection(conn, now: dt.datetime) -> dict:
     }
 
 
-def _backup(conn) -> dict:
+def _backup(conn, values: dict | None = None) -> dict:
     bk = db.state_get(conn, "backup:last") or {}
     rt = db.state_get(conn, "restoretest:last") or {}
     dests = bk.get("destinations") or []
+    values = values or {}
+    external = settings_mod.external_backup(values)
+    external_ok = bk.get("status") == "OK" and bool(bk.get("release") or any(d.get("ok") for d in dests if isinstance(d, dict)))
+    # 4.2: avviso "nessun backup": nessuna copia fuori dal server, oppure configurata ma senza ancora un backup riuscito
+    warning = None if values.get("backup.no_backup_dismissed") else "none" if not external else None if external_ok else "pending"
     return {
+        "external": external, "external_ok": external_ok, "warning": warning,
         "status": bk.get("status"), "time": bk.get("time"), "databases": len(bk.get("databases") or []),
         "errors": bk.get("errors") or [], "destinations": len(dests) if isinstance(dests, list) else 0,
         "github": bool(bk.get("release")),
@@ -190,6 +196,13 @@ def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.d
     elif backup["status"] and (_age_hours(backup["time"], now) or 0) > BACKUP_MAX_AGE_H:
         add("warn", "backup", _("Nessun backup nelle ultime {p0} ore", p0=BACKUP_MAX_AGE_H),
             _("controlla il timer astreo-backup"), since=backup["time"], action={"kind": "view", "view": "impostazioni"})
+    if backup.get("warning") == "none":
+        add("warn", "nobackup", _("Nessun backup fuori dal server"),
+            _("la copia locale non protegge da un guasto del disco: configura GitHub o una destinazione rclone"),
+            action={"kind": "nobackup"})
+    elif backup.get("warning") == "pending":
+        add("info", "nobackup", _("Backup configurato: in attesa del primo backup riuscito fuori dal server"), "",
+            action={"kind": "nobackup"})
     rt = backup.get("restore_test") or {}
     if rt.get("status") in ("ALERT", "DOWN"):
         add("alert", "restoretest", _("Prova di ripristino del backup non riuscita"), "", since=rt.get("time"),
@@ -250,7 +263,7 @@ def build(conn, cfg, lang: str, offline_minutes: int) -> dict:
     reachable = [h for h in active if h["status"] == "OK"]
     svc = [s for h in reachable for s in h["services"]]
     conn_info = _connection(conn, now)
-    backup = _backup(conn)
+    backup = _backup(conn, values)
     todo = _todo(conn, cfg, hosts, conn_info, backup, now, lang, values)
 
     worst = todo[0]["severity"] if todo else "ok"

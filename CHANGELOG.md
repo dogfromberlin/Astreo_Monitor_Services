@@ -1,20 +1,19 @@
 # Changelog
 
-## 4.2.0.dev2 — data from the agents and CPU/memory alerts, stage 2 of 3 (test build, not a Release)
+## 4.2.0 — settings per server, data from the agents, alert delay
 
-- **Agents 4.2** (Linux and Windows) also send, every 6 hours, the **health of the disks** (Linux: SMART with `smartmontools`; Windows: health status, temperature and wear of the physical disks) and **pending updates** with reboot required (Linux: apt; Windows: Windows Update), and every 5 minutes the **Docker containers** if Docker is present. Older agents keep working without these data.
-- Server detail of a connected server: new **Maintenance** panel with disks, updates, reboot and containers; the same data appears in *To check* and raises the *Disk health*, *System updates* and *Docker containers* alerts.
-- **CPU and memory alerts**, off by default (Settings → Notifications → CPU and memory alerts): general thresholds (CPU 90/98%, memory 90/97%), per-server thresholds in *Settings of this server*, *Alert after* 15 and 10 minutes by default; for the central server the alert lists the three heaviest processes. The dashboard bars now follow the thresholds of each server.
-- Windows agent: the scheduled task limit goes from 2 to 15 minutes (the Windows Update search can be slow).
-- Database migration 0006 (CPU and memory thresholds in `hosts`), applied by `update.sh`.
-- Guide: agents (data sent, maintenance), notifications (CPU and memory) (IT/EN).
-
-## 4.2.0.dev1 — settings per server and alert delay, stage 1 of 3 (test build, not a Release)
-
-- **Alert after (minutes)** in every alert rule (Settings → Notifications): the alert is sent only if the problem lasts at least that many minutes in a row; if it clears earlier nothing is sent, not even the recovery. Useful for short line drops (e.g. Connection at 3 minutes) and services that restart by themselves. The dashboard and the history still show every problem. Default 0 = as before.
-- **Settings of a server** (button in the server detail, or *Thresholds and alerts* in Settings → Connected servers): disk and temperature thresholds per server, including the central one; for connected servers also *Alert when unreachable* (off: a switched-off server shows as grey *off* information and sends no alerts) and minutes without data before it counts as unreachable. Empty fields use the general settings.
-- Database migration 0005 (new columns in `hosts`), applied by `update.sh`.
-- Guide: alert rules, settings of a server, connection (IT/EN).
+- **Alert after (minutes)** in every alert rule (Settings → Notifications): the alert is sent only if the problem lasts at least that many minutes in a row; if it clears earlier nothing is sent, not even the recovery (e.g. Connection at 3 minutes for short line drops). The dashboard and the history still show every problem. Default 0 = as before.
+- **Settings of a server** (button in the server detail, or *Thresholds and alerts* in Settings → Connected servers): disk, temperature, CPU and memory thresholds per server, including the central one; for connected servers also *Alert when unreachable* (off: a switched-off server shows as grey *off* information and sends no alerts) and minutes without data before it counts as unreachable. Errors are shown inside the window.
+- **CPU and memory alerts**, off by default (Settings → Notifications): general thresholds (CPU 90/98%, memory 90/97%), per-server thresholds, *Alert after* 15 and 10 minutes by default; for the central server the alert lists the three heaviest processes.
+- **Agents 4.2** (Linux and Windows) also send the **health of the disks** and **pending updates** with reboot required every 6 hours, and the **Docker containers** every 5 minutes; new **Maintenance** panel in the detail of a connected server, entries in *To check* and alerts. Older agents keep working without these data. Windows: the scheduled task limit goes from 2 to 15 minutes.
+- **Telegram bot**: `/stato name` and `/servizi name` (also `/status`, `/services`; the beginning of the name is enough) show one connected server.
+- **Prometheus metrics with the `host` label** on every series, and the metrics of the connected servers (CPU, memory, disk, uptime, temperature, services, updates, reboot, `astreo_host_up`). Queries that compare the exact label set need a review.
+- **Weekly summary**: one section per connected server (data received, reboots, services stopped, peaks, updates).
+- **Backup**: the copy on GitHub is optional and configured in Settings → Backup (repository, how many to keep, *Test GitHub*); `config.ini` only gives the initial values. New **«No backup off the server»** warning in the Overview and in *To check* while there is no copy on GitHub or rclone (the local copy does not count), with *Remind me later*, *Keep the warning* and *Do not show again*.
+- **Fix: saving settings could take 30 seconds.** After saving, the dashboard read the language with a second database connection while the first one still held the changed rows of `app_settings`: on SQL Server the second connection waited until its 30-second timeout (and jobs reading the settings waited too). The language is now read before the save.
+- **Slow requests and long transactions in the log** (`Richiesta lenta`, `Transazione lunga`, with the time spent waiting for the database), to find intermittent slowdowns such as the slow confirmation when saving settings.
+- Database migrations 0005 and 0006 (new columns in `hosts`), applied by `update.sh`.
+- Guide (IT/EN): alert rules, settings of a server, agents and maintenance, CPU and memory alerts, backup on GitHub and «no backup» warning, metrics, bot, weekly summary, slow dashboard.
 
 ## 4.1.0 — new front end
 

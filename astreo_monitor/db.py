@@ -14,6 +14,8 @@ import json
 import logging
 import os
 import warnings
+import contextvars
+import time
 from contextlib import contextmanager
 from typing import Any, Iterator
 from urllib.parse import quote_plus
@@ -59,6 +61,19 @@ def make_engine(cfg: DatabaseConfig, **kw) -> Engine:
     eng = create_engine(url(cfg, kw.pop("user", None), kw.pop("password", None), kw.pop("database", None)),
                         connect_args=args, poolclass=NullPool, future=True)
 
+    @event.listens_for(eng, "before_cursor_execute")
+    def _t0(conn, cursor, statement, params, context, executemany):
+        conn.info["t0"] = time.monotonic()
+
+    @event.listens_for(eng, "after_cursor_execute")
+    def _t1(conn, cursor, statement, params, context, executemany):
+        st = _stats.get()
+        if st is not None and "t0" in conn.info:
+            dt_ = time.monotonic() - conn.info.pop("t0")
+            st["query"] = st.get("query", 0.0) + dt_
+            if dt_ > st.get("slowest", (0, ""))[0]:
+                st["slowest"] = (dt_, " ".join(statement.split())[:120])
+
     @event.listens_for(eng, "connect")
     def _on_connect(dbapi_conn, _rec):
         cur = dbapi_conn.cursor()
@@ -78,15 +93,47 @@ def engine(cfg: DatabaseConfig, timeout: int | None = None) -> Engine:
     return _engines[key]
 
 
+# 4.2: misura dei tempi del database, per trovare le attese (registro "Richiesta lenta" / "Transazione lunga")
+_stats: contextvars.ContextVar[dict | None] = contextvars.ContextVar("db_stats", default=None)
+_label: contextvars.ContextVar[str] = contextvars.ContextVar("db_label", default="")
+SLOW_TRANSACTION_S = 5.0
+
+
+def start_stats(label: str) -> dict:
+    """Inizia a contare i tempi del database per una richiesta o un job."""
+    st = {"connect": 0.0, "query": 0.0, "slowest": (0.0, "")}
+    _stats.set(st)
+    _label.set(label)
+    return st
+
+
+def describe(st: dict) -> str:
+    slow = st.get("slowest") or (0.0, "")
+    out = f"connessione al database {st.get('connect', 0):.2f} s, query {st.get('query', 0):.2f} s"
+    if slow[0] >= 0.5:
+        out += f"; query più lenta {slow[0]:.2f} s: {slow[1]}"
+    return out
+
+
 @contextmanager
 def connect(cfg: DatabaseConfig, autocommit: bool = False, timeout: int | None = None) -> Iterator[Connection]:
     eng = engine(cfg, timeout)
+    st = _stats.get()
+    t0 = time.monotonic()
     if autocommit:
-        with eng.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-            yield conn
+        cm = eng.connect().execution_options(isolation_level="AUTOCOMMIT")
     else:
-        with eng.begin() as conn:
+        cm = eng.begin()
+    with cm as conn:
+        opened = time.monotonic() - t0
+        if st is not None:
+            st["connect"] = st.get("connect", 0.0) + opened
+        try:
             yield conn
+        finally:
+            took = time.monotonic() - t0
+            if took > SLOW_TRANSACTION_S:
+                logging.getLogger("db").warning("Transazione lunga: %.1f s in %s (apertura %.2f s)", took, _label.get() or "?", opened)
 
 
 def dialect(conn) -> str:

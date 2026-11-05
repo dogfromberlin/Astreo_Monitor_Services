@@ -219,6 +219,7 @@
       f[k].value = editing[k] ?? "";
       f[k].placeholder = defaults[k] != null ? String(defaults[k]) : "";
     }
+    $("#hs-error").hidden = true;
     $("#host-settings").showModal();
   }
   async function saveSettings(ev) {
@@ -233,13 +234,18 @@
       data.offline_minutes = f.offline_minutes.value === "" ? null : Number(f.offline_minutes.value);
     }
     try {
+      $("#hs-error").hidden = true;
       await api(`/api/v1/hosts/${editing.id}`, { method: "PUT", json: data });
       $("#host-settings").close();
       toast(t("Impostazioni di {p0} salvate", { p0: editing.name }));
       await load();
       if (!$('[data-subpanel="set:server"]').hidden) renderAdmin();
       document.dispatchEvent(new CustomEvent("hosts-changed"));
-    } catch (e) { toast(e.message, "error"); }
+    } catch (e) {
+      // 4.2: il motivo resta visibile nella finestra, non solo in un messaggio che sparisce
+      $("#hs-error").textContent = t("Non salvato: {p0}", { p0: e.message });
+      $("#hs-error").hidden = false;
+    }
   }
 
   async function create(ev) {

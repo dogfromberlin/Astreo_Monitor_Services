@@ -32,7 +32,14 @@ scrape_configs:
 Main metrics: `astreo_cpu_percent`, `astreo_memory_used_percent`, `astreo_disk_used_percent`,
 `astreo_temperature_celsius`, `astreo_service_up`, `astreo_connectivity_status`, `astreo_connectivity_rtt_ms`,
 `astreo_speedtest_download_mbps`, `astreo_backup_ok`, `astreo_disk_smart_status`,
-`astreo_updates_security_pending`, `astreo_expiry_days`, `astreo_check_up`, `astreo_check_latency_ms`.
+`astreo_updates_security_pending`, `astreo_expiry_days`, `astreo_check_up`, `astreo_check_latency_ms`,
+`astreo_host_up`.
+
+Since 4.2 **every series has the `host` label** with the server name: the metrics of the connected servers (CPU,
+memory, disk, uptime, maximum temperature, services, updates, reboot, reachability) have the same name as the
+central ones and are told apart by `host`, e.g. `astreo_cpu_percent{host="ATLAS"}`. Queries and graphs written for
+4.1 keep working if they do not compare the exact list of labels; those using `{}` or `without()` need a review, for
+example filtering `{host="astreo"}`.
 
 <a id="home-assistant"></a>
 ## Home Assistant

@@ -108,6 +108,11 @@ def main(cfg: Config, dry_run: bool) -> int:
     if b is None:
         log.error("Sezione [backup] mancante nella configurazione")
         return 2
+    import dataclasses
+    with db.connect(cfg.database) as conn:                     # 4.2: GitHub si configura dalla dashboard
+        v0 = settings_mod.load(conn, cfg)
+    b = dataclasses.replace(b, github_repo=str(v0["backup.github_repo"]).strip() if v0["backup.github_enabled"] else "",
+                            github_keep=int(v0["backup.github_keep"]))
     be = backends.get(cfg.database)
     now = dt.datetime.now()
     stamp = now.strftime("%Y%m%d-%H%M%S")

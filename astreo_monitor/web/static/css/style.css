@@ -844,6 +844,19 @@ body.editing .card-hidden { opacity: .45; }
   .card-tools button, .theme-switch button { min-height: 0; }
 }
 
+/* 4.2: avviso «nessun backup» */
+.nobackup { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem 1rem; padding: .9rem 1.1rem; border-radius: 14px;
+            background: var(--warn-bg); border: 1px solid var(--warn-line); }
+.nobackup.pending { background: var(--info-bg); border-color: var(--info-line); }
+.nobackup > .icon { color: var(--warn-text); width: 1.4rem; height: 1.4rem; }
+.nobackup.pending > .icon { color: var(--link); }
+.nobackup .txt { display: grid; gap: .1rem; margin-right: auto; flex: 1 1 18rem; }
+.nobackup strong { color: var(--strong); } .nobackup span { font-size: .86rem; }
+.nobackup .acts { display: flex; flex-wrap: wrap; gap: .5rem; }
+.nobackup.compact { padding: .5rem .9rem; } .nobackup.compact #nb-text, .nobackup.compact #nb-keep { display: none; }
+.form-error { margin: .5rem 0 0; padding: .55rem .8rem; border-radius: 10px; background: var(--alert-bg); border: 1px solid var(--alert-line); color: var(--alert-text); font-size: .88rem; }
+.ok-text { color: var(--accent-text); } .alert-text { color: var(--alert-text); }
+
 /* piè di pagina compatto sul telefono (sul computer le stesse voci sono nel menu laterale) */
 .mobile-foot { display: none; }
 

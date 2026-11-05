@@ -91,10 +91,10 @@ ignored and logged):
 
 | Command | Reply |
 |---|---|
-| `/status` · `/stato` | CPU, RAM, disk, temperature, connection, stopped services, active alarms |
+| `/status` · `/stato` | CPU, RAM, disk, temperature, connection, stopped services, active alarms; with a name (`/status ATLAS`, the beginning is enough) the detail of that server: state, resources, services, updates, containers |
 | `/connection` · `/connessione` | ping, availability over the last 24 hours, last speedtest |
 | `/speedtest` | runs a speedtest and sends the result |
-| `/services` · `/servizi` | state of the monitored services |
+| `/services` · `/servizi` | state of the monitored services; with a name (`/services ATLAS`) those of that server |
 | `/checks` · `/controlli` | disks, updates, expirations, backup, restore, heartbeat, devices |
 | `/help` · `/aiuto` | list of commands |
 
@@ -102,5 +102,6 @@ ignored and logged):
 ## Weekly summary
 
 Every Monday at 08:00, on the channels chosen for *Weekly summary*: availability and outages, speedtest,
-resources, alerts sent, devices, backup and restore check, disks, updates, expirations.
+resources, alerts sent, devices, backup and restore check, disks, updates, expirations; then a section for each
+connected server (data received, reboots, services stopped, CPU, memory and disk peaks, updates).
 **Send the weekly summary now** sends it immediately, as a test.

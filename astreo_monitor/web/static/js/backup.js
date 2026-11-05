@@ -46,7 +46,12 @@
     try {
       await api("/api/v1/settings", { method: "PUT", json: {
         "backup.rclone_destinations": dests.join("\n"),
-        "backup.rclone_keep": Number($('#form-backup [data-key="backup.rclone_keep"]').value) } });
+        "backup.rclone_keep": Number($('#form-backup [data-key="backup.rclone_keep"]').value),
+        // 4.2: GitHub facoltativo e avviso "nessun backup"
+        "backup.github_enabled": $('#form-backup [data-key="backup.github_enabled"]').checked,
+        "backup.github_repo": $('#form-backup [data-key="backup.github_repo"]').value.trim(),
+        "backup.github_keep": Number($('#form-backup [data-key="backup.github_keep"]').value),
+        "backup.no_backup_dismissed": $('#form-backup [data-key="backup.no_backup_dismissed"]').checked } });
       toast(t("Impostazioni del backup salvate"));
     } catch (e) { toast(e.message, "error"); }
   }
@@ -79,6 +84,14 @@
     $("#form-backup").addEventListener("submit", save);
     $("#bk-test").addEventListener("click", testAll);
     $("#bk-run").addEventListener("click", runNow);
+    $("#bk-gh-test").addEventListener("click", async () => {
+      const out = $("#bk-gh-result");
+      out.textContent = t("Prova in corso…"); out.className = "";
+      try {
+        const r = await api("/api/v1/backup/github/test", { method: "POST", json: { repo: $('#form-backup [data-key="backup.github_repo"]').value.trim() } });
+        out.textContent = r.detail; out.className = r.ok ? (r.private === false ? "warn-text" : "ok-text") : "alert-text";
+      } catch (e) { out.textContent = e.message; out.className = "alert-text"; }
+    });
     document.addEventListener("subtab", (ev) => { if (ev.detail.sub === "backup") load(); });
     window.AM.onView("backup", load);
   });

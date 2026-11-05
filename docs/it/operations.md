@@ -25,6 +25,17 @@ journalctl -u 'astreo-*' -p warning --since "7 days ago" --no-pager
 journalctl -u astreo-monitor-web.service -f                       # in tempo reale
 ```
 
+<a id="lentezza"></a>
+### Dashboard lenta
+
+Dalla 4.2 ogni richiesta della dashboard che supera i 2 secondi e ogni transazione del database aperta più di 5
+secondi (della dashboard o di un job) finiscono nel registro, con il tempo passato ad aspettare il database:
+```bash
+journalctl -u 'astreo-*' --since today --no-pager | grep -E "Richiesta lenta|Transazione lunga"
+```
+Righe con l'orario quasi uguale indicano chi ha fatto aspettare chi: per esempio una *Transazione lunga* di un job
+subito prima di una *Richiesta lenta* della dashboard.
+
 <a id="job"></a>
 ## Lanciare o sospendere un job
 

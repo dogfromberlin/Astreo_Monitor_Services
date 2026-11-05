@@ -44,6 +44,19 @@ SOURCES = {
 # Monitoraggi con stato (OK/WARNING/ALERT...) a cui si applica una regola di avviso
 POLICY_SOURCES = ("connectivity", "speedtest", "temperature", "disk", "services", "backup", "expiry",
                   "smart", "updates", "restoretest", "docker", "pihole", "checks", "hosts", "cpu", "memory")
+GH_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
+
+
+def external_backup(values: dict) -> list[str]:
+    """4.2: destinazioni del backup fuori dal server (GitHub, rclone). La copia locale non conta."""
+    out = []
+    if values.get("backup.github_enabled") and str(values.get("backup.github_repo") or "").strip():
+        out.append("github")
+    from . import rclone
+    out += [f"rclone:{d}" for d in rclone.parse(values.get("backup.rclone_destinations") or "")]
+    return out
+
+
 # 4.2: attesa predefinita prima dell'avviso; CPU e memoria hanno picchi brevi normali
 DELAY_DEFAULT = {"cpu": 15.0, "memory": 10.0}
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -104,6 +117,11 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         # --- backup: copie con rclone (oltre a quella su GitHub, se configurata nel config)
         "backup.rclone_destinations": Spec(str, "", label="Destinazioni rclone (una per riga)"),
         "backup.rclone_keep": Spec(int, 30, 1, 1000, label="Backup da conservare per destinazione"),
+        # 4.2: copia su GitHub facoltativa e configurabile (config.ini dà solo i valori iniziali)
+        "backup.github_enabled": Spec(bool, bool(cfg.backup and cfg.backup.github_repo), label="Copia su GitHub"),
+        "backup.github_repo": Spec(str, (cfg.backup.github_repo if cfg.backup else "") or "", label="Repository GitHub (proprietario/nome)"),
+        "backup.github_keep": Spec(int, (cfg.backup.github_keep if cfg.backup else 30) or 30, 1, 1000, label="Backup da conservare su GitHub"),
+        "backup.no_backup_dismissed": Spec(bool, False, label="Non mostrare più l'avviso «nessun backup configurato»"),
         # --- scadenze
         "expiry.warning_days": Spec(int, 15, 1, 365, label="Avviso WARNING a (giorni)"),
         "expiry.alert_days": Spec(int, 3, 0, 365, label="Avviso ALERT a (giorni)"),
@@ -289,6 +307,10 @@ def save(conn, cfg: Config, changes: dict[str, Any]) -> dict[str, Any]:
                 rclone.validate(d)
         except rclone.RcloneError as exc:
             raise SettingsError(str(exc)) from None
+    if clean.get("backup.github_repo") and not GH_REPO_RE.match(str(clean["backup.github_repo"]).strip()):
+        raise SettingsError("Repository GitHub: scrivilo come proprietario/nome")
+    if merged.get("backup.github_enabled") and not str(merged.get("backup.github_repo") or "").strip():
+        raise SettingsError("Copia su GitHub attiva: indica il repository (proprietario/nome)")
     if clean.get("pihole.url") and not str(clean["pihole.url"]).startswith(("http://", "https://")):
         raise SettingsError("Pi-hole: l'indirizzo deve iniziare con http:// o https://")
     if clean.get("email.recipients") is not None:

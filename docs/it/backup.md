@@ -21,10 +21,33 @@ dati*); destinazioni rclone in **Impostazioni → Backup**; avviso con l'evento 
 | Destinazione | Dove si imposta | Quanti backup si conservano |
 |---|---|---|
 | Cartella locale | `[backup] local_dir` | `local_keep` (predefinito 7) |
-| GitHub (Release di un repository **privato**) | `[backup] github_repo`, con la CLI `gh` autenticata | `github_keep` (predefinito 30) |
+| GitHub (Release di un repository **privato**), facoltativa | **Impostazioni → Backup → Copia su GitHub**, con la CLI `gh` autenticata | a scelta (predefinito 30) |
 | rclone: NAS, cartella di rete, SFTP, Backblaze B2, S3, Google Drive… | **Impostazioni → Backup** | per destinazione (predefinito 30) |
 
 Una copia non riuscita rende il backup **ALERT**, anche se la copia locale è andata bene.
+
+<a id="github"></a>
+### Copia su GitHub
+
+Facoltativa: si attiva in **Impostazioni → Backup → Copia su GitHub** con il repository (`proprietario/nome`) e il
+numero di backup da conservare; **Prova GitHub** controlla che `gh` sia installato e autenticato per l'utente dei
+servizi e che il repository sia raggiungibile (e avvisa se è pubblico). `[backup] github_repo` e `github_keep` di
+`config.ini` valgono solo come valori iniziali.
+
+<a id="nessun-backup"></a>
+### Avviso «nessun backup»
+
+La copia locale sta sullo stesso disco del database e non protegge da un suo guasto: finché non c'è almeno una copia
+**fuori dal server** (GitHub o rclone) la Panoramica mostra l'avviso *Nessun backup fuori dal server*, anche in *Da
+controllare*. Con una destinazione configurata ma senza ancora un backup riuscito l'avviso diventa *in attesa del
+primo backup riuscito*; sparisce da solo al primo backup che arriva fuori dal server e ricompare se in seguito si
+tolgono tutte le destinazioni.
+
+| Pulsante | Effetto |
+|---|---|
+| Ricordamelo più tardi | lo nasconde fino alla prossima apertura della dashboard |
+| Lascia l'avviso | lo tiene, in forma ridotta, finché un backup fuori dal server non riesce |
+| Non mostrare più | lo spegne per tutti (solo amministratore); si riattiva in **Impostazioni → Backup** |
 
 <a id="rclone"></a>
 ## Copie con rclone

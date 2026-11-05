@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import logging
 import secrets
 import time
@@ -107,6 +108,22 @@ def create_app(cfg: Config) -> Flask:
     def service_user() -> str:
         import getpass
         return getpass.getuser()
+
+    # 4.2: richieste lente nel registro, con il tempo passato ad aspettare il database
+    SLOW_REQUEST_S = 2.0
+
+    @app.before_request
+    def _timing_start():
+        g._t0 = time.monotonic()
+        g._dbst = db.start_stats(f"{request.method} {request.path}")
+        current_language()          # aggiorna la lingua in cache fuori da ogni transazione della richiesta
+
+    @app.after_request
+    def _timing_end(resp):
+        took = time.monotonic() - g.get("_t0", time.monotonic())
+        if took > SLOW_REQUEST_S and request.path != "/api/v1/terminal/ws":
+            log.warning("Richiesta lenta: %s %s %.1f s (%s)", request.method, request.path, took, db.describe(g.get("_dbst") or {}))
+        return resp
 
     @app.context_processor
     def _i18n():
@@ -408,10 +425,17 @@ def create_app(cfg: Config) -> Flask:
 
     @app.put("/api/v1/settings")
     def api_settings_update():
+        # 4.2: la lingua si legge PRIMA di aprire la transazione. Leggerla dopo il salvataggio apriva una seconda
+        # connessione che restava bloccata dalle righe di app_settings appena modificate e non ancora confermate:
+        # su SQL Server aspettava il timeout di 30 secondi (il "salvataggio lento").
+        lang = current_language()
         with db.connect(cfg.database) as conn:
             values = settings_mod.save(conn, cfg, body())
             log.info("Impostazioni aggiornate da %s", request.remote_addr)
-            return jsonify(settings_mod.public_view(cfg, values, current_language()))
+        if "ui.language" in values:
+            lang_state.update(lang=i18n.normalize(values["ui.language"]), checked=time.time())
+            lang = lang_state["lang"]
+        return jsonify(settings_mod.public_view(cfg, values, lang))
 
     @app.post("/api/v1/notify/test")
     def api_notify_test():
@@ -673,7 +697,7 @@ def create_app(cfg: Config) -> Flask:
             "configured": b is not None, "last": last, "timer": unit,
             "engine": cfg.database.engine,
             "local_dir": b.local_dir if b else None, "local_keep": b.local_keep if b else None,
-            "github_repo": b.github_repo if b else None, "github_keep": b.github_keep if b else None,
+            "github_repo": b.github_repo if b else None, "github_keep": b.github_keep if b else None,   # valori di config.ini
             "rclone": {"available": rclone.available(), "remotes": rclone.remotes()},
         })
 
@@ -686,6 +710,30 @@ def create_app(cfg: Config) -> Flask:
             return jsonify({"ok": True, "detail": i18n.translate_stored(rclone.test(dest), lang)})
         except (rclone.RcloneError, OSError) as exc:
             return jsonify({"ok": False, "detail": i18n.translate_stored(str(exc), lang)})
+
+    @app.post("/api/v1/backup/github/test")
+    def api_backup_github_test():
+        """4.2: gh è installato e autenticato per l'utente dei servizi, e il repository è raggiungibile?"""
+        import shutil
+        import subprocess
+        repo = str((request.get_json(silent=True) or {}).get("repo", "")).strip()
+        _ = i18n.translator(current_language())
+        if not settings_mod.GH_REPO_RE.match(repo):
+            return jsonify({"ok": False, "detail": _("Repository GitHub: scrivilo come proprietario/nome")})
+        if not shutil.which("gh"):
+            return jsonify({"ok": False, "detail": _("La CLI gh non è installata sul server (guida: backup)")})
+        try:
+            res = subprocess.run(["gh", "repo", "view", repo, "--json", "name,isPrivate"], capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return jsonify({"ok": False, "detail": str(exc)})
+        if res.returncode != 0:
+            return jsonify({"ok": False, "detail": (res.stderr or res.stdout).strip()[:300]})
+        try:
+            private = json.loads(res.stdout).get("isPrivate")
+        except ValueError:
+            private = None
+        detail = _("Repository {p0} raggiungibile", p0=repo) + ("" if private else " · " + _("attenzione: il repository è pubblico"))
+        return jsonify({"ok": True, "detail": detail, "private": private})
 
     @app.post("/api/v1/backup/run")
     def api_backup_run():
