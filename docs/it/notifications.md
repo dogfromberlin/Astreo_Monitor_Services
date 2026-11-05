@@ -75,6 +75,20 @@ Inizio, fine e orario di recapito (es. 23:00–07:00, recapito alle 08:00). Gli 
 trattenuti e recapitati all'orario indicato, **un messaggio per canale**, con l'orario di rilevamento.
 L'invio di prova non viene mai trattenuto. Il registro degli invii mostra gli avvisi *In coda*.
 
+<a id="invio"></a>
+## Come partono gli avvisi
+
+Dalla 4.2.1 un avviso entra prima nella **posta in uscita** (la stessa coda della fascia di silenzio), insieme allo
+stato che l'ha generato, e parte pochi istanti dopo, quando il controllo ha salvato i suoi dati. Così l'invio, che
+può richiedere secondi o finire in un timeout, non tiene mai bloccato il database per la dashboard e gli altri
+controlli.
+
+Se un canale non risponde (Internet assente, server email irraggiungibile) l'avviso resta in coda e viene
+**ritentato** dopo 1, 2, 5, 15 e 30 minuti; ogni controllo che parte ritenta anche i messaggi rimasti indietro, quindi
+un avviso nato durante una caduta della linea arriva appena la linea torna, con l'ora in cui è stato rilevato e
+quella di invio. In **Avvisi ed eventi → Notifiche inviate** i tentativi falliti compaiono *In coda* con il motivo e
+il prossimo tentativo; dopo 5 tentativi l'avviso risulta *Non inviata*. Le prove dalla dashboard partono subito.
+
 <a id="heartbeat"></a>
 ## Heartbeat esterno
 

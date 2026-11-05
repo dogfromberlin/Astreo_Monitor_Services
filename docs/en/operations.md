@@ -34,7 +34,9 @@ Italian):
 ```bash
 journalctl -u 'astreo-*' --since today --no-pager | grep -E "Richiesta lenta|Transazione lunga"
 ```
-Lines with almost the same time show who made whom wait: for example a job's *Transazione lunga* right before a
+In *Transazione lunga* the time is split into **query** (high = the database made it wait, for example a lock held
+by another process) and **fuori dal database**, outside the database (high = slow work done with the transaction
+open, for example an external command or a network call). Lines with almost the same time show who made whom wait: for example a job's *Transazione lunga* right before a
 dashboard *Richiesta lenta*.
 
 <a id="job"></a>

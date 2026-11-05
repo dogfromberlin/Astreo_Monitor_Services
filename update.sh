@@ -13,7 +13,20 @@ if [ -z "${ASTREO_UPDATE_COPY:-}" ]; then
   cp "$0" "$COPY"
   exec env ASTREO_UPDATE_COPY="$COPY" ASTREO_PROJECT="$PROJECT" bash "$COPY" "$@"
 fi
-trap 'rm -f "$ASTREO_UPDATE_COPY"' EXIT
+# 4.2.1: durante l'aggiornamento i job non partono. Altrimenti girerebbero con il codice nuovo sullo schema
+# del database vecchio (tra la copia del codice e la migrazione, che con SQL Server aspetta la password di sa).
+# I timer vengono riattivati alla fine, anche se l'aggiornamento si interrompe; solo quelli ancora abilitati.
+PAUSED=""
+resume_timers() {
+  local t
+  for t in $PAUSED; do
+    if systemctl is-enabled --quiet "$t" 2>/dev/null; then systemctl start "$t" || true; fi
+  done
+  if [ -n "$PAUSED" ] && type m >/dev/null 2>&1; then m "   job riattivati" "   jobs resumed"; fi
+  PAUSED=""
+}
+cleanup() { resume_timers; rm -f "$ASTREO_UPDATE_COPY"; }
+trap cleanup EXIT
 cd "$PROJECT"
 . scripts/lingua.sh
 OWNER=$(stat -c %U .)
@@ -26,6 +39,21 @@ for a in "$@"; do
     *) m "Argomento non riconosciuto: $a" "Unknown argument: $a"; exit 2 ;;
   esac
 done
+
+if command -v systemctl >/dev/null 2>&1; then
+  PAUSED=$(systemctl list-units --type=timer --state=active --no-legend --plain 'astreo-*' 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
+  if [ -n "${PAUSED// /}" ]; then
+    systemctl stop $PAUSED || true
+    m "== 0. Job sospesi durante l'aggiornamento: $PAUSED" "== 0. Jobs paused during the update: $PAUSED"
+    # un job già partito finisce il suo giro (al massimo 2 minuti) prima di toccare codice e database
+    for _i in $(seq 1 24); do
+      running=$(systemctl list-units --type=service --state=activating,active --no-legend --plain 'astreo-*' 2>/dev/null \
+                | awk '{print $1}' | grep -vE '^astreo-(monitor-web|telegram|terminal)\.service' || true)
+      [ -z "$running" ] && break
+      sleep 5
+    done
+  fi
+fi
 
 m "== 1. Codice" "== 1. Code"
 if [ -n "$ZIP" ]; then

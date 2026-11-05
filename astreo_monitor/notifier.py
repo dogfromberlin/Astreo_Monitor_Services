@@ -179,6 +179,14 @@ def _log(conn, channel: str, source: str, subject: str, ok: bool, error: str, st
 
 
 def send_channel(conn, cfg, values: dict, channel: str, source: str, subject: str, body: str) -> tuple[bool, str]:
+    """Invia subito e registra l'esito (messaggi di prova dalla dashboard, riepilogo della fascia di silenzio)."""
+    ok, err = _send(cfg, values, channel, source, subject, body)
+    _log(conn, channel, source, subject, ok, err)
+    return ok, err
+
+
+def _send(cfg, values: dict, channel: str, source: str, subject: str, body: str) -> tuple[bool, str]:
+    """Invio vero e proprio su un canale. Nessun accesso al database: si può chiamare fuori dalle transazioni."""
     if channel == "email":
         from . import settings as settings_mod
         ok = send_email(settings_mod.email_config(cfg, values), subject, body)
@@ -201,7 +209,6 @@ def send_channel(conn, cfg, values: dict, channel: str, source: str, subject: st
         log.info("Notifica %s inviata: %s", channel, subject)
     else:
         log.error("Notifica %s fallita (%s): %s", channel, subject, err)
-    _log(conn, channel, source, subject, ok, err)
     return ok, err
 
 
@@ -227,23 +234,86 @@ def dispatch(conn, cfg, source: str, subject: str, body: str, detected_at: dt.da
         log.info("Nessun canale attivo per '%s': avviso non inviato (%s)", source, subject)
         return False
 
+    from . import models
     if settings_mod.is_quiet(values, now):
         due = settings_mod.deferred_until(values, now)
-        from . import models
         for channel in channels:
             conn.execute(models.notification_queue.insert().values(
                 created_at=detected_at.replace(microsecond=0), due_at=due, source=source, channel=channel,
-                subject=subject[:200], body=body, attempts=0))
+                subject=subject[:200], body=body, attempts=0, quiet=True))
             _log(conn, channel, source, subject, True, f"recapito alle {_fmt(due)}", status="in coda")
         log.info("Fascia di silenzio: '%s' trattenuto fino alle %s", subject, _fmt(due))
         return True
 
-    full = f"{body.rstrip()}\n\nRilevato e inviato alle {_fmt(detected_at)}."
-    delivered = False
+    # 4.2.1: "posta in uscita". Qui si scrive solo il messaggio in coda, nella stessa transazione dello stato
+    # dell'avviso; l'invio vero (rete, timeout) parte dopo la conferma della transazione, fuori da ogni blocco
+    # sul database, con ritenti automatici se un canale non risponde.
     for channel in channels:
-        ok, _ = send_channel(conn, cfg, values, channel, source, subject, full)
-        delivered = delivered or ok
-    return delivered
+        conn.execute(models.notification_queue.insert().values(
+            created_at=detected_at.replace(microsecond=0), due_at=now.replace(microsecond=0), source=source,
+            channel=channel, subject=subject[:200], body=body, attempts=0, quiet=False))
+    db.after_commit(lambda: deliver(cfg), key="notify")
+    log.info("Avviso in uscita su %s: %s", ", ".join(channels), subject)
+    return True
+
+
+# 4.2.1: intervallo prima di ritentare un invio non riuscito (minuti, per tentativo)
+RETRY_MINUTES = (1, 2, 5, 15, 30)
+LEASE_MINUTES = 5          # chi prende in carico un messaggio lo "prenota": nessun doppio invio da due processi
+
+
+def deliver(cfg, limit: int = 50) -> int:
+    """Invia i messaggi in uscita (non della fascia di silenzio) già dovuti. Ritorna quanti sono stati consegnati.
+
+    Ogni messaggio si prenota con una transazione brevissima, si invia senza transazioni aperte, poi si registra
+    l'esito con un'altra transazione brevissima. Dopo un errore si ritenta più tardi (RETRY_MINUTES), fino a
+    MAX_ATTEMPTS tentativi.
+    """
+    from sqlalchemy import select, update
+    from . import i18n, models
+    from . import settings as settings_mod
+    Q = models.notification_queue
+    now = dt.datetime.now().replace(microsecond=0)
+    try:
+        with db.connect(cfg.database) as conn:
+            values = settings_mod.load(conn, cfg)
+            rows = db.rows(conn, select(Q.c.id, Q.c.created_at, Q.c.source, Q.c.channel, Q.c.subject, Q.c.body, Q.c.attempts)
+                           .where(Q.c.sent_at.is_(None), Q.c.quiet == False, Q.c.attempts < MAX_ATTEMPTS,  # noqa: E712
+                                  Q.c.due_at <= now).order_by(Q.c.created_at).limit(limit))
+    except Exception as exc:  # noqa: BLE001 - riproverà il prossimo job
+        log.warning("Posta in uscita non letta: %s", exc)
+        return 0
+    lang = i18n.lang_of(values)
+    _ = i18n.translator(lang)
+    sent = 0
+    for r in rows:
+        if not values.get(f"notify.{r['channel']}.enabled"):
+            continue                                   # canale spento nel frattempo: resta in coda finché non torna
+        with db.connect(cfg.database) as conn:         # prenotazione: un solo processo invia ogni messaggio
+            claimed = conn.execute(update(Q).where(Q.c.id == r["id"], Q.c.sent_at.is_(None), Q.c.due_at <= now)
+                                   .values(due_at=now + dt.timedelta(minutes=LEASE_MINUTES))).rowcount
+        if not claimed:
+            continue
+        detected = db.as_datetime(r["created_at"])
+        sending = dt.datetime.now()
+        tail = (_("Rilevato e inviato alle {quando}.", quando=_fmt(detected, lang)) if sending - detected < dt.timedelta(minutes=2)
+                else _("Rilevato alle {r}, inviato alle {i}.", r=_fmt(detected, lang), i=_fmt(sending, lang)))
+        ok, err = _send(cfg, values, r["channel"], r["source"], r["subject"], f"{r['body'].rstrip()}\n\n{tail}")
+        attempts = r["attempts"] + 1
+        with db.connect(cfg.database) as conn:
+            if ok:
+                conn.execute(update(Q).where(Q.c.id == r["id"]).values(sent_at=db.now(), attempts=attempts, error=None))
+                _log(conn, r["channel"], r["source"], r["subject"], True, "" if attempts == 1 else f"al tentativo {attempts}")
+                sent += 1
+            else:
+                last = attempts >= MAX_ATTEMPTS
+                wait = RETRY_MINUTES[min(attempts - 1, len(RETRY_MINUTES) - 1)]
+                conn.execute(update(Q).where(Q.c.id == r["id"]).values(
+                    attempts=attempts, error=(err or "")[:400], due_at=now + dt.timedelta(minutes=wait)))
+                _log(conn, r["channel"], r["source"], r["subject"], False,
+                     (err or "") + ("" if last else f" (nuovo tentativo tra {wait} min)"),
+                     status="fallita" if last else "in coda")
+    return sent
 
 
 MAX_ATTEMPTS = 5
@@ -267,7 +337,7 @@ def flush_queue(conn, cfg) -> int:
     from . import models
     Q = models.notification_queue
     q = select(Q.c.id, Q.c.created_at, Q.c.due_at, Q.c.source, Q.c.channel, Q.c.subject, Q.c.body, Q.c.attempts) \
-        .where(Q.c.sent_at.is_(None), Q.c.attempts < MAX_ATTEMPTS).order_by(Q.c.created_at)
+        .where(Q.c.sent_at.is_(None), Q.c.attempts < MAX_ATTEMPTS, Q.c.quiet == True).order_by(Q.c.created_at)  # noqa: E712
     if values.get("quiet.enabled"):
         q = q.where(Q.c.due_at <= now)
     rows = _db.rows(conn, q)

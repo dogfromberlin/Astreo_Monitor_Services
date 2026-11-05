@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.2.1 — alerts sent outside the database transactions
+
+- **Outbox for alerts**: a check now only writes the alert into the queue, in the same transaction as the alert state, and the message is sent right after the transaction is committed. The sending (network, timeouts of up to 30 seconds per channel) no longer keeps rows of the database locked for the dashboard and the other jobs, also during an Internet outage.
+- **Automatic retries**: a message not delivered is retried after 1, 2, 5, 15 and 30 minutes, by every job that runs; an alert raised during a line drop arrives as soon as the line is back, with the detection and sending times. Before, a failed alert was only retried if the problem was still there at the next check.
+- **No duplicates**: the alert state and the queued message are saved together (both or neither), and each message is reserved before sending, so two jobs finishing at the same time cannot send it twice.
+- **`update.sh` pauses the jobs** during the update: the `astreo-*` timers are stopped before the code is replaced (a job already running finishes its round) and resumed at the end, also if the update stops halfway. Before, jobs could run the new code on the old database schema while the migration waited for the `sa` password.
+- **More detail in `Transazione lunga`**: time in queries (waiting for the database), number of statements, time spent outside the database with the transaction open, slowest query.
+- The quiet hours keep their behaviour (one grouped message at the chosen time); test messages from the dashboard are still sent immediately.
+- Database migration 0007 (column `quiet` in `notification_queue`), applied by `update.sh`.
+- Guide: *How alerts are sent* in Notifications (IT/EN).
+
 ## 4.2.0 — settings per server, data from the agents, alert delay
 
 - **Alert after (minutes)** in every alert rule (Settings → Notifications): the alert is sent only if the problem lasts at least that many minutes in a row; if it clears earlier nothing is sent, not even the recovery (e.g. Connection at 3 minutes for short line drops). The dashboard and the history still show every problem. Default 0 = as before.

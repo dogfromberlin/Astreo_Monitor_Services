@@ -33,7 +33,9 @@ secondi (della dashboard o di un job) finiscono nel registro, con il tempo passa
 ```bash
 journalctl -u 'astreo-*' --since today --no-pager | grep -E "Richiesta lenta|Transazione lunga"
 ```
-Righe con l'orario quasi uguale indicano chi ha fatto aspettare chi: per esempio una *Transazione lunga* di un job
+In *Transazione lunga* il tempo è diviso in **query** (alto = il database ha fatto aspettare, per esempio un blocco
+tenuto da un altro processo) e **fuori dal database** (alto = lavoro lento fatto con la transazione aperta, per
+esempio un comando esterno o una chiamata di rete). Righe con l'orario quasi uguale indicano chi ha fatto aspettare chi: per esempio una *Transazione lunga* di un job
 subito prima di una *Richiesta lenta* della dashboard.
 
 <a id="job"></a>

@@ -682,6 +682,8 @@
  "Riepilogo settimanale {data}": "Weekly summary {data}",
  "Riepilogo; con un nome (/stato ATLAS) il dettaglio di quel server": "Summary; with a name (/status ATLAS) the detail of that server",
  "Rilevato alle {quando}.": "Detected at {quando}.",
+ "Rilevato alle {r}, inviato alle {i}.": "Detected at {r}, sent at {i}.",
+ "Rilevato e inviato alle {quando}.": "Detected and sent at {quando}.",
  "Rilevato uno schema 2.x completo: lo registro come schema iniziale, i dati non vengono toccati.": "A complete 2.x schema was found: registering it as the initial schema, data is not touched.",
  "Ripristina ordine": "Reset order",
  "Risorse in tempo reale": "Real-time resources",

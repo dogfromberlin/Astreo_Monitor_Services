@@ -67,10 +67,15 @@ def make_engine(cfg: DatabaseConfig, **kw) -> Engine:
 
     @event.listens_for(eng, "after_cursor_execute")
     def _t1(conn, cursor, statement, params, context, executemany):
-        st = _stats.get()
-        if st is not None and "t0" in conn.info:
-            dt_ = time.monotonic() - conn.info.pop("t0")
+        if "t0" not in conn.info:
+            return
+        dt_ = time.monotonic() - conn.info.pop("t0")
+        # 4.2.1: si conta sia per la richiesta / il job (_stats) sia per la singola transazione (conn.info["tx"])
+        for st in (_stats.get(), conn.info.get("tx")):
+            if st is None:
+                continue
             st["query"] = st.get("query", 0.0) + dt_
+            st["n"] = st.get("n", 0) + 1
             if dt_ > st.get("slowest", (0, ""))[0]:
                 st["slowest"] = (dt_, " ".join(statement.split())[:120])
 
@@ -97,6 +102,19 @@ def engine(cfg: DatabaseConfig, timeout: int | None = None) -> Engine:
 _stats: contextvars.ContextVar[dict | None] = contextvars.ContextVar("db_stats", default=None)
 _label: contextvars.ContextVar[str] = contextvars.ContextVar("db_label", default="")
 SLOW_TRANSACTION_S = 5.0
+_after: contextvars.ContextVar[dict | None] = contextvars.ContextVar("db_after_commit", default=None)
+
+
+def after_commit(fn, key: str = "default") -> None:
+    """4.2.1: esegue fn dopo la conferma della transazione in corso (una sola volta per chiave), fuori da ogni blocco.
+
+    Se la transazione viene annullata, fn non viene eseguita. Senza transazione aperta parte subito.
+    """
+    pending = _after.get()
+    if pending is None:
+        fn()
+    else:
+        pending.setdefault(key, fn)
 
 
 def start_stats(label: str) -> dict:
@@ -124,16 +142,39 @@ def connect(cfg: DatabaseConfig, autocommit: bool = False, timeout: int | None =
         cm = eng.connect().execution_options(isolation_level="AUTOCOMMIT")
     else:
         cm = eng.begin()
-    with cm as conn:
-        opened = time.monotonic() - t0
-        if st is not None:
-            st["connect"] = st.get("connect", 0.0) + opened
-        try:
-            yield conn
-        finally:
-            took = time.monotonic() - t0
-            if took > SLOW_TRANSACTION_S:
-                logging.getLogger("db").warning("Transazione lunga: %.1f s in %s (apertura %.2f s)", took, _label.get() or "?", opened)
+    token = _after.set({})
+    committed = False
+    try:
+        with cm as conn:
+            opened = time.monotonic() - t0
+            if st is not None:
+                st["connect"] = st.get("connect", 0.0) + opened
+            tx = {"query": 0.0, "n": 0, "slowest": (0.0, "")}
+            conn.info["tx"] = tx
+            try:
+                yield conn
+            finally:
+                conn.info.pop("tx", None)
+                took = time.monotonic() - t0
+                if took > SLOW_TRANSACTION_S:
+                    # tempo nelle query alto = attesa del database (blocchi); tempo fuori alto = lavoro lento
+                    # fatto con la transazione aperta (rete, comandi esterni)
+                    outside = max(0.0, took - opened - tx["query"])
+                    slow = tx["slowest"]
+                    logging.getLogger("db").warning(
+                        "Transazione lunga: %.1f s in %s (apertura %.2f s, query %.2f s in %d istruzioni, fuori dal database %.1f s%s)",
+                        took, _label.get() or "?", opened, tx["query"], tx["n"], outside,
+                        f"; query più lenta {slow[0]:.2f} s: {slow[1]}" if slow[0] >= 0.5 else "")
+        committed = True
+    finally:
+        pending = _after.get() or {}
+        _after.reset(token)
+    if committed:
+        for fn in pending.values():
+            try:
+                fn()
+            except Exception:  # noqa: BLE001 - un errore dopo la conferma non annulla ciò che è già salvato
+                logging.getLogger("db").exception("Operazione dopo la conferma non riuscita")
 
 
 def dialect(conn) -> str:

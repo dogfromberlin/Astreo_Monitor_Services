@@ -46,7 +46,8 @@ cd Astreo_Monitor_Services
 sudo bash update.sh                       # from git
 sudo bash update.sh /path/package.zip
 ```
-Steps: code (with a zip, files the new version no longer contains are removed too) → libraries and pip →
+Steps: jobs paused (the `astreo-*` timers stop and a job already running finishes its round; at the end they are
+resumed, even if the update stops halfway) → code (with a zip, files the new version no longer contains are removed too) → libraries and pip →
 automated checks (it stops before touching services and database if they fail) → system files from templates
 → schema migration (with SQL Server it asks for the `sa` password) → restart → health check.
 

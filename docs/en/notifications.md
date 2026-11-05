@@ -75,6 +75,19 @@ Start, end and delivery time (e.g. 23:00–07:00, delivery at 08:00). Alerts rai
 delivered at the set time, **one message per channel**, with the detection time. Test messages are never held.
 The delivery log shows the *Queued* alerts.
 
+<a id="invio"></a>
+## How alerts are sent
+
+Since 4.2.1 an alert first goes into the **outbox** (the same queue used by the quiet hours), together with the state
+that raised it, and leaves a moment later, once the check has saved its data. So the sending, which can take seconds
+or end in a timeout, never keeps the database locked for the dashboard and the other checks.
+
+If a channel does not respond (Internet down, mail server unreachable) the alert stays in the queue and is **retried**
+after 1, 2, 5, 15 and 30 minutes; every check that runs also retries the messages left behind, so an alert raised
+during a line drop arrives as soon as the line is back, with the time it was detected and the time it was sent. In
+**Alerts and events → Notifications sent** failed attempts show as *Queued* with the reason and the next attempt;
+after 5 attempts the alert shows as *Not sent*. Tests from the dashboard are sent immediately.
+
 <a id="heartbeat"></a>
 ## External heartbeat
 

@@ -54,4 +54,12 @@ def run(name: str, description: str, func: Callable[[config_mod.Config, bool], i
     finally:
         fcntl.flock(lock_file, fcntl.LOCK_UN)
         lock_file.close()
+    if not args.dry_run:
+        # 4.2.1: ogni job, finito il suo lavoro, ritenta anche i messaggi in uscita rimasti indietro
+        # (canale che non rispondeva, Internet assente): così un avviso arriva appena la linea torna.
+        try:
+            from .. import notifier
+            notifier.deliver(cfg)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Posta in uscita non inviata: %s", exc)
     sys.exit(code)

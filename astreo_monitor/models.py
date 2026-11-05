@@ -95,6 +95,7 @@ notification_queue = Table(
     Column("subject", Unicode(200), nullable=False), Column("body", TEXT, nullable=False),
     Column("attempts", Integer, nullable=False, server_default="0"),
     Column("sent_at", TS), Column("error", Unicode(400)),
+    Column("quiet", Boolean, nullable=False, server_default="0"),     # 4.2.1: 1 = trattenuto dalla fascia di silenzio
     Index("IX_notification_queue_due", "due_at", mssql_clustered=True),
 )
 
