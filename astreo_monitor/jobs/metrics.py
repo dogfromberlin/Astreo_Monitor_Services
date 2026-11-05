@@ -15,6 +15,7 @@ from .. import db, events, heartbeat, i18n, models, notifier, services_store
 from ..integrations import docker as docker_mod
 from ..integrations import pihole as pihole_mod
 from .. import settings as settings_mod
+from .. import hosts as hosts_mod
 from ..collectors import sensors, services, system
 from ..config import Config
 from .base import run
@@ -73,21 +74,22 @@ def main(cfg: Config, dry_run: bool) -> int:
         values = settings_mod.load(conn, cfg)
         lang = i18n.lang_of(values)
         _ = i18n.translator(lang)
+        lim = hosts_mod.local_limits(conn, cfg)          # 4.2: soglie del server centrale (o quelle generali)
         checks = []
         if temps:
             hottest = max(temps, key=lambda t: t["value"])
             checks.append((
                 "temperature",
-                level(hottest["value"], cfg.metrics.temp_warning, cfg.metrics.temp_alert),
+                level(hottest["value"], lim["temp_warning"], lim["temp_alert"]),
                 _("Temperatura massima {t} °C ({sensore})", t=f"{hottest['value']:.1f}",
                   sensore=f"{hottest['adapter']} / {hottest['device']}") + "\n"
-                + _("Soglie: warning {w} °C, alert {a} °C", w=cfg.metrics.temp_warning, a=cfg.metrics.temp_alert),
+                + _("Soglie: warning {w} °C, alert {a} °C", w=lim["temp_warning"], a=lim["temp_alert"]),
             ))
         checks.append((
             "disk",
-            level(disk_pct, cfg.metrics.disk_warning, cfg.metrics.disk_alert),
+            level(disk_pct, lim["disk_warning"], lim["disk_alert"]),
             _("Disco {disco} occupato al {pct}%", disco=cfg.metrics.root_disk, pct=disk_pct) + "\n"
-            + _("Soglie: warning {w}%, alert {a}%", w=cfg.metrics.disk_warning, a=cfg.metrics.disk_alert),
+            + _("Soglie: warning {w}%, alert {a}%", w=lim["disk_warning"], a=lim["disk_alert"]),
         ))
 
         for key, status, text in checks:

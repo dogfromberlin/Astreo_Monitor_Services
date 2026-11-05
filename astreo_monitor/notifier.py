@@ -344,13 +344,36 @@ class AlertState:
             elif SEVERITY.get(new_status, 0) > SEVERITY.get(previous, 0):
                 notify, reason = True, "peggioramento"
 
+        # 4.2: attesa prima dell'avviso. L'anomalia deve durare almeno delay_minutes di fila;
+        # nel frattempo l'avviso resta "in attesa" e parte appena il tempo è passato.
+        delay = float(getattr(rule, "delay_minutes", 0) or 0)
+        since_iso = self.data.get("anomaly_since")
+        if delay > 0:
+            if new_status == OK:
+                notified = self.data.get("last_notified")
+                # rientro solo se di questa anomalia era partito un avviso
+                if notify and (self.data.get("pending") or not notified or (since_iso and notified < since_iso)):
+                    notify, reason = False, None
+                self.data.pop("pending", None)
+            else:
+                start = since_iso if previous not in (None, OK) and since_iso else now.isoformat(timespec="seconds")
+                elapsed = now - dt.datetime.fromisoformat(start)
+                if notify:
+                    if elapsed < dt.timedelta(minutes=delay):
+                        self.data["pending"] = reason          # rimandato: lo ricorda per quando il tempo è passato
+                        notify, reason = False, None
+                    else:
+                        self.data.pop("pending", None)
+                elif self.data.get("pending") and elapsed >= dt.timedelta(minutes=delay):
+                    notify, reason = True, self.data.pop("pending")
+
         # inizio e fine della situazione anomala (WARNING/ALERT/... anche alternati)
         if new_status == OK:
             self.data.pop("anomaly_since", None)
         elif previous in (None, OK) or "anomaly_since" not in self.data:
             self.data["anomaly_since"] = now.isoformat(timespec="seconds")
 
-        if not notify and new_status != OK and rule.reminder_hours > 0:
+        if not notify and new_status != OK and rule.reminder_hours > 0 and not self.data.get("pending"):
             anchor = self.data.get("last_notified")
             since = self.data.get("anomaly_since")
             # l'ultimo avviso deve appartenere alla situazione anomala in corso

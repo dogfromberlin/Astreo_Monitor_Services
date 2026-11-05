@@ -1,7 +1,7 @@
 /* Astreo Monitor 4.0 - server collegati: panoramica nella vista Server, server scelto, Impostazioni → Server collegati. */
 (() => {
   "use strict";
-  const { t, $, api, el, row, toast, fmtNum, fmtGB, fmtDateTime, fmtUptime, level, every } = window.AM;
+  const { t, $, $$, api, el, row, toast, fmtNum, fmtGB, fmtDateTime, fmtUptime, level, every } = window.AM;
   const STATUS = { OK: ["ok", "raggiungibile"], DOWN: ["down", "non raggiungibile"], WAITING: ["wait", "in attesa del primo invio"],
                    DISABLED: ["wait", "disattivato"] };
   let hosts = [];
@@ -122,8 +122,10 @@
         try { await api(`/api/v1/hosts/${h.id}`, { method: "DELETE", json: {} }); toast(t("Server eliminato")); load().then(renderAdmin); }
         catch (e) { toast(e.message, "error"); }
       });
+      const conf = el("button", { type: "button", class: "ghost" }, t("Soglie e avvisi"));
+      conf.addEventListener("click", () => openSettings(h));
       const actions = el("div", { class: "row-actions" });
-      actions.append(save, token, del);
+      actions.append(save, conf, token, del);
       const svcBox = el("div");
       svcBox.append(input);
       return row([
@@ -163,6 +165,42 @@
     $("#host-install").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
+  // ------------------------------------------------------------ 4.2: impostazioni del server
+  let defaults = null, editing = null;
+  async function openSettings(h) {
+    try { const d = await api("/api/v1/hosts"); defaults = { ...d.defaults, offline_minutes: d.offline_minutes }; hosts = d.hosts; }
+    catch (e) { toast(e.message, "error"); return; }
+    editing = hosts.find((x) => x.id === h.id) || h;
+    const f = $("#hs-form");
+    $("#hs-title").textContent = t("Impostazioni di {p0}", { p0: editing.name });
+    const remote = editing.kind !== "local";
+    $$("#hs-form .remote-only-field").forEach((x) => { x.hidden = !remote; });
+    f.notify_offline.checked = editing.notify_offline !== false;
+    for (const k of ["offline_minutes", "disk_warning", "disk_alert", "temp_warning", "temp_alert"]) {
+      f[k].value = editing[k] ?? "";
+      f[k].placeholder = defaults[k] != null ? String(defaults[k]) : "";
+    }
+    $("#host-settings").showModal();
+  }
+  async function saveSettings(ev) {
+    ev.preventDefault();
+    const f = $("#hs-form");
+    const data = {};
+    for (const k of ["disk_warning", "disk_alert", "temp_warning", "temp_alert"]) data[k] = f[k].value === "" ? null : Number(f[k].value);
+    if (editing.kind !== "local") {
+      data.notify_offline = f.notify_offline.checked;
+      data.offline_minutes = f.offline_minutes.value === "" ? null : Number(f.offline_minutes.value);
+    }
+    try {
+      await api(`/api/v1/hosts/${editing.id}`, { method: "PUT", json: data });
+      $("#host-settings").close();
+      toast(t("Impostazioni di {p0} salvate", { p0: editing.name }));
+      await load();
+      if (!$('[data-subpanel="set:server"]').hidden) renderAdmin();
+      document.dispatchEvent(new CustomEvent("hosts-changed"));
+    } catch (e) { toast(e.message, "error"); }
+  }
+
   async function create(ev) {
     ev.preventDefault();
     const f = ev.target.elements;
@@ -188,6 +226,9 @@
     every(60_000, load, "server");
     window.AM.onView("server", load);
     if (window.AM.IS_VIEWER) return;
+    $("#hs-form").addEventListener("submit", saveSettings);
+    $("#hs-cancel").addEventListener("click", () => $("#host-settings").close());
+    $("#srv-settings").addEventListener("click", () => { const h = hosts.find((x) => x.id === window.AM.host); if (h) openSettings(h); });
     $("#host-form").addEventListener("submit", create);
     $("#form-hosts").addEventListener("submit", saveOffline);
     document.addEventListener("subtab", async (ev) => {

@@ -782,7 +782,8 @@ def create_app(cfg: Config) -> Flask:
     def api_hosts():
         mins = offline_minutes()
         with db.connect(cfg.database) as conn:
-            return jsonify({"hosts": hosts_mod.listing(conn, mins), "offline_minutes": mins})
+            return jsonify({"hosts": hosts_mod.listing(conn, mins), "offline_minutes": mins,
+                            "defaults": hosts_mod.limits({}, cfg)})      # 4.2: soglie generali per i campi vuoti
 
     # ------------------------------------------------------ 4.1: panoramica e preferenze
     from .. import overview as overview_mod
@@ -852,6 +853,7 @@ def create_app(cfg: Config) -> Flask:
             vals["services"] = hosts_mod.clean_services(str(data["services"]))
         if "enabled" in data and hid != hosts_mod.LOCAL_ID:
             vals["enabled"] = bool(data["enabled"])
+        vals.update(hosts_mod.clean_settings(data, hid))     # 4.2: soglie e avviso se non raggiungibile
         with db.connect(cfg.database) as conn:
             if not vals or not conn.execute(sa_update(models.hosts).where(models.hosts.c.id == hid).values(**vals)).rowcount:
                 abort(404, description="Server inesistente")

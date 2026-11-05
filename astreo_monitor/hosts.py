@@ -45,6 +45,61 @@ def clean_services(text: str) -> str:
     return ",".join(dict.fromkeys(units))
 
 
+# ----------------------------------------------------------------------------- 4.2: impostazioni per server
+LIMIT_KEYS = ("disk_warning", "disk_alert", "temp_warning", "temp_alert")
+LIMIT_RANGE = {"disk_warning": (1, 100), "disk_alert": (1, 100), "temp_warning": (20, 120), "temp_alert": (20, 120)}
+
+
+def limits(h: dict, cfg) -> dict:
+    """Soglie effettive di un server: le sue, oppure quelle generali dove sono vuote."""
+    m = cfg.metrics
+    general = {"disk_warning": m.disk_warning, "disk_alert": m.disk_alert, "temp_warning": m.temp_warning, "temp_alert": m.temp_alert}
+    return {k: (h.get(k) if h.get(k) is not None else general[k]) for k in LIMIT_KEYS}
+
+
+def local_limits(conn, cfg) -> dict:
+    row = db.rows(conn, select(*[H.c[k] for k in LIMIT_KEYS]).where(H.c.id == LOCAL_ID))
+    return limits(row[0] if row else {}, cfg)
+
+
+def clean_settings(data: dict, hid: int) -> dict:
+    """Valida le impostazioni per server ricevute dalla dashboard (valori vuoti = impostazione generale)."""
+    out = {}
+    for k in LIMIT_KEYS:
+        if k in data:
+            v = data[k]
+            if v in (None, ""):
+                out[k] = None
+                continue
+            try:
+                f = float(v)
+            except (TypeError, ValueError):
+                raise HostError(f"Valore non valido: {k}") from None
+            lo, hi = LIMIT_RANGE[k]
+            if not lo <= f <= hi:
+                raise HostError(f"{k}: valore tra {lo} e {hi}")
+            out[k] = f
+    for w, a in (("disk_warning", "disk_alert"), ("temp_warning", "temp_alert")):
+        if out.get(w) is not None and out.get(a) is not None and out[w] >= out[a]:
+            raise HostError("La soglia di avviso deve essere più bassa di quella di allarme")
+    if hid != LOCAL_ID:                                     # il centrale è sempre raggiungibile da sé stesso
+        if "notify_offline" in data:
+            out["notify_offline"] = bool(data["notify_offline"])
+        if "offline_minutes" in data:
+            v = data["offline_minutes"]
+            if v in (None, ""):
+                out["offline_minutes"] = None
+            else:
+                try:
+                    n = int(v)
+                except (TypeError, ValueError):
+                    raise HostError("Minuti non validi") from None
+                if not 2 <= n <= 1440:
+                    raise HostError("Minuti: tra 2 e 1440")
+                out["offline_minutes"] = n
+    return out
+
+
 def only_configured(state: dict | None, services: str | None) -> dict | None:
     """4.1: dello stato inviato dall'agente si tengono solo i servizi ancora da controllare.
 
@@ -119,8 +174,9 @@ def listing(conn, offline_minutes: int) -> list[dict]:
             h["status"] = "OK"
         else:
             seen = db.as_datetime(h["last_seen"]) if h["last_seen"] else None
+            mins = h.get("offline_minutes") or offline_minutes            # 4.2: minuti per server
             h["status"] = ("DISABLED" if not h["enabled"] else "WAITING" if not seen
-                           else "DOWN" if (now - seen).total_seconds() > offline_minutes * 60 else "OK")
+                           else "DOWN" if (now - seen).total_seconds() > mins * 60 else "OK")
         h["snapshot"] = db.state_get(conn, f"host:{h['id']}:snapshot")
         h["services_state"] = only_configured(db.state_get(conn, f"host:{h['id']}:services"), h.get("services"))
         for k in ("created_at", "last_seen"):

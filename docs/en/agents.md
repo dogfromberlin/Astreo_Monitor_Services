@@ -24,6 +24,21 @@ removed from the checked services disappears immediately, without waiting for th
 | Chosen services | systemd, on every change | Windows services, on every change |
 | Reboots | yes | yes |
 
+<a id="impostazioni-server"></a>
+## Settings of a server
+
+**Settings of this server** in the server detail, or **Thresholds and alerts** in **Settings → Connected
+servers**. Empty fields use the general settings (shown in grey).
+
+| Setting | Meaning |
+|---|---|
+| Alert when unreachable | when off, a switched-off server shows as grey information (*off*) and sends no alerts: for computers switched off on purpose |
+| Unreachable after (minutes) | minutes without data before it counts as unreachable (general: in *Connected servers*) |
+| Disk and temperature thresholds | warning and alert for this server; they apply to the Overview, *To check* and alerts |
+
+The central server only has the thresholds. To avoid alerts about short problems there is also **Alert after** in
+the [alert rules](notifications.md#regole).
+
 <a id="aggiungere"></a>
 ## Adding a server
 

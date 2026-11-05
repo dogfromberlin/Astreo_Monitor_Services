@@ -18,7 +18,9 @@ pubblico*, i cambi di indirizzo. Il periodo (6 ore … 1 anno o intervallo liber
 | OK | altrimenti |
 
 Durante un'interruzione gli avvisi non possono uscire: arriva **Connessione ripristinata dopo N min**, con
-inizio e durata. Destinazioni e soglie in **Impostazioni → Speedtest → Controllo continuo**.
+inizio e durata. Destinazioni e soglie in **Impostazioni → Speedtest → Controllo continuo**. Se la linea ha
+spesso cadute di un minuto, imposta **Avvisa dopo** (es. 3 minuti) nella regola *Connessione* di
+[Notifiche](notifications.md#regole): le cadute brevi restano nello storico ma non mandano avvisi.
 
 <a id="speedtest"></a>
 ## Speedtest

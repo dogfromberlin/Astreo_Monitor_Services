@@ -18,7 +18,9 @@ changes*, the address changes. The period (6 hours … 1 year or custom range) a
 | OK | otherwise |
 
 During an outage alerts cannot go out: **Connection restored after N min** arrives afterwards, with start and
-duration. Targets and thresholds in **Settings → Speedtest → Continuous check**.
+duration. Targets and thresholds in **Settings → Speedtest → Continuous check**. If the line often drops for a
+minute, set **Alert after** (e.g. 3 minutes) in the *Connection* rule of [Notifications](notifications.md#regole):
+short drops stay in the history but send no alerts.
 
 <a id="speedtest"></a>
 ## Speedtest

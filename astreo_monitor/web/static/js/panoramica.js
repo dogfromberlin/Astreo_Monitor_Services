@@ -69,7 +69,7 @@
   function renderKpis(d) {
     const active = d.hosts.filter((h) => h.enabled);
     const up = active.filter((h) => h.status === "OK");
-    const down = active.filter((h) => h.status === "DOWN");
+    const down = active.filter((h) => h.status === "DOWN" && h.notify_offline !== false);
     kpi("#kpi-servers", String(up.length), t("/ {p0} raggiungibili", { p0: active.length }),
         down.length ? t("non raggiungibile: {p0}", { p0: down.map((h) => h.name).join(", ") }) : up.map((h) => h.name).join(", "),
         down.length ? "alert" : "ok");
@@ -181,6 +181,7 @@
     const worst = problems.length ? problems[0].severity : null;
     const stopped = h.services.filter((s) => !s.up);
     let [cls, label] = STATUS[h.status] || ["wait", h.status];
+    if (h.status === "DOWN" && h.notify_offline === false) [cls, label] = ["wait", t("spento")];   // 4.2
     if (h.status === "OK" && stopped.length) {
       cls = "warn";
       label = stopped.length === 1 ? t("1 servizio fermo") : t("{p0} servizi fermi", { p0: stopped.length });
@@ -323,7 +324,8 @@
   });
 
   document.addEventListener("DOMContentLoaded", () => {
-    every(30_000, load);                    // anche fuori dalla Panoramica: tiene aggiornato il numero nel menu
+    every(30_000, load);
+    document.addEventListener("hosts-changed", load);                    // anche fuori dalla Panoramica: tiene aggiornato il numero nel menu
     window.AM.onView("panoramica", () => { greeting(); if (last) load(); });
     window.AM.overview = () => last;                 // per la ricerca Ctrl K (servizi dei server)
     setInterval(greeting, 60_000);

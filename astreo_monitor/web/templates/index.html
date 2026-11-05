@@ -159,6 +159,7 @@
       <p class="host-meta central-only"><span>{{ _("nome") }} <strong id="hostname">–</strong></span><span>{{ _("acceso da") }} <strong id="uptime">–</strong></span><span>{{ _("aggiornato alle") }} <strong id="last-update">–</strong></span></p>
       <p class="remote-note" id="remote-note" hidden></p>
     </div>
+    <button type="button" class="btn small admin-only" id="srv-settings"><svg class="icon"><use href="#i-settings"/></svg><span>{{ _("Impostazioni di questo server") }}</span></button>
     <span class="pill" id="srv-pill"><span class="dot ok" aria-hidden="true"></span><span>{{ _("regolare") }}</span></span>
   </section>
   <section class="gauges" data-card="resources" aria-label="{{ _("Risorse in tempo reale") }}">
@@ -361,6 +362,32 @@
   </div>
   <ul class="search-results" id="search-results" role="listbox" aria-label="{{ _("Risultati") }}"></ul>
   <p class="search-hint">{{ _("↑ ↓ per scegliere · Invio per aprire · Esc per chiudere") }}</p>
+</dialog>
+
+<dialog id="host-settings" aria-labelledby="hs-title">
+  <form id="hs-form" class="settings-form" autocomplete="off">
+    <h2 id="hs-title">{{ _("Impostazioni del server") }}</h2>
+    <p class="hint">{{ _("I campi vuoti usano le impostazioni generali, indicate in grigio.") }} <button type="button" class="help-btn" data-help="agents#impostazioni-server" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></p>
+    <fieldset class="remote-only-field">
+      <legend>{{ _("Raggiungibilità") }}</legend>
+      <div class="switch-row"><label class="switch compact"><input type="checkbox" name="notify_offline" aria-labelledby="hs-notify-l"><span></span></label><span id="hs-notify-l">{{ _("Avvisa se non raggiungibile") }}</span></div>
+      <p class="hint">{{ _("Disattivalo per i computer che spegni volutamente: spento compare come informazione e non parte nessun avviso.") }}</p>
+      <label class="narrow">{{ _("Non raggiungibile dopo (minuti senza dati)") }}<input type="number" name="offline_minutes" min="2" max="1440" step="1"></label>
+    </fieldset>
+    <fieldset>
+      <legend>{{ _("Soglie") }}</legend>
+      <div class="hs-grid">
+        <label>{{ _("Disco: avviso (%)") }}<input type="number" name="disk_warning" min="1" max="100" step="1"></label>
+        <label>{{ _("Disco: allarme (%)") }}<input type="number" name="disk_alert" min="1" max="100" step="1"></label>
+        <label>{{ _("Temperatura: avviso (°C)") }}<input type="number" name="temp_warning" min="20" max="120" step="1"></label>
+        <label>{{ _("Temperatura: allarme (°C)") }}<input type="number" name="temp_alert" min="20" max="120" step="1"></label>
+      </div>
+    </fieldset>
+    <div class="form-actions">
+      <button type="button" class="btn" id="hs-cancel">{{ _("Annulla") }}</button>
+      <button type="submit" class="btn primary">{{ _("Salva") }}</button>
+    </div>
+  </form>
 </dialog>
 
 <dialog id="check-dialog" class="wide">

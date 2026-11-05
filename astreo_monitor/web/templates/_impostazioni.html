@@ -192,12 +192,13 @@
           <legend>{{ _("Regole di avviso") }} <button type="button" class="help-btn" data-help="notifications#regole" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <div class="scroll">
             <table class="data rules" id="rules">
-              <thead><tr><th>{{ _("Monitoraggio") }}</th><th>{{ _("Quando avvisare") }}</th><th>{{ _("Al rientro in OK") }}</th><th>{{ _("Promemoria (ore)") }}</th></tr></thead>
+              <thead><tr><th>{{ _("Monitoraggio") }}</th><th>{{ _("Quando avvisare") }}</th><th>{{ _("Al rientro in OK") }}</th><th>{{ _("Promemoria (ore)") }}</th><th>{{ _("Avvisa dopo (min)") }}</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
           <p class="hint"><em>{{ _("Solo se peggiora") }}</em>{{ _(": avviso quando lo stato si aggrava (OK→WARNING→ALERT), nessun avviso se resta uguale o migliora.") }}
-             <em>{{ _("A ogni cambio") }}</em>{{ _(": avviso a ogni variazione. Il promemoria parte se la situazione resta anomala per le ore indicate dall'ultimo avviso (0 = mai).") }}</p>
+             <em>{{ _("A ogni cambio") }}</em>{{ _(": avviso a ogni variazione. Il promemoria parte se la situazione resta anomala per le ore indicate dall'ultimo avviso (0 = mai).") }}
+             <em>{{ _("Avvisa dopo") }}</em>{{ _(": l'avviso parte solo se l'anomalia dura almeno questi minuti di fila; se si risolve prima non arriva nulla, nemmeno il rientro. Dashboard e storico la mostrano comunque (0 = subito).") }}</p>
         </fieldset>
 
         <fieldset>

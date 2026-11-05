@@ -162,6 +162,11 @@ hosts = Table(
     Column("last_seen", TS),
     Column("agent_version", String(32)),
     Column("os_info", Unicode(200)),
+    # 4.2: impostazioni per server; NULL = impostazione generale
+    Column("notify_offline", Boolean, nullable=False, server_default="1"),
+    Column("offline_minutes", Integer),
+    Column("disk_warning", Float), Column("disk_alert", Float),
+    Column("temp_warning", Float), Column("temp_alert", Float),
     Index("UX_hosts_token", "token_hash", unique=True, mssql_where=Column("token_hash").isnot(None),
           postgresql_where=Column("token_hash").isnot(None), sqlite_where=Column("token_hash").isnot(None)),
 )

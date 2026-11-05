@@ -49,6 +49,12 @@ For each monitor:
 | **On every change** | alerts on every state change |
 | **Recovery alert** | alerts also when it goes back to OK |
 | **Reminder (hours)** | repeats the alert if the situation stays abnormal for the given hours (0 = never) |
+| **Alert after (min)** | the alert is sent only if the problem lasts at least these minutes in a row (0 = immediately) |
+
+With **Alert after**, a problem that clears before the given time sends nothing, neither the alert nor the
+recovery: useful for short line outages (Connection at 3 minutes) or for a service that restarts by itself. The
+dashboard and the history still show every problem, even a one-minute one, and count it in the availability. The
+reminder starts only after the first alert has been sent.
 
 <a id="silenzio"></a>
 ## Quiet hours

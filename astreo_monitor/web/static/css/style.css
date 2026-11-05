@@ -897,3 +897,13 @@ body.editing .card-hidden { opacity: .45; }
 }
 @media (min-width: 761px) { .mobile-title { display: none; } }
 @media (prefers-reduced-motion: reduce) { .hero .ring .val { transition: none; } .theme-anim, .theme-anim * { transition: none !important; } }
+
+/* 4.2: impostazioni del server */
+#host-settings { width: min(34rem, 94vw); }
+#host-settings h2 { font-family: var(--font-title); font-size: 1.2rem; margin-bottom: .4rem; }
+.hs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; }
+.hs-grid label, #host-settings label.narrow { display: grid; gap: .3rem; font-size: .85rem; }
+.switch-row { display: flex; align-items: center; gap: .6rem; font-weight: 500; color: var(--strong); }
+#srv-settings .icon { width: 1rem; height: 1rem; }
+input::placeholder { color: var(--muted); opacity: .8; }
+@media (max-width: 760px) { .hs-grid { grid-template-columns: 1fr; } #srv-settings span { display: none; } }

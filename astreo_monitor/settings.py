@@ -67,10 +67,13 @@ class Policy:
     recovery:          avvisa anche quando si torna a OK.
     reminder_hours:    se lo stato resta anomalo (anche alternando WARNING e ALERT),
                        ripete l'avviso dopo queste ore dall'ultimo invio (0 = mai).
+    delay_minutes:     4.2: avvisa solo se l'anomalia dura almeno questi minuti di fila (0 = subito).
+                       Se si risolve prima non parte nulla, nemmeno l'avviso di rientro.
     """
     mode: str
     recovery: bool
     reminder_hours: float
+    delay_minutes: float = 0
 
 
 def build_spec(cfg: Config) -> dict[str, Spec]:
@@ -180,6 +183,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         spec[f"alert.{src}.mode"] = Spec(str, mode, choices=("escalation", "change"))
         spec[f"alert.{src}.recovery"] = Spec(bool, rec)
         spec[f"alert.{src}.reminder_hours"] = Spec(float, float(rem), 0, 720)
+        spec[f"alert.{src}.delay_minutes"] = Spec(float, 0.0, 0, 1440)
     for src in SOURCES:
         spec[f"route.{src}.email"] = Spec(bool, email_default[src])
         for ch in CHANNELS[1:]:
@@ -330,7 +334,7 @@ def deferred_until(values: dict, when: dt.datetime) -> dt.datetime:
 
 def policy(values: dict, source: str) -> Policy:
     return Policy(values[f"alert.{source}.mode"], values[f"alert.{source}.recovery"],
-                  values[f"alert.{source}.reminder_hours"])
+                  values[f"alert.{source}.reminder_hours"], values.get(f"alert.{source}.delay_minutes", 0))
 
 
 def email_config(cfg: Config, values: dict) -> EmailConfig:

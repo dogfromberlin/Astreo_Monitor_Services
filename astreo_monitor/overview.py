@@ -48,10 +48,11 @@ def _local_host(cfg, row: dict, svc: list[dict]) -> dict:
         "mem_pct": snap["memory"]["used_pct"], "disk_pct": snap["root_disk_pct"], "disks": disks,
         "temperature_max": max((t["value"] for t in temps), default=None),
         "services": [{"unit": s["unit"], "label": s["label"], "up": s["up"], "state": s["state"]} for s in svc],
+        "notify_offline": True, "limits": hosts_mod.limits(row, cfg),
     }
 
 
-def _remote_host(h: dict) -> dict:
+def _remote_host(h: dict, cfg) -> dict:
     snap = h.get("snapshot") or {}
     online = h["status"] == "OK"
     disks = [{"mountpoint": d.get("mountpoint"), "used_pct": d.get("used_pct")}
@@ -67,6 +68,7 @@ def _remote_host(h: dict) -> dict:
         "temperature_max": snap.get("temperature_max") if online else None,
         "services": [{"unit": s["unit"], "label": s["label"], "up": bool(s["up"]), "state": s.get("state")}
                      for s in (h.get("services_state") or {}).get("services", [])] if online else [],
+        "notify_offline": bool(h.get("notify_offline", True)), "limits": hosts_mod.limits(h, cfg),
     }
 
 
@@ -104,12 +106,16 @@ def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.d
         items.append({"severity": severity, "key": key, "title": title, "detail": detail, "since": since,
                       "host": host, "action": action})
 
-    m = cfg.metrics
     for h in hosts:
         if not h["enabled"]:
             continue
         if h["status"] == "DOWN":
             seen = (h["last_seen"] or "")[11:16] or "–"
+            if not h["notify_offline"]:                           # 4.2: spento volutamente, nessun allarme
+                add("info", f"host:{h['id']}", _("{p0} spento o non raggiungibile", p0=h["name"]),
+                    _("ultimo invio dei dati alle {p0}", p0=seen) + " · " + _("avviso disattivato per questo server"),
+                    since=h["last_seen"], host=h["id"], action={"kind": "host", "host": h["id"]})
+                continue
             add("alert", f"host:{h['id']}", _("{p0} non raggiungibile", p0=h["name"]),
                 _("ultimo invio dei dati alle {p0}", p0=seen), since=h["last_seen"], host=h["id"],
                 action={"kind": "host", "host": h["id"]})
@@ -125,13 +131,14 @@ def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.d
                     _("stato: {p0}", p0=s["state"] or "–") + " · " + _("se non serve più, toglilo dai servizi controllati"),
                     host=h["id"], action={"kind": "unmonitor", "host": h["id"], "unit": s["unit"], "label": s["label"]})
         worst = max(h["disks"], key=lambda d: d["used_pct"]) if h["disks"] else None
-        lvl = _level(worst["used_pct"] if worst else h["disk_pct"], m.disk_warning, m.disk_alert)
+        m = h["limits"]
+        lvl = _level(worst["used_pct"] if worst else h["disk_pct"], m["disk_warning"], m["disk_alert"])
         if lvl:
             add(lvl, f"disk:{h['id']}", f"{h['name']} · " + _("disco {p0} occupato al {p1}%",
                                                                p0=worst["mountpoint"] if worst else "/",
                                                                p1=round(worst["used_pct"] if worst else h["disk_pct"])),
                 _("libera spazio o amplia il disco"), host=h["id"], action={"kind": "host", "host": h["id"]})
-        lvl = _level(h["temperature_max"], m.temp_warning, m.temp_alert)
+        lvl = _level(h["temperature_max"], m["temp_warning"], m["temp_alert"])
         if lvl:
             add(lvl, f"temp:{h['id']}", f"{h['name']} · " + _("temperatura {p0} °C", p0=round(h["temperature_max"])),
                 _("controlla ventole e aerazione"), host=h["id"], action={"kind": "host", "host": h["id"]})
@@ -201,11 +208,11 @@ def build(conn, cfg, lang: str, offline_minutes: int) -> dict:
     now = dt.datetime.now()
     rows = hosts_mod.listing(conn, offline_minutes)
     local_svc = services.statuses(services_store.monitored(conn, cfg))
-    hosts = [_local_host(cfg, r, local_svc) if r["id"] == hosts_mod.LOCAL_ID else _remote_host(r) for r in rows]
+    hosts = [_local_host(cfg, r, local_svc) if r["id"] == hosts_mod.LOCAL_ID else _remote_host(r, cfg) for r in rows]
     if not any(h["id"] == hosts_mod.LOCAL_ID for h in hosts):           # tabella hosts vuota (installazione vecchia)
         hosts.insert(0, _local_host(cfg, {"id": hosts_mod.LOCAL_ID, "name": None}, local_svc))
 
-    active = [h for h in hosts if h["enabled"]]
+    active = [h for h in hosts if h["enabled"] and (h["status"] != "DOWN" or h["notify_offline"])]
     reachable = [h for h in active if h["status"] == "OK"]
     svc = [s for h in reachable for s in h["services"]]
     conn_info = _connection(conn, now)

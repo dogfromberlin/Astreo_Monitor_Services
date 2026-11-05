@@ -49,6 +49,12 @@ Per ogni monitoraggio:
 | **A ogni cambio** | avvisa a ogni cambio di stato |
 | **Avviso di rientro** | avvisa anche quando torna OK |
 | **Promemoria (ore)** | ripete l'avviso se la situazione resta anomala per le ore indicate (0 = mai) |
+| **Avvisa dopo (min)** | l'avviso parte solo se l'anomalia dura almeno questi minuti di fila (0 = subito) |
+
+Con **Avvisa dopo** un problema che si risolve prima del tempo indicato non manda nulla, né l'avviso né il rientro:
+utile per le brevi interruzioni della linea (Connessione a 3 minuti) o per un servizio che si riavvia da solo.
+La dashboard e lo storico mostrano comunque ogni anomalia, anche quella di un minuto, e la contano nella
+disponibilità. Il promemoria parte solo dopo che è partito il primo avviso.
 
 <a id="silenzio"></a>
 ## Fascia di silenzio

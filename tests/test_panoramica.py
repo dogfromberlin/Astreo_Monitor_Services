@@ -151,3 +151,67 @@ def test_indice_della_guida_per_la_ricerca():
         refs = {e["ref"]: e for e in help_mod.index(lang)}
         assert "dashboard#da-controllare" in refs and "dashboard#personalizza" in refs and "dashboard#ricerca" in refs
         assert all(e["title"] for e in refs.values())
+
+
+def _policy(delay, recovery=True, mode="escalation", reminder=0):
+    from astreo_monitor import settings
+    return settings.Policy(mode, recovery, reminder, delay)
+
+
+def test_avvisa_dopo_x_minuti(dbcfg):
+    """4.2: con un'attesa, un'interruzione più breve non manda né l'avviso né il rientro."""
+    from astreo_monitor import notifier
+    t0 = dt.datetime(2026, 11, 5, 10, 0)
+
+    def at(minute, status, delay=3):
+        class Fake(dt.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return t0 + dt.timedelta(minutes=minute)
+        import types
+        clock = types.SimpleNamespace(datetime=Fake, timedelta=dt.timedelta)
+        with mock.patch.object(notifier, "dt", clock), db.connect(dbcfg.database) as conn:
+            st = notifier.AlertState(conn, "connectivity")
+            out = st.evaluate(status, _policy(delay))
+            if out[0]:
+                st.mark_notified()
+            st.save()
+            return out[0], out[1]
+
+    at(0, "OK")
+    assert at(1, "DOWN") == (False, None)            # caduta di un minuto…
+    assert at(2, "OK") == (False, None)              # …e rientro: nessun messaggio
+    assert at(10, "DOWN") == (False, None)           # nuova caduta, ancora in attesa
+    assert at(12, "DOWN") == (False, None)
+    assert at(13, "DOWN") == (True, "peggioramento")  # 3 minuti di fila: parte l'avviso
+    assert at(14, "DOWN") == (False, None)           # una sola volta
+    assert at(15, "OK") == (True, "rientro")         # e il rientro, perché l'avviso era partito
+
+
+def test_senza_attesa_come_prima(dbcfg):
+    from astreo_monitor import notifier
+    with db.connect(dbcfg.database) as conn:
+        st = notifier.AlertState(conn, "disk")
+        assert st.evaluate("OK", _policy(0))[0] is False
+        assert st.evaluate("WARNING", _policy(0)) [:2] == (True, "peggioramento")
+        assert st.evaluate("OK", _policy(0))[:2] == (True, "rientro")
+
+
+def test_impostazioni_per_server(dbcfg):
+    from astreo_monitor import hosts
+    assert hosts.clean_settings({"disk_warning": "70", "disk_alert": "", "notify_offline": False, "offline_minutes": "30"}, 2) == \
+        {"disk_warning": 70.0, "disk_alert": None, "notify_offline": False, "offline_minutes": 30}
+    assert "notify_offline" not in hosts.clean_settings({"notify_offline": False}, 1)          # non per il centrale
+    for bad in ({"disk_warning": 95, "disk_alert": 90}, {"temp_alert": 500}, {"offline_minutes": 1}, {"disk_warning": "x"}):
+        with pytest.raises(hosts.HostError):
+            hosts.clean_settings(bad, 2)
+    lim = hosts.limits({"disk_warning": 70}, dbcfg)
+    assert lim["disk_warning"] == 70 and lim["disk_alert"] == dbcfg.metrics.disk_alert
+    # server spento volutamente: informazione, non allarme
+    now = dt.datetime.now().replace(microsecond=0)
+    with db.connect(dbcfg.database) as conn:
+        conn.execute(insert(models.hosts).values(name="PC", kind="windows", enabled=True, sort_order=1, created_at=now,
+                                                 last_seen=now - dt.timedelta(hours=3), notify_offline=False, disk_warning=70))
+    d = build(dbcfg)
+    pc = next(x for x in d["todo"] if x["key"] == "host:2")
+    assert pc["severity"] == "info" and d["status"]["level"] == "ok"

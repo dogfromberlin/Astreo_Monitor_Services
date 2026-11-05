@@ -43,16 +43,17 @@ def main(cfg: Config, dry_run: bool) -> int:
                            tr("{p0}: di nuovo raggiungibile", p0=name) if online else tr("{p0}: non raggiungibile", p0=name),
                            tr("Ultimo invio dei dati alle {p0}.", p0=last)))
             snap = h["snapshot"] or {}
+            lim = hosts.limits(h, cfg)                                  # 4.2: soglie del server
             if online and snap:
                 disks = [x for x in (snap.get("disks") or []) if x.get("used_pct") is not None]
                 worst = max(disks, key=lambda x: x["used_pct"]) if disks else {"mountpoint": "/", "used_pct": snap.get("disk_used_pct")}
                 d = worst["used_pct"]
-                st = level(d, cfg.metrics.disk_warning, cfg.metrics.disk_alert)
+                st = level(d, lim["disk_warning"], lim["disk_alert"])
                 checks.append(("disk", "disk", st, f"[{name}] " + (tr("Allarme {nome} rientrato", nome=tr("Disco").lower()) if st == "OK" else f"{tr('Disco')}: {st}"),
                                tr("Disco {disco} occupato al {pct}%", disco=worst["mountpoint"], pct=round(d or 0))))
                 tmax = snap.get("temperature_max")
                 if tmax is not None:
-                    st = level(tmax, cfg.metrics.temp_warning, cfg.metrics.temp_alert)
+                    st = level(tmax, lim["temp_warning"], lim["temp_alert"])
                     checks.append(("temperature", "temperature", st,
                                    f"[{name}] " + (tr("Allarme {nome} rientrato", nome=tr("Temperatura").lower()) if st == "OK" else f"{tr('Temperatura')}: {st}"),
                                    tr("Temperatura massima {t} °C ({sensore})", t=f"{tmax:.1f}", sensore=name)))
@@ -70,6 +71,8 @@ def main(cfg: Config, dry_run: bool) -> int:
                     events.record(conn, "host", "alert" if status == "DOWN" else "info",
                                   f"{name}: non raggiungibile" if status == "DOWN" else f"{name}: di nuovo raggiungibile",
                                   text, when=now, host_id=h["id"])
+                if key == "online" and not h.get("notify_offline", True):
+                    should = False                                       # 4.2: server che si spegne volutamente
                 if should and not dry_run:
                     body = "\n".join(x for x in (notifier.reason_line(reason, state, lang), text,
                                                  tr("Stato precedente: {stato}", stato=previous or "n/d")) if x)

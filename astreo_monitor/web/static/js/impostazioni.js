@@ -144,7 +144,11 @@
       const td2 = el("td", { "data-label": t("Al rientro in OK") }); td2.append(lab);
       const num = el("input", { type: "number", step: "1", min: "0", max: "720", "data-key": `alert.${src}.reminder_hours`, "aria-label": t("Promemoria per {p0}", { p0: label }) });
       const td3 = el("td", { "data-label": t("Promemoria (ore)") }); td3.append(num);
-      tr.append(td1, td2, td3);
+      // 4.2: l'avviso parte solo se l'anomalia dura almeno questi minuti (0 = subito)
+      const wait = el("input", { type: "number", step: "1", min: "0", max: "1440", "data-key": `alert.${src}.delay_minutes`,
+                                 "aria-label": t("Avvisa dopo quanti minuti per {p0}", { p0: label }) });
+      const td4 = el("td", { "data-label": t("Avvisa dopo (min)") }); td4.append(wait);
+      tr.append(td1, td2, td3, td4);
       return tr;
     }));
   }

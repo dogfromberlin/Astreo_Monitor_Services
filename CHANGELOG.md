@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.2.0.dev1 — settings per server and alert delay, stage 1 of 3 (test build, not a Release)
+
+- **Alert after (minutes)** in every alert rule (Settings → Notifications): the alert is sent only if the problem lasts at least that many minutes in a row; if it clears earlier nothing is sent, not even the recovery. Useful for short line drops (e.g. Connection at 3 minutes) and services that restart by themselves. The dashboard and the history still show every problem. Default 0 = as before.
+- **Settings of a server** (button in the server detail, or *Thresholds and alerts* in Settings → Connected servers): disk and temperature thresholds per server, including the central one; for connected servers also *Alert when unreachable* (off: a switched-off server shows as grey *off* information and sends no alerts) and minutes without data before it counts as unreachable. Empty fields use the general settings.
+- Database migration 0005 (new columns in `hosts`), applied by `update.sh`.
+- Guide: alert rules, settings of a server, connection (IT/EN).
+
 ## 4.1.0 — new front end
 
 - **New look**: side menu with the new "Orbita Classica" logo, **light and dark theme** (follow the system, light or dark; saved per user and applied before the page is drawn), fonts Space Grotesk, Inter and JetBrains Mono, new favicon and app icons (the large app icons are provisional).

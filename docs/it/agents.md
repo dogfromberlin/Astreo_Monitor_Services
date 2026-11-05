@@ -24,6 +24,21 @@ dai servizi controllati sparisce subito, senza aspettare il prossimo invio dell'
 | Servizi scelti | systemd, a ogni cambio | servizi di Windows, a ogni cambio |
 | Riavvii | sì | sì |
 
+<a id="impostazioni-server"></a>
+## Impostazioni di un server
+
+**Impostazioni di questo server** nel dettaglio del server, oppure **Soglie e avvisi** in **Impostazioni → Server
+collegati**. I campi vuoti usano le impostazioni generali (mostrate in grigio).
+
+| Impostazione | Significato |
+|---|---|
+| Avvisa se non raggiungibile | disattivato, un server spento compare come informazione grigia (*spento*) e non manda avvisi: per i computer che si spengono volutamente |
+| Non raggiungibile dopo (minuti) | minuti senza dati prima di considerarlo non raggiungibile (generale: in *Server collegati*) |
+| Soglie di disco e temperatura | avviso e allarme per questo server; valgono per Panoramica, *Da controllare* e avvisi |
+
+Il server centrale ha solo le soglie. Per non ricevere avvisi su problemi brevi c'è anche **Avvisa dopo** nelle
+[regole di avviso](notifications.md#regole).
+
 <a id="aggiungere"></a>
 ## Aggiungere un server
 
