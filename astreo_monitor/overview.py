@@ -72,6 +72,7 @@ def _remote_host(h: dict, cfg, values: dict | None = None) -> dict:
                      for s in (h.get("services_state") or {}).get("services", [])] if online else [],
         "notify_offline": bool(h.get("notify_offline", True)), "limits": hosts_mod.limits(h, cfg, values),
         "health": h.get("health"), "containers": (h.get("containers") or {}).get("containers"),
+        "allow_commands": bool(h.get("allow_commands")),
     }
 
 

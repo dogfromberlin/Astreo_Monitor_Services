@@ -53,6 +53,28 @@ servers**. Empty fields use the general settings (shown in grey).
 The central server only has the thresholds. To avoid alerts about short problems there is also **Alert after** in
 the [alert rules](notifications.md#regole).
 
+<a id="comandi"></a>
+## Commands to services
+
+Since 4.3 the checked services of a connected server can be **started, stopped and restarted** from the dashboard
+(buttons next to each service in the server detail; **Start** also in *To check* for a stopped service). Two
+consents are needed:
+
+| Where | How |
+|---|---|
+| on the central server | **Settings of this server → Allow start, stop and restart** |
+| on the connected server | agent installed with `-AllowCommands` (Windows) or `--allow-commands` (Linux) |
+
+How it works: no port is opened on the connected server, the command travels in the answer to the data sent and
+starts **within a minute**; the result comes back with the next data and stays as an event in the server history
+(e.g. *Servizio Spooler riavviato dalla dashboard (admin)*). Every command is **signed** with a key the central server
+keeps in a file (not in the database) and that the agent received at installation; it is valid for 10 minutes, bound
+to that agent, runs only once and only concerns the checked services. Without the local consent the agent refuses
+any command, even a signed one. The read-only user does not see the buttons.
+
+To give the permission to an agent already installed: generate a **New token** and repeat the installation adding
+the option (steps below).
+
 <a id="aggiungere"></a>
 ## Adding a server
 

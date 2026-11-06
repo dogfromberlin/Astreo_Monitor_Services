@@ -52,6 +52,28 @@ collegati**. I campi vuoti usano le impostazioni generali (mostrate in grigio).
 Il server centrale ha solo le soglie. Per non ricevere avvisi su problemi brevi c'è anche **Avvisa dopo** nelle
 [regole di avviso](notifications.md#regole).
 
+<a id="comandi"></a>
+## Comandi ai servizi
+
+Dalla 4.3 i servizi controllati di un server collegato si possono **avviare, fermare e riavviare** dalla dashboard
+(pulsanti accanto a ogni servizio nel dettaglio del server; **Avvia** anche in *Da controllare* per un servizio
+fermo). Servono due consensi:
+
+| Dove | Come |
+|---|---|
+| sul centrale | **Impostazioni di questo server → Consenti avvia, ferma e riavvia** |
+| sul server collegato | installazione dell'agente con `-AllowCommands` (Windows) o `--allow-commands` (Linux) |
+
+Come funziona: nessuna porta aperta sul server collegato, il comando viaggia nella risposta all'invio dei dati e parte
+**entro un minuto**; l'esito torna con l'invio successivo e resta come evento nello storico del server (es. *Servizio
+Spooler riavviato dalla dashboard (admin)*). Ogni comando è **firmato** con una chiave che il centrale tiene in un file
+(non nel database) e che l'agente ha ricevuto all'installazione; vale 10 minuti, è legato a quell'agente, si esegue una
+volta sola e riguarda solo i servizi controllati. Senza il consenso locale l'agente rifiuta qualsiasi comando, anche
+firmato. L'utente in sola lettura non vede i pulsanti.
+
+Per dare il permesso a un agente già installato: genera un **Nuovo token** e ripeti l'installazione aggiungendo
+l'opzione (passi più sotto).
+
 <a id="aggiungere"></a>
 ## Aggiungere un server
 

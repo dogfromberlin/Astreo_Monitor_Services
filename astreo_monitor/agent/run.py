@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import platform
+import re
 import sys
 import time
 
@@ -54,6 +55,13 @@ class Agent:
         self.queue = os.path.join(self.dir, "queue")
         os.makedirs(self.queue, mode=0o700, exist_ok=True)
         self.state_path = os.path.join(self.dir, "state.json")
+        # 4.3: comandi dal centrale, solo se permessi qui e con la chiave pubblica salvata all'installazione
+        self.allow_commands = a.getboolean("allow_commands", fallback=False)
+        conf_dir = os.path.dirname(os.path.abspath(path))
+        try:
+            self.commands_pub = json.load(open(os.path.join(conf_dir, "commands.pub.json"), encoding="utf-8"))
+        except (OSError, ValueError):
+            self.commands_pub = None
         try:
             self.state = json.load(open(self.state_path, encoding="utf-8"))
         except (OSError, ValueError):
@@ -121,11 +129,16 @@ class Agent:
             log.warning("Scartati %d dati più vecchi di 24 ore (server centrale irraggiungibile)", len(old))
         return [f for f in files if f not in old]
 
-    def send(self) -> int:
-        """Invia la coda a blocchi. Ritorna gli elementi consegnati."""
+    def send(self, poll: bool = True) -> int:
+        """Invia la coda a blocchi. Ritorna gli elementi consegnati.
+
+        4.3: anche con la coda vuota fa una richiesta (poll), così i comandi del centrale arrivano entro un minuto.
+        """
         sent = 0
         files = self.pending()
-        while files:
+        first = True
+        while files or (first and poll):
+            first = False
             batch, files = files[:BATCH], files[BATCH:]
             items = []
             for f in batch:
@@ -153,6 +166,8 @@ class Agent:
                 sent += len(batch)
                 answer = r.json()
                 self.state["services"] = [u for u in answer.get("services", []) if isinstance(u, str)][:60]
+                if answer.get("commands"):
+                    self.run_commands(answer["commands"])
             elif r.status_code == 400:
                 log.error("Dati rifiutati dal centrale (%s): li scarto", r.text[:200])
                 for f in batch:
@@ -162,10 +177,58 @@ class Agent:
                 return sent
         return sent
 
+    # ---------------------------------------------------------------- 4.3: comandi
+    def run_commands(self, cmds: list) -> None:
+        from .. import commands
+        done = self.state.setdefault("commands_done", [])
+        results = []
+        for c in cmds[:10]:
+            cid = str((c or {}).get("id", ""))[:32] if isinstance(c, dict) else ""
+            if not self.allow_commands or not self.commands_pub:
+                reason = "comandi non permessi su questo server (reinstalla l'agente con --allow-commands)"
+            else:
+                reason = commands.check(c, self.commands_pub, commands.token_tag(self.token), self.state.get("services", []), done)
+            if reason:
+                log.warning("Comando %s rifiutato: %s", cid, reason)
+                if reason != "comando già eseguito":
+                    results.append({"type": "command_result", "time": dt.datetime.now().isoformat(timespec="seconds"),
+                                    "id": cid, "ok": False, "detail": reason})
+                continue
+            p = commands.parse(c)
+            done.append(p["id"])
+            ok, detail = execute(p["action"], p["unit"])
+            log.info("Comando %s %s da %s: %s", p["action"], p["unit"], p.get("by"), "ok" if ok else detail)
+            results.append({"type": "command_result", "time": dt.datetime.now().isoformat(timespec="seconds"),
+                            "id": p["id"], "ok": ok, "detail": detail})
+        self.state["commands_done"] = done[-200:]
+        if results:
+            now = dt.datetime.now().replace(microsecond=0)
+            units = self.state.get("services", [])
+            current = [{"unit": x["unit"], "label": x["label"], "up": x["up"], "state": x["state"]}
+                       for x in services.statuses([{"unit": u, "label": u.removesuffix(".service")} for u in units])]
+            results.append({"type": "services", "time": now.isoformat(), "services": current})
+            self.state["services_sig"], self.state["services_sent"] = [(x["unit"], x["up"]) for x in current], time.time()
+            self.enqueue(results)
+            self.save()
+
     def save(self) -> None:
         with open(self.state_path + ".tmp", "w", encoding="utf-8") as f:
             json.dump(self.state, f)
         os.replace(self.state_path + ".tmp", self.state_path)
+
+
+def execute(action: str, unit: str) -> tuple[bool, str]:
+    """Esegue avvia / ferma / riavvia con systemctl (l'agente gira come root)."""
+    if action not in ("start", "stop", "restart") or not re.match(r"^[A-Za-z0-9@._:-]{1,200}$", unit):
+        return False, "comando non valido"
+    try:
+        res = subprocess.run(["systemctl", action, unit], capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"systemctl non riuscito: {exc.__class__.__name__}"
+    if res.returncode != 0:
+        return False, (res.stderr or res.stdout).strip()[:300] or f"codice {res.returncode}"
+    state = subprocess.run(["systemctl", "is-active", unit], capture_output=True, text=True, timeout=30).stdout.strip()
+    return True, f"stato: {state}"
 
 
 def smart_disks(now: dt.datetime) -> tuple[bool, list[dict]]:
@@ -234,6 +297,8 @@ def main() -> int:
         return 0
     agent.enqueue(items)
     sent = agent.send()
+    if agent.pending():                    # 4.3: esiti dei comandi appena eseguiti, inviati subito
+        sent += agent.send(poll=False)
     agent.save()
     if sent:
         log.info("Inviati %d dati al server centrale", sent)

@@ -98,9 +98,62 @@
       b.append(el("span", { class: `led ${x.up ? "up" : "down"}` }), el("span", { class: "svc-label" }, x.label));
       if (!x.up) b.append(el("span", { class: "state" }, x.state));
       li.append(b);
+      if (h.allow_commands && !window.AM.IS_VIEWER) li.append(commandButtons(h, x));   // 4.3
       return li;
     }) : [el("li", { class: "hint" }, t("Nessun servizio indicato per questo server (Impostazioni → Server collegati)."))]));
   }
+
+  // ------------------------------------------------------------ 4.3: avvia / ferma / riavvia
+  const pendingCmd = {};               // "hid:unit" -> id del comando in attesa
+  const ACT = { start: [t("Avvia"), "▶"], stop: [t("Ferma"), "■"], restart: [t("Riavvia"), "↻"] };
+
+  function commandButtons(h, x) {
+    const box = el("span", { class: "svc-cmds" });
+    const key = `${h.id}:${x.unit}`;
+    if (pendingCmd[key]) { box.append(el("span", { class: "svc-wait" }, t("comando in corso…"))); return box; }
+    for (const a of x.up ? ["restart", "stop"] : ["start"]) {
+      const b = el("button", { type: "button", class: `svc-cmd ${a}`, title: `${ACT[a][0]} ${x.label}`, "aria-label": `${ACT[a][0]} ${x.label}` }, ACT[a][1]);
+      b.addEventListener("click", () => sendCommand(h, x, a));
+      box.append(b);
+    }
+    return box;
+  }
+
+  async function sendCommand(h, x, action) {
+    const msg = action === "stop"
+      ? t("Fermare {p0} su {p1}? Il servizio resterà fermo finché non lo riavvii; partirà un avviso di servizio fermo.", { p0: x.label, p1: h.name })
+      : t("{p0} {p1} su {p2}? Il comando parte entro un minuto.", { p0: ACT[action][0], p1: x.label, p2: h.name });
+    if (!confirm(msg)) return;
+    try {
+      const r = await api(`/api/v1/hosts/${h.id}/services/${encodeURIComponent(x.unit)}/${action}`, { method: "POST", json: {} });
+      pendingCmd[`${h.id}:${x.unit}`] = r.id;
+      toast(t("Comando inviato: l'agente lo esegue entro un minuto"));
+      renderRemote();
+      waitResult(h, x, r.id, Date.now());
+    } catch (e) { toast(e.message, "error"); }
+  }
+
+  async function waitResult(h, x, id, started) {
+    const key = `${h.id}:${x.unit}`;
+    try {
+      const st = await api(`/api/v1/hosts/${h.id}/commands`);
+      const res = st.results.find((r) => r.id === id);
+      if (res || !st.pending.some((p) => p.id === id)) {
+        delete pendingCmd[key];
+        if (res && res.ok) toast(t("{p0}: comando eseguito ({p1})", { p0: x.label, p1: res.detail }));
+        else toast(t("{p0}: comando non riuscito: {p1}", { p0: x.label, p1: res ? res.detail : t("nessuna risposta") }), "error");
+        await load();
+        document.dispatchEvent(new CustomEvent("hosts-changed"));
+        return;
+      }
+    } catch (e) { /* riprova */ }
+    if (Date.now() - started < 12 * 60_000) setTimeout(() => waitResult(h, x, id, started), 5000);
+    else { delete pendingCmd[key]; renderRemote(); }
+  }
+  window.AM.sendServiceCommand = (hid, unit, label, action) => {
+    const h = hosts.find((y) => y.id === hid);
+    if (h) sendCommand(h, { unit, label }, action);
+  };
 
   // 4.2: dischi, aggiornamenti e Docker inviati dall'agente
   function renderAgentHealth(h) {
@@ -215,6 +268,8 @@
     const remote = editing.kind !== "local";
     $$("#hs-form .remote-only-field").forEach((x) => { x.hidden = !remote; });
     f.notify_offline.checked = editing.notify_offline !== false;
+    f.allow_commands.checked = !!editing.allow_commands;
+    f.allow_update.checked = !!editing.allow_update;
     for (const k of ["offline_minutes", "disk_warning", "disk_alert", "temp_warning", "temp_alert", "cpu_warning", "cpu_alert", "mem_warning", "mem_alert"]) {
       f[k].value = editing[k] ?? "";
       f[k].placeholder = defaults[k] != null ? String(defaults[k]) : "";
@@ -231,6 +286,8 @@
     }
     if (editing.kind !== "local") {
       data.notify_offline = f.notify_offline.checked;
+      data.allow_commands = f.allow_commands.checked;
+      data.allow_update = f.allow_update.checked;
       data.offline_minutes = f.offline_minutes.value === "" ? null : Number(f.offline_minutes.value);
     }
     try {

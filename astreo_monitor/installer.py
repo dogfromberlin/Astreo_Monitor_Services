@@ -254,6 +254,16 @@ def apply(ans: Answers, sysm: System, verbose: bool = True) -> list[str]:
                 if os.path.exists(link):
                     os.remove(link)
                 os.symlink(f"/etc/nginx/sites-available/{site}", link)
+    # 4.3: chiave per firmare i comandi agli agenti (solo nel file, mai nel database)
+    key = os.path.join(ans.config_dir, "commands.key")
+    if not os.path.exists(sysm.p(key)) and shutil.which("openssl"):
+        from . import commands as commands_mod
+        commands_mod.ensure_key(sysm.p(key))
+        if sysm.enabled:
+            shutil.chown(sysm.p(key), ans.user, grp.getgrgid(pwd.getpwnam(ans.user).pw_gid).gr_name)
+        changed.append(key)
+        if verbose:
+            print(_("  creato: {p0}", p0=key))
     if changed and sysm.enabled:
         sysm.systemctl("daemon-reload")
         if any("polkit" in c for c in changed):

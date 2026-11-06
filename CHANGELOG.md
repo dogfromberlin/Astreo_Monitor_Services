@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.3.0.dev1 — commands to the services of connected servers, stage 1 of 2 (test build, not a Release)
+
+- **Start, stop and restart** the checked services of a connected server from the dashboard: buttons next to each service in the server detail, **Start** in *To check* for a stopped service. The command travels in the answer to the agent's data (no port opened on the agent), starts within a minute, and its result comes back as an event in the server history.
+- **Two consents**: *Allow start, stop and restart* in the settings of the server, and the agent installed with `-AllowCommands` (Windows) or `--allow-commands` (Linux). Without the local consent the agent refuses every command.
+- **Signed commands**: RSA 2048 / SHA-256 with a key kept by the central server in `/etc/astreo-monitor/commands.key` (created by the installer, never in the database); the agent verifies with the public key received at installation over the pinned TLS. A command is valid for 10 minutes, bound to that agent, runs once and only for the checked services.
+- Agents now contact the central server every minute even with nothing to send, so commands arrive within a minute. Windows agent 4.3.0.
+- Database migration 0008 (`allow_commands`, `allow_update` in `hosts`).
+- Guide: *Commands to services* in Connected servers (IT/EN).
+
 ## 4.2.1 — alerts sent outside the database transactions
 
 - **Outbox for alerts**: a check now only writes the alert into the queue, in the same transaction as the alert state, and the message is sent right after the transaction is committed. The sending (network, timeouts of up to 30 seconds per channel) no longer keeps rows of the database locked for the dashboard and the other jobs, also during an Internet outage.

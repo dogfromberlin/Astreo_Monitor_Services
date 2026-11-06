@@ -393,6 +393,12 @@
       <p class="hint">{{ _("Disattivalo per i computer che spegni volutamente: spento compare come informazione e non parte nessun avviso.") }}</p>
       <label class="narrow">{{ _("Non raggiungibile dopo (minuti senza dati)") }}<input type="number" name="offline_minutes" min="2" max="1440" step="1"></label>
     </fieldset>
+    <fieldset class="remote-only-field">
+      <legend>{{ _("Comandi dalla dashboard") }} <button type="button" class="help-btn" data-help="agents#comandi" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
+      <div class="switch-row"><label class="switch compact"><input type="checkbox" name="allow_commands" aria-labelledby="hs-cmd-l"><span></span></label><span id="hs-cmd-l">{{ _("Consenti avvia, ferma e riavvia dei servizi controllati") }}</span></div>
+      <div class="switch-row"><label class="switch compact"><input type="checkbox" name="allow_update" aria-labelledby="hs-upd-l"><span></span></label><span id="hs-upd-l">{{ _("Consenti l'aggiornamento dell'agente") }}</span></div>
+      <p class="hint">{{ _("Servono anche sul server stesso: l'agente va installato con -AllowCommands / -AllowUpdate (Windows) o --allow-commands / --allow-update (Linux).") }}</p>
+    </fieldset>
     <fieldset>
       <legend>{{ _("Soglie") }}</legend>
       <div class="hs-grid">

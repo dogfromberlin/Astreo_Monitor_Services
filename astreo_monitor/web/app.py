@@ -5,6 +5,7 @@ import datetime as dt
 import json
 import logging
 import secrets
+import os
 import time
 from urllib.parse import urlparse
 
@@ -206,7 +207,7 @@ def create_app(cfg: Config) -> Flask:
         if request.path in TOKEN_PATHS and request.method == "GET" and bearer_ok():
             g.role = "integration"
             return None
-        if request.path == "/api/v1/agents/ingest":           # solo il token di un agente, mai la password
+        if request.path in ("/api/v1/agents/ingest", "/api/v1/agents/commands-key"):   # solo il token di un agente
             return agent_auth()
         auth = request.authorization
         if (
@@ -825,6 +826,48 @@ def create_app(cfg: Config) -> Flask:
         except hosts_mod.HostError as exc:
             log.warning("Agente %s: pacchetto rifiutato: %s", g.host["name"], exc)
             return jsonify({"error": "Bad request", "detail": str(exc)}), 400
+
+    # ------------------------------------------------------ 4.3: comandi ai servizi dei server collegati
+    from .. import commands as commands_mod
+
+    @app.post("/api/v1/agents/commands-key")
+    def api_agent_commands_key():
+        """Chiave pubblica per verificare i comandi; l'agente la salva all'installazione (via TLS verificato)."""
+        path = commands_mod.key_path(cfg.path)
+        if not os.path.exists(path):
+            return jsonify({"error": "Unavailable", "detail": "chiave dei comandi mancante: rilancia update.sh sul centrale"}), 503
+        return jsonify(commands_mod.public_key(path))
+
+    @app.post("/api/v1/hosts/<int:hid>/services/<path:unit>/<action>")
+    def api_host_service_command(hid: int, unit: str, action: str):
+        _ = i18n.translator(current_language())
+        if action not in commands_mod.ACTIONS:
+            abort(404)
+        key = commands_mod.key_path(cfg.path)
+        if not os.path.exists(key):
+            abort(503, description=_("Chiave dei comandi mancante sul centrale: rilancia update.sh"))
+        user = (request.authorization.username if request.authorization else "") or "admin"
+        with db.connect(cfg.database) as conn:
+            from sqlalchemy import select as sa_select
+            host = db.one(conn, sa_select(models.hosts).where(models.hosts.c.id == hid))
+            if not host or hid == hosts_mod.LOCAL_ID:
+                abort(404, description=_("Server inesistente"))
+            if not host["allow_commands"]:
+                abort(403, description=_("Comandi non consentiti per questo server (Impostazioni di questo server)"))
+            if unit not in [u.strip() for u in (host["services"] or "").split(",") if u.strip()]:
+                abort(400, description=_("Il servizio non è tra quelli controllati per questo server"))
+            if not host["token_hash"]:
+                abort(409, description=_("Agente senza token: generane uno nuovo e reinstallalo"))
+            signed = commands_mod.build(key, host["token_hash"][:24], action, unit, user)
+            expires = commands_mod.parse(signed)["expires"]
+            hosts_mod.queue_command(conn, host, signed, action, unit, user, expires)
+        log.info("Comando %s %s su %s da %s", action, unit, host["name"], user)
+        return jsonify({"ok": True, "id": signed["id"], "expires": expires})
+
+    @app.get("/api/v1/hosts/<int:hid>/commands")
+    def api_host_commands(hid: int):
+        with db.connect(cfg.database) as conn:
+            return jsonify(hosts_mod.command_status(conn, hid))
 
     @app.get("/api/v1/hosts")
     def api_hosts():

@@ -15,7 +15,7 @@ param(
   [switch]$TestConnection
 )
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '4.2.0'
+$AgentVersion = '4.3.0'
 $Dir = Split-Path -Parent $ConfigPath
 $QueueDir = Join-Path $Dir 'queue'
 $StatePath = Join-Path $Dir 'state.json'
@@ -191,32 +191,129 @@ foreach ($it in $items) {
   Move-Item "$name.tmp" $name -Force
 }
 Get-ChildItem $QueueDir -Filter '*.json' | Where-Object { $_.LastWriteTime -lt (Get-Date).AddHours(-24) } | Remove-Item -Force
-$files = @(Get-ChildItem $QueueDir -Filter '*.json' | Sort-Object Name)
-$sent = 0
-while ($files.Count -gt 0) {
-  $chunk = @($files | Select-Object -First $Batch)
-  $files = @($files | Select-Object -Skip $Batch)
-  $parts = foreach ($f in $chunk) { [System.IO.File]::ReadAllText($f.FullName) }
-  $agentInfo = @{ version = $AgentVersion; kind = 'windows'; hostname = $env:COMPUTERNAME; os = ('{0} {1}' -f $os.Caption, $os.Version) } | ConvertTo-Json -Compress
-  $json = '{"agent":' + $agentInfo + ',"items":[' + ($parts -join ',') + ']}'
-  try {
-    $r = Invoke-Central $ingest $cfg.token $json
-  } catch {
-    Write-AgentLog 'WARN' ('Server centrale non raggiungibile ({0}): {1} dati in coda' -f $_.Exception.GetType().Name, ($chunk.Count + $files.Count))
-    break
-  }
-  if ($r.Status -eq 200) {
-    $chunk | Remove-Item -Force
-    $sent += $chunk.Count
-    $answer = $r.Body | ConvertFrom-Json
-    Set-StateValue 'services' @($answer.services | Where-Object { $_ -is [string] } | Select-Object -First 60)
-  } elseif ($r.Status -eq 400) {
-    Write-AgentLog 'ERROR' ('Dati rifiutati dal centrale: {0}' -f $r.Body)
-    $chunk | Remove-Item -Force
-  } else {
-    Write-AgentLog 'ERROR' ('Il centrale ha risposto {0}: riprovo al prossimo giro' -f $r.Status)
-    break
-  }
+# --- 4.3: comandi firmati dal centrale (avvia / ferma / riavvia un servizio controllato)
+function ConvertFrom-Hex([string]$h) {
+  if ($h.Length % 2) { $h = '0' + $h }
+  $b = New-Object byte[] ($h.Length / 2)
+  for ($k = 0; $k -lt $b.Length; $k++) { $b[$k] = [Convert]::ToByte($h.Substring($k * 2, 2), 16) }
+  return ,$b
 }
+function Test-CommandSignature($pub, [string]$payload, [string]$sigB64) {
+  try {
+    $p = New-Object System.Security.Cryptography.RSAParameters
+    $p.Modulus = ConvertFrom-Hex ([string]$pub.n)
+    if ($p.Modulus.Length -lt 256) { return $false }
+    $e = [int]$pub.e; $eb = @(); while ($e -gt 0) { $eb = ,([byte]($e -band 255)) + $eb; $e = $e -shr 8 }
+    $p.Exponent = [byte[]]$eb
+    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
+    $rsa.ImportParameters($p)
+    return $rsa.VerifyData([System.Text.Encoding]::UTF8.GetBytes($payload), 'SHA256', [Convert]::FromBase64String($sigB64))
+  } catch { return $false }
+}
+function Get-TokenTag([string]$tok) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $h = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($tok))
+  return (($h | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 24)
+}
+function Add-QueueItem($it) {
+  $name = Join-Path $QueueDir ('{0}-{1:000}.json' -f [DateTime]::UtcNow.Ticks, (Get-Random -Maximum 999))
+  [System.IO.File]::WriteAllText("$name.tmp", ($it | ConvertTo-Json -Depth 6 -Compress), (New-Object System.Text.UTF8Encoding($false)))
+  Move-Item "$name.tmp" $name -Force
+}
+function Invoke-AgentCommands($cmds) {
+  $pubPath = Join-Path $Dir 'commands.pub.json'
+  $pub = $null
+  if (Test-Path $pubPath) { $pub = Get-Content $pubPath -Raw -Encoding UTF8 | ConvertFrom-Json }
+  $done = [System.Collections.ArrayList]@(Get-StateValue 'commands_done' @())
+  $tag = Get-TokenTag $cfg.token
+  $allowed = @(Get-StateValue 'services' @())
+  $any = $false
+  foreach ($c in @($cmds | Select-Object -First 10)) {
+    $cid = [string]$c.id
+    $reason = $null; $p = $null
+    if (-not $cfg.allow_commands -or -not $pub) { $reason = "comandi non permessi su questo server (reinstalla l'agente con -AllowCommands)" }
+    elseif (-not (Test-CommandSignature $pub ([string]$c.payload) ([string]$c.sig))) { $reason = 'firma non valida' }
+    else {
+      try { $p = [string]$c.payload | ConvertFrom-Json } catch { $reason = 'comando non leggibile' }
+      if (-not $reason) {
+        $now = [DateTimeOffset]::UtcNow
+        if ($p.agent -ne $tag) { $reason = 'comando destinato a un altro agente' }
+        elseif ($done -contains [string]$p.id) { $reason = 'comando già eseguito' }
+        elseif (@('start', 'stop', 'restart') -notcontains [string]$p.action) { $reason = 'azione non ammessa' }
+        elseif ($allowed -notcontains [string]$p.unit) { $reason = 'servizio non tra quelli controllati' }
+        elseif ($now -gt [DateTimeOffset]::Parse([string]$p.expires) -or ([DateTimeOffset]::Parse([string]$p.issued) - $now).TotalMinutes -gt 5) { $reason = 'comando scaduto' }
+      }
+    }
+    if ($reason) {
+      Write-AgentLog 'WARN' ('Comando {0} rifiutato: {1}' -f $cid, $reason)
+      if ($reason -ne 'comando già eseguito') { Add-QueueItem @{ type = 'command_result'; time = (Get-Date).ToString('s'); id = $cid; ok = $false; detail = $reason } }
+      $any = $true
+      continue
+    }
+    [void]$done.Add([string]$p.id)
+    $ok = $true; $detail = ''
+    try {
+      switch ([string]$p.action) {
+        'start'   { Start-Service -Name $p.unit -ErrorAction Stop }
+        'stop'    { Stop-Service -Name $p.unit -Force -ErrorAction Stop }
+        'restart' { Restart-Service -Name $p.unit -Force -ErrorAction Stop }
+      }
+      $detail = 'stato: ' + (Get-Service -Name $p.unit).Status.ToString().ToLower()
+    } catch { $ok = $false; $detail = $_.Exception.Message }
+    Write-AgentLog 'INFO' ('Comando {0} {1} da {2}: {3}' -f $p.action, $p.unit, $p.by, $(if ($ok) { 'ok' } else { $detail }))
+    Add-QueueItem @{ type = 'command_result'; time = (Get-Date).ToString('s'); id = [string]$p.id; ok = $ok; detail = $detail }
+    $any = $true
+  }
+  Set-StateValue 'commands_done' @($done | Select-Object -Last 200)
+  if ($any) {
+    # stato dei servizi subito dopo il comando
+    $cur = @(foreach ($u in $allowed) {
+      $svc = Get-Service -Name $u -ErrorAction SilentlyContinue
+      if ($svc) { @{ unit = $u; label = $svc.DisplayName; up = ($svc.Status -eq 'Running'); state = $svc.Status.ToString().ToLower() } }
+      else { @{ unit = $u; label = $u; up = $false; state = 'not-found' } }
+    })
+    Add-QueueItem @{ type = 'services'; time = (Get-Date).ToString('s'); services = $cur }
+    Set-StateValue 'services_sig' (($cur | ForEach-Object { '{0}={1}' -f $_.unit, $_.up }) -join ',')
+  }
+  return $any
+}
+
+function Send-Queue([bool]$Poll) {
+  $files = @(Get-ChildItem $QueueDir -Filter '*.json' | Sort-Object Name)
+  $count = 0; $first = $true; $ranCommands = $false
+  # 4.3: anche con la coda vuota si fa una richiesta, così i comandi arrivano entro un minuto
+  while ($files.Count -gt 0 -or ($first -and $Poll)) {
+    $first = $false
+    $chunk = @($files | Select-Object -First $Batch)
+    $files = @($files | Select-Object -Skip $Batch)
+    $parts = foreach ($f in $chunk) { [System.IO.File]::ReadAllText($f.FullName) }
+    $agentInfo = @{ version = $AgentVersion; kind = 'windows'; hostname = $env:COMPUTERNAME; os = ('{0} {1}' -f $os.Caption, $os.Version) } | ConvertTo-Json -Compress
+    $json = '{"agent":' + $agentInfo + ',"items":[' + ($parts -join ',') + ']}'
+    try {
+      $r = Invoke-Central $ingest $cfg.token $json
+    } catch {
+      Write-AgentLog 'WARN' ('Server centrale non raggiungibile ({0}): {1} dati in coda' -f $_.Exception.GetType().Name, ($chunk.Count + $files.Count))
+      break
+    }
+    if ($r.Status -eq 200) {
+      if ($chunk.Count) { $chunk | Remove-Item -Force }
+      $count += $chunk.Count
+      $answer = $r.Body | ConvertFrom-Json
+      Set-StateValue 'services' @($answer.services | Where-Object { $_ -is [string] } | Select-Object -First 60)
+      if ($answer.commands) { if (Invoke-AgentCommands $answer.commands) { $ranCommands = $true } }
+    } elseif ($r.Status -eq 400) {
+      Write-AgentLog 'ERROR' ('Dati rifiutati dal centrale: {0}' -f $r.Body)
+      if ($chunk.Count) { $chunk | Remove-Item -Force }
+    } else {
+      Write-AgentLog 'ERROR' ('Il centrale ha risposto {0}: riprovo al prossimo giro' -f $r.Status)
+      break
+    }
+  }
+  return @{ sent = $count; commands = $ranCommands }
+}
+
+$res = Send-Queue $true
+$sent = $res.sent
+if ($res.commands) { $sent += (Send-Queue $false).sent }       # esiti dei comandi, inviati subito
 ($state | ConvertTo-Json -Depth 4 -Compress) | Set-Content -Path $StatePath -Encoding UTF8
 if ($sent -gt 0) { Write-AgentLog 'INFO' ('Inviati {0} dati al server centrale' -f $sent) }

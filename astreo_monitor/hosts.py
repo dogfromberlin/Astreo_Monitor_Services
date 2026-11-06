@@ -90,8 +90,9 @@ def clean_settings(data: dict, hid: int) -> dict:
         if out.get(w) is not None and out.get(a) is not None and out[w] >= out[a]:
             raise HostError("La soglia di avviso deve essere più bassa di quella di allarme")
     if hid != LOCAL_ID:                                     # il centrale è sempre raggiungibile da sé stesso
-        if "notify_offline" in data:
-            out["notify_offline"] = bool(data["notify_offline"])
+        for k in ("notify_offline", "allow_commands", "allow_update"):
+            if k in data:
+                out[k] = bool(data[k])
         if "offline_minutes" in data:
             v = data["offline_minutes"]
             if v in (None, ""):
@@ -299,6 +300,8 @@ def _item(conn, host: dict, it, now: dt.datetime, metrics: list, temps: list, la
             {"name": _txt(c.get("name"), 120), "image": _txt(c.get("image"), 200), "state": _txt(c.get("state"), 20),
              "status": _txt(c.get("status"), 80), "health": _txt(c.get("health"), 20) or None,
              "restart_policy": _txt(c.get("restart_policy"), 20)} for c in conts if isinstance(c, dict)]})
+    elif kind == "command_result":               # 4.3: esito di un comando avvia / ferma / riavvia
+        _command_result(conn, host, it, t)
     elif kind == "boot":
         bt = _time(it.get("boot_time"), now, max_age_days=30)
         events.record(conn, "boot", "info", "Riavvio del server", "", ref=f"boot:{hid}:{bt.isoformat()}",
@@ -352,8 +355,71 @@ def _finish(conn, host, agent, items, metrics, temps, latest, rejected, now) -> 
     if agent.get("os"):
         vals["os_info"] = _txt(agent["os"], 200)
     conn.execute(update(H).where(H.c.id == hid).values(**vals))
-    return {"ok": True, "accepted": len(items) - len(rejected), "rejected": rejected[:20],
-            "services": [u for u in (host.get("services") or "").split(",") if u]}
+    answer = {"ok": True, "accepted": len(items) - len(rejected), "rejected": rejected[:20],
+              "services": [u for u in (host.get("services") or "").split(",") if u]}
+    if host.get("allow_commands"):                        # 4.3: comandi in attesa per questo agente
+        answer["commands"] = pending_commands(conn, hid, now)
+    return answer
+
+
+# ----------------------------------------------------------------------------- 4.3: comandi ai servizi
+def _cmd_state(conn, hid: int) -> dict:
+    return db.state_get(conn, f"host:{hid}:commands") or {"pending": [], "results": []}
+
+
+def pending_commands(conn, hid: int, now: dt.datetime) -> list[dict]:
+    """Comandi ancora validi; quelli scaduti senza risposta diventano un risultato "scaduto"."""
+    st = _cmd_state(conn, hid)
+    utc = dt.datetime.now(dt.timezone.utc)
+    keep, expired = [], []
+    for c in st["pending"]:
+        (keep if dt.datetime.fromisoformat(c["expires"]) > utc else expired).append(c)
+    if expired:
+        for c in expired:
+            st["results"].append({**{k: c[k] for k in ("id", "action", "unit", "by")}, "ok": False,
+                                  "detail": "nessuna risposta dall'agente: comando scaduto", "time": now.isoformat(timespec="seconds")})
+        st["pending"], st["results"] = keep, st["results"][-30:]
+        db.state_set(conn, f"host:{hid}:commands", st)
+    return [c["signed"] for c in keep]
+
+
+def queue_command(conn, host: dict, signed: dict, action: str, unit: str, user: str, expires: str) -> None:
+    st = _cmd_state(conn, host["id"])
+    st["pending"] = [c for c in st["pending"] if c["unit"] != unit][-9:]     # un solo comando per servizio
+    st["pending"].append({"id": signed["id"], "action": action, "unit": unit, "by": user, "expires": expires, "signed": signed})
+    db.state_set(conn, f"host:{host['id']}:commands", st)
+
+
+def command_status(conn, hid: int) -> dict:
+    st = _cmd_state(conn, hid)
+    return {"pending": [{k: c[k] for k in ("id", "action", "unit", "by", "expires")} for c in st["pending"]],
+            "results": st["results"][-10:]}
+
+
+ACTION_LABEL = {"start": "avviato", "stop": "fermato", "restart": "riavviato"}
+
+
+def _command_result(conn, host: dict, it: dict, t: dt.datetime) -> None:
+    hid = host["id"]
+    st = _cmd_state(conn, hid)
+    cid = _txt(it.get("id"), 32)
+    match = next((c for c in st["pending"] if c["id"] == cid), None)
+    if not match:
+        return                                          # già registrato (risultato rimandato) o sconosciuto
+    ok = bool(it.get("ok"))
+    detail = _txt(it.get("detail"), 300)
+    st["pending"] = [c for c in st["pending"] if c["id"] != cid]
+    st["results"] = (st["results"] + [{"id": cid, "action": match["action"], "unit": match["unit"], "by": match["by"],
+                                       "ok": ok, "detail": detail, "time": t.isoformat(timespec="seconds")}])[-30:]
+    db.state_set(conn, f"host:{hid}:commands", st)
+    label = next((s.get("label") for s in (db.state_get(conn, f"host:{hid}:services") or {}).get("services", [])
+                  if s.get("unit") == match["unit"]), match["unit"])
+    if ok:
+        events.record(conn, "service", "info", f"Servizio {label} {ACTION_LABEL[match['action']]} dalla dashboard ({match['by']})",
+                      detail, ref=f"cmd:{hid}:{cid}", when=t, host_id=hid)
+    else:
+        events.record(conn, "service", "warning", f"Comando non riuscito su {label}: {match['action']} ({match['by']})",
+                      detail, ref=f"cmd:{hid}:{cid}", when=t, host_id=hid)
 
 
 def _services(conn, host: dict, current: list[dict], t: dt.datetime) -> None:

@@ -170,6 +170,8 @@ hosts = Table(
     Column("temp_warning", Float), Column("temp_alert", Float),
     Column("cpu_warning", Float), Column("cpu_alert", Float),
     Column("mem_warning", Float), Column("mem_alert", Float),
+    Column("allow_commands", Boolean, nullable=False, server_default="0"),   # 4.3: comandi ai servizi
+    Column("allow_update", Boolean, nullable=False, server_default="0"),     # 4.3: aggiornamento dell'agente
     Index("UX_hosts_token", "token_hash", unique=True, mssql_where=Column("token_hash").isnot(None),
           postgresql_where=Column("token_hash").isnot(None), sqlite_where=Column("token_hash").isnot(None)),
 )

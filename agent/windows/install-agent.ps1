@@ -3,6 +3,9 @@
   Astreo Monitor - installazione dell'agente per Windows.
   Da PowerShell come amministratore, nella cartella del progetto:
     powershell -ExecutionPolicy Bypass -File .\agent\windows\install-agent.ps1 -Central https://CENTRALE:5443 -Token agt_... -CaSha256 ...
+  4.3, permessi facoltativi dati su questo computer:
+    -AllowCommands   il centrale puo' avviare, fermare e riavviare i servizi controllati (comandi firmati)
+    -AllowUpdate     l'agente si puo' aggiornare dalla dashboard
   Per rimuoverlo:
     powershell -ExecutionPolicy Bypass -File .\agent\windows\install-agent.ps1 -Uninstall
   Guida: docs/it/agents.md
@@ -11,6 +14,8 @@ param(
   [string]$Central,
   [string]$Token,
   [string]$CaSha256,
+  [switch]$AllowCommands,
+  [switch]$AllowUpdate,
   [switch]$Uninstall
 )
 $ErrorActionPreference = 'Stop'
@@ -60,12 +65,29 @@ $caFile = Join-Path $Dir 'central-ca.crt'
 [System.IO.File]::WriteAllBytes($caFile, $ca)
 
 # --- configurazione e script
-@{ central = $Central; token = $Token; ca_file = $caFile } | ConvertTo-Json | Set-Content -Path (Join-Path $Dir 'agent.json') -Encoding UTF8
+@{ central = $Central; token = $Token; ca_file = $caFile; allow_commands = [bool]$AllowCommands; allow_update = [bool]$AllowUpdate } | ConvertTo-Json | Set-Content -Path (Join-Path $Dir 'agent.json') -Encoding UTF8
 Copy-Item $agentScript (Join-Path $Dir 'astreo-agent.ps1') -Force
 Copy-Item (Join-Path $PSScriptRoot 'AstreoTls.ps1') (Join-Path $Dir 'AstreoTls.ps1') -Force
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Dir 'astreo-agent.ps1') -TestConnection
 if ($LASTEXITCODE -ne 0) { Fail "collegamento non riuscito: controlla indirizzo, VPN e token (dettagli in $Dir\agent.log)" }
+
+# --- 4.3: chiave pubblica del centrale per verificare i comandi, presa ora via TLS verificato con la CA
+$pubFile = Join-Path $Dir 'commands.pub.json'
+if ($AllowCommands -or $AllowUpdate) {
+  [AstreoTls]::Enable($caFile)
+  try {
+    $wc = New-Object System.Net.WebClient
+    $wc.Headers.Add('Authorization', "Bearer $Token")
+    $wc.Headers.Add('Content-Type', 'application/json')
+    $pubJson = $wc.UploadString("$Central/api/v1/agents/commands-key", 'POST', '{}')
+  } catch { Fail ("chiave dei comandi non disponibile: aggiorna prima il centrale alla 4.3 ({0})" -f $_.Exception.Message) }
+  $pub = $pubJson | ConvertFrom-Json
+  $fp = -join ([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes(('{0}:{1}' -f $pub.n, $pub.e))) | ForEach-Object { $_.ToString('x2') })
+  if (-not $pub.n -or $fp -ne $pub.fingerprint) { Fail 'chiave dei comandi non valida' }
+  [System.IO.File]::WriteAllText($pubFile, $pubJson, (New-Object System.Text.UTF8Encoding($false)))
+  Write-Host ('Chiave dei comandi del centrale salvata (impronta {0}...)' -f $fp.Substring(0, 16))
+} elseif (Test-Path $pubFile) { Remove-Item $pubFile -Force }
 
 # --- attivita' pianificata: ogni minuto come SYSTEM
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"' -f (Join-Path $Dir 'astreo-agent.ps1'))

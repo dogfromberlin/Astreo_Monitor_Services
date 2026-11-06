@@ -9,6 +9,8 @@ salva configurazione e token (solo root), genera le unit systemd, prova il colle
 from __future__ import annotations
 
 import argparse
+import configparser
+import json
 import hashlib
 import os
 import re
@@ -75,6 +77,28 @@ def test_connection() -> None:
     print("Collegamento al server centrale: OK")
 
 
+def fetch_commands_key() -> None:
+    """4.3: chiave pubblica per verificare i comandi del centrale, presa ora via TLS verificato e conservata qui."""
+    cp = configparser.ConfigParser(interpolation=None)
+    cp.read(os.path.join(CONF_DIR, "agent.ini"))
+    central = cp["agent"]["central"]
+    token = open(os.path.join(CONF_DIR, "token")).read().strip()
+    try:
+        r = requests.post(f"{central}/api/v1/agents/commands-key", json={}, timeout=20, verify=os.path.join(CONF_DIR, "central-ca.crt"),
+                          headers={"Authorization": f"Bearer {token}"})
+    except requests.RequestException as exc:
+        fail(f"chiave dei comandi non scaricata ({exc.__class__.__name__})")
+    if r.status_code != 200:
+        fail(f"chiave dei comandi non disponibile ({r.status_code}): aggiorna prima il server centrale alla 4.3")
+    pub = r.json()
+    from .. import commands
+    if not pub.get("n") or commands.fingerprint(pub) != pub.get("fingerprint"):
+        fail("chiave dei comandi non valida")
+    with open(os.path.join(CONF_DIR, "commands.pub.json"), "w", encoding="utf-8") as f:
+        json.dump(pub, f)
+    print(f"Chiave dei comandi del centrale salvata (impronta {pub['fingerprint'][:16]}…)")
+
+
 def install(args) -> None:
     central = args.agent.rstrip("/")
     if not re.match(r"^https://[^\s/]+$", central):
@@ -96,8 +120,13 @@ token_file = {CONF_DIR}/token
 ca_file = {CONF_DIR}/central-ca.crt
 state_dir = /var/lib/astreo-agent
 root_disk = /
+# 4.3: permessi dati su questo server (il centrale ha in più il suo interruttore per server)
+allow_commands = {"true" if args.allow_commands else "false"}
+allow_update = {"true" if args.allow_update else "false"}
 """)
     test_connection()
+    if args.allow_commands or args.allow_update:
+        fetch_commands_key()
     render_units()
     subprocess.run(["systemctl", "enable", "--now", "astreo-agent.timer"], check=True)
     subprocess.run(["systemctl", "start", "astreo-agent.service"], check=False)
@@ -121,6 +150,9 @@ def main() -> None:
     p.add_argument("--token")
     p.add_argument("--ca-sha256", dest="ca_sha256")
     p.add_argument("--update", action="store_true")
+    p.add_argument("--allow-commands", action="store_true",
+                   help="permette al centrale di avviare, fermare e riavviare i servizi controllati (comandi firmati)")
+    p.add_argument("--allow-update", action="store_true", help="permette l'aggiornamento dell'agente dalla dashboard")
     args = p.parse_args()
     update() if args.update else install(args)
 

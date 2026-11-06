@@ -124,6 +124,11 @@
     if (a.kind === "host" || a.kind === "unmonitor") {
       out.push(el("a", { class: "btn small", href: hostHref(a.host) }, t("Apri {p0}", { p0: host ? host.name : t("server") })));
     }
+    if (a.kind === "unmonitor" && !IS_VIEWER && host && host.allow_commands && window.AM.sendServiceCommand) {   // 4.3
+      const b = el("button", { type: "button", class: "btn small primary" }, t("Avvia"));
+      b.addEventListener("click", () => window.AM.sendServiceCommand(a.host, a.unit, a.label, "start"));
+      out.push(b);
+    }
     if (a.kind === "unmonitor" && !IS_VIEWER) {
       const b = el("button", { type: "button", class: "btn small" }, t("Non controllarlo più"));
       b.addEventListener("click", () => unmonitor(a));
