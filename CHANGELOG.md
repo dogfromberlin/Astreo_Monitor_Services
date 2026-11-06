@@ -1,5 +1,20 @@
 # Changelog
 
+## 4.3.0.dev6 — alignment fixes (test build, not a Release)
+
+- Services list: the **…** button (or the lock) comes before the state, which stays aligned on the far right; the actions menu opens right under its button.
+- *Add a server* no longer overflows the frame on narrower windows (form sections could grow wider than the page).
+
+## 4.3.0.dev5 — services list (test build, not a Release)
+
+- **Services panel as a list of rows** (central and connected servers): full service name, state on the right (*running*, *stopped*, *idle*, *waiting for the first check*, *not detected*, *does not exist*, *· protected* with a lock) and one **…** button that opens the actions (Restart, Stop in red, or Start). No more truncated names or loose labels between cards.
+- *Add a server*: the empty services box spans the whole column and the add row wraps instead of overflowing.
+
+## 4.3.0.dev4 — design touches (test build, not a Release)
+
+- Start, restart and stop buttons of the services use the project's line icons instead of text symbols.
+- **Settings → Connected servers**: one card per server (name, system, agent, last data, state, actions at the top; services below, *Save services* at the bottom right) instead of a wide table; *Add a server* with name and system on the left and the services on the right. The long hint under the services is removed (the explanation stays in the guide, *?* button).
+
 ## 4.3.0.dev3 — on-demand chosen when adding a service (test build, not a Release)
 
 - **Settings → Connected servers**: the comma-separated field becomes a list of services, each with its **on demand** box and a remove button, plus a row to add a service with the box already chosen. The same list is used in *Add a server*. The *On-demand services* section of the server settings window is removed: one place only, where services are added.

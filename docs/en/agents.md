@@ -57,7 +57,7 @@ the [alert rules](notifications.md#regole).
 ## Commands to services
 
 Since 4.3 the checked services of a connected server can be **started, stopped and restarted** from the dashboard
-(buttons next to each service in the server detail; **Start** also in *To check* for a stopped service). Two
+(**…** button on the right of each service in the server detail; **Start** also in *To check* for a stopped service). Two
 consents are needed:
 
 | Where | How |

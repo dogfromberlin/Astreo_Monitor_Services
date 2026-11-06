@@ -81,16 +81,9 @@
       });
       void leds;                                              // 4.1: niente più fila di LED in testata
       if (remote()) return;
-      $("#services").replaceChildren(...list.map((s) => {
-        const st = s.up ? "up" : s.ondemand ? "rest" : "down";          // 4.3: discontinuo fermo = a riposo
-        const li = el("li", { class: st });
-        const b = el("button", { type: "button", title: `${s.label} — ${s.unit}: ${s.state}` });
-        b.append(el("span", { class: `led ${st}`, "aria-hidden": "true" }), el("span", { class: "svc-label" }, s.label));
-        if (!s.up) b.append(el("span", { class: "state" }, s.ondemand ? t("a riposo") : s.state));
-        b.addEventListener("click", () => openService(s));
-        li.appendChild(b);
-        return li;
-      }));
+      $("#services").replaceChildren(...list.map((s) => window.AM.serviceRow
+        ? window.AM.serviceRow(s, { onOpen: () => openService(s) })          // 4.3: stesso elenco a righe dei server collegati
+        : el("li", {}, s.label)));
     } catch (e) { console.error("services", e); }
   }
 

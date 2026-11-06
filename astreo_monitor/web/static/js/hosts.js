@@ -101,23 +101,79 @@
     // 4.3: up, down, rest (discontinuo fermo), pending (in attesa del primo controllo), unseen, missing
     const LABEL = { rest: t("a riposo"), pending: t("in attesa del primo controllo"), unseen: t("non rilevato"),
                     missing: t("inesistente su questo server") };
-    $("#services").replaceChildren(...(svc.length ? svc.map((x) => {
-      const st = x.status || (x.up ? "up" : "down");
-      const li = el("li", { class: st });
-      const why = { unseen: t("l'agente non ne ha ancora dato lo stato: premi Aggiorna o controlla che il server sia acceso"),
-                    missing: t("su questo server non esiste un servizio con questo nome: controlla in Impostazioni → Server collegati") }[st];
-      const b = el("button", { type: "button", title: `${x.label} — ${x.unit}: ${why || x.state}` });
-      b.append(el("span", { class: `led ${st}` }), el("span", { class: "svc-label" }, x.label));
-      if (st !== "up") b.append(el("span", { class: "state" }, LABEL[st] || x.state));
-      li.append(b);
-      if (h.allow_commands && !window.AM.IS_VIEWER && ["up", "down", "rest"].includes(st)) li.append(commandButtons(h, x));
-      return li;
-    }) : [el("li", { class: "hint" }, t("Nessun servizio indicato per questo server (Impostazioni → Server collegati)."))]));
+    void LABEL;
+    $("#services").replaceChildren(...(svc.length ? svc.map((x) => serviceRow(x, {
+      actions: h.allow_commands && !window.AM.IS_VIEWER ? commandMenu(h, x) : null })) :
+      [el("li", { class: "hint" }, t("Nessun servizio indicato per questo server (Impostazioni → Server collegati)."))]));
   }
 
   // ------------------------------------------------------------ 4.3: avvia / ferma / riavvia
   const pendingCmd = {};               // "hid:unit" -> id del comando in attesa
-  const ACT = { start: [t("Avvia"), "▶"], stop: [t("Ferma"), "■"], restart: [t("Riavvia"), "↻"] };
+  const ACT = { start: [t("Avvia"), "i-play"], stop: [t("Ferma"), "i-stop"], restart: [t("Riavvia"), "i-restart"] };
+  const icon = (name) => {
+    const ns = "http://www.w3.org/2000/svg";
+    const s = document.createElementNS(ns, "svg"); s.setAttribute("class", "icon"); s.setAttribute("aria-hidden", "true");
+    const u = document.createElementNS(ns, "use"); u.setAttribute("href", `#${name}`); s.append(u);
+    return s;
+  };
+
+  // 4.3: riga di un servizio (anche per il centrale): pallino, nome intero, stato, azioni a destra
+  function serviceRow(x, { actions = null, onOpen = null } = {}) {
+    const st = x.status || (x.up ? "up" : x.ondemand ? "rest" : "down");
+    const STATE = { up: t("attivo"), down: t("fermo"), rest: t("a riposo"), pending: t("in attesa del primo controllo"),
+                    unseen: t("non rilevato"), missing: t("inesistente") };
+    const why = { unseen: t("l'agente non ne ha ancora dato lo stato: premi Aggiorna o controlla che il server sia acceso"),
+                  missing: t("su questo server non esiste un servizio con questo nome: controlla in Impostazioni → Server collegati") }[st];
+    const li = el("li", { class: `svc-row ${st}` });
+    const name = el(onOpen ? "button" : "span", { class: "svc-name", title: `${x.label} — ${x.unit}${why ? ": " + why : ""}`, ...(onOpen ? { type: "button" } : {}) });
+    name.append(el("span", { class: `led ${st}`, "aria-hidden": "true" }), el("span", { class: "svc-label" }, x.label));
+    if (onOpen) name.addEventListener("click", onOpen);
+    const state = el("span", { class: "svc-state" }, STATE[st] + (x.protected ? ` · ${t("protetto")}` : "")
+                                                     + (st === "down" && x.state && x.state !== "stopped" && x.state !== "inactive" ? ` (${x.state})` : ""));
+    const act = el("span", { class: "svc-act" });
+    if (x.protected) {
+      const lk = icon("i-lock"); lk.setAttribute("class", "icon lock");
+      const wrap = el("span", { title: t("Windows non permette di fermarlo o riavviarlo dalla gestione dei servizi") });
+      wrap.append(lk); act.append(wrap);
+    } else if (actions) act.append(actions);
+    li.append(name, act, state);                 // azioni prima dello stato, che resta in fondo a destra
+    return li;
+  }
+  window.AM.serviceRow = serviceRow;
+
+  // menu "…" con le azioni (avvia / riavvia / ferma); un solo menu aperto alla volta
+  function closeMenus() { $$(".svc-menu").forEach((m) => m.remove()); $$(".svc-more[aria-expanded=true]").forEach((b) => b.setAttribute("aria-expanded", "false")); }
+  document.addEventListener("click", (ev) => { if (!ev.target.closest(".svc-menu, .svc-more")) closeMenus(); });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeMenus(); });
+
+  function commandMenu(h, x) {
+    const st = x.status || (x.up ? "up" : "down");
+    if (!["up", "down", "rest"].includes(st)) return null;
+    const key = `${h.id}:${x.unit}`;
+    if (pendingCmd[key]) return el("span", { class: "svc-wait" }, t("comando in corso…"));
+    const btn = el("button", { type: "button", class: "svc-more", "aria-haspopup": "menu", "aria-expanded": "false",
+                               "aria-label": t("Azioni per {p0}", { p0: x.label }), title: t("Azioni") });
+    btn.append(icon("i-dots"));
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const open = btn.getAttribute("aria-expanded") === "true";
+      closeMenus();
+      if (open) return;
+      const menu = el("div", { class: "svc-menu", role: "menu" });
+      for (const a of x.up ? ["restart", "stop"] : ["start"]) {
+        const it = el("button", { type: "button", role: "menuitem", class: a === "stop" ? "danger" : "" });
+        const ic = icon(ACT[a][1]);
+        if (a !== "restart") ic.classList.add("solid");
+        it.append(ic, el("span", {}, ACT[a][0]));
+        it.addEventListener("click", () => { closeMenus(); sendCommand(h, x, a); });
+        menu.append(it);
+      }
+      btn.after(menu);
+      btn.setAttribute("aria-expanded", "true");
+      menu.querySelector("button").focus();
+    });
+    return btn;
+  }
 
   function commandButtons(h, x) {
     const box = el("span", { class: "svc-cmds" });
@@ -128,7 +184,8 @@
       return box;
     }
     for (const a of x.up ? ["restart", "stop"] : ["start"]) {
-      const b = el("button", { type: "button", class: `svc-cmd ${a}`, title: `${ACT[a][0]} ${x.label}`, "aria-label": `${ACT[a][0]} ${x.label}` }, ACT[a][1]);
+      const b = el("button", { type: "button", class: `svc-cmd ${a}`, title: `${ACT[a][0]} ${x.label}`, "aria-label": `${ACT[a][0]} ${x.label}` });
+      b.append(icon(ACT[a][1]));
       b.addEventListener("click", () => sendCommand(h, x, a));
       box.append(b);
     }
@@ -295,37 +352,47 @@
   }
 
   function renderAdmin() {
-    $("#hosts-admin tbody").replaceChildren(...hosts.filter((h) => h.kind !== "local").map((h) => {
+    const remotes = hosts.filter((h) => h.kind !== "local");
+    $("#hosts-admin").replaceChildren(...(remotes.length ? remotes.map((h) => {
       const editor = serviceEditor(h.services, h.services_ondemand);
-      const save = el("button", { type: "button", class: "ghost" }, t("Salva"));
+      const save = el("button", { type: "button", class: "btn small primary" }, t("Salva servizi"));
       save.addEventListener("click", async () => {
         try { await api(`/api/v1/hosts/${h.id}`, { method: "PUT", json: editor.value() }); toast(t("Servizi salvati: l'agente li controlla entro un minuto.")); load(); }
         catch (e) { toast(e.message, "error"); }
       });
-      const token = el("button", { type: "button", class: "ghost" }, t("Nuovo token"));
+      const token = el("button", { type: "button", class: "btn small" }, t("Nuovo token"));
       token.addEventListener("click", async () => {
         if (!confirm(t("Il token attuale di {p0} smetterà subito di funzionare. Continuare?", { p0: h.name }))) return;
         try { showInstall(h.name, h.kind, await api(`/api/v1/hosts/${h.id}/token`, { method: "POST", json: {} })); }
         catch (e) { toast(e.message, "error"); }
       });
-      const del = el("button", { type: "button", class: "ghost danger" }, t("Elimina"));
+      const del = el("button", { type: "button", class: "btn small danger" }, t("Elimina"));
       del.addEventListener("click", async () => {
         if (!confirm(t("Eliminare {p0} con tutti i suoi dati? L'agente sul server va disinstallato a parte.", { p0: h.name }))) return;
         try { await api(`/api/v1/hosts/${h.id}`, { method: "DELETE", json: {} }); toast(t("Server eliminato")); load().then(renderAdmin); }
         catch (e) { toast(e.message, "error"); }
       });
-      const conf = el("button", { type: "button", class: "ghost" }, t("Soglie e avvisi"));
+      const conf = el("button", { type: "button", class: "btn small" }, t("Soglie e avvisi"));
       conf.addEventListener("click", () => openSettings(h));
-      const actions = el("div", { class: "row-actions" });
-      actions.append(save, conf, token, del);
-      const svcBox = editor.node;
-      return row([
-        { text: h.name, label: t("Nome") }, { text: h.os_info || (h.kind === "windows" ? "Windows" : "Linux"), label: t("Sistema") },
-        { text: t(STATUS[h.status][1]), cls: STATUS[h.status][0], label: t("Stato") },
-        { text: h.last_seen ? fmtDateTime(h.last_seen) : "–", label: t("Ultimo invio") },
-        { node: svcBox, label: t("Servizi controllati") }, { node: actions, label: "" },
-      ]);
-    }));
+      const [cls, label] = STATUS[h.status] || ["", h.status];
+      const card = el("article", { class: "host-admin" });
+      const head = el("div", { class: "head" });
+      const who = el("div", { class: "who" });
+      who.append(el("strong", {}, h.name),
+                 el("span", {}, [h.os_info || (h.kind === "windows" ? "Windows" : "Linux"),
+                                 h.agent_version ? t("agente {p0}", { p0: h.agent_version }) : "",
+                                 h.last_seen ? t("ultimo invio {p0}", { p0: fmtDateTime(h.last_seen) }) : t("nessun dato ancora")].filter(Boolean).join(" · ")));
+      const pill = el("span", { class: `pill ${{ ok: "", down: "alert" }[cls] ?? "wait"}` }, t(label));
+      const acts = el("div", { class: "acts" });
+      acts.append(conf, token, del);
+      head.append(who, pill, acts);
+      const body = el("div", { class: "body" });
+      body.append(el("span", { class: "field-label" }, t("Servizi controllati")), editor.node);
+      const foot = el("div", { class: "foot" });
+      foot.append(save);
+      card.append(head, body, foot);
+      return card;
+    }) : [el("p", { class: "hint" }, t("Nessun server collegato: aggiungine uno qui sotto."))]));
   }
 
   // Passi completi dell'installazione (gli stessi della guida, docs/<lingua>/agents.md)

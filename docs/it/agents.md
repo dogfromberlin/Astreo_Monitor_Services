@@ -56,7 +56,7 @@ Il server centrale ha solo le soglie. Per non ricevere avvisi su problemi brevi 
 ## Comandi ai servizi
 
 Dalla 4.3 i servizi controllati di un server collegato si possono **avviare, fermare e riavviare** dalla dashboard
-(pulsanti accanto a ogni servizio nel dettaglio del server; **Avvia** anche in *Da controllare* per un servizio
+(pulsante **…** a destra di ogni servizio nel dettaglio del server; **Avvia** anche in *Da controllare* per un servizio
 fermo). Servono due consensi:
 
 | Dove | Come |

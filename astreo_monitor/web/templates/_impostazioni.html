@@ -240,21 +240,19 @@
     <!-- ============================== SERVER COLLEGATI -->
     <div data-subpanel="set:server" hidden>
       <p class="hint">{{ _("Altri server Linux e Windows che inviano i loro dati a questo con un agente: risorse, servizi, riavvii. Avvisi nell'evento «Server collegati» (scheda Notifiche).") }}</p>
-      <div class="scroll">
-        <table class="data" id="hosts-admin">
-          <thead><tr><th>{{ _("Nome") }}</th><th>{{ _("Sistema") }}</th><th>{{ _("Stato") }}</th><th>{{ _("Ultimo invio") }}</th><th>{{ _("Servizi controllati") }}</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+      <div class="host-admin-list" id="hosts-admin"></div>
       <form class="settings-form" id="host-form" autocomplete="off">
         <fieldset>
           <legend>{{ _("Aggiungi un server") }} <button type="button" class="help-btn" data-help="agents#aggiungere" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
-          <div class="grid-fields">
-            <label>{{ _("Nome") }}<input type="text" name="name" maxlength="64" required placeholder="{{ _("es. nas") }}"></label>
-            <label>{{ _("Sistema") }}<select name="kind"><option value="linux">Linux</option><option value="windows">Windows</option></select></label>
-            <div class="span-2"><span class="field-label">{{ _("Servizi da controllare (modificabili poi)") }} <button type="button" class="help-btn" data-help="agents#discontinui" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></span>
+          <div class="host-new">
+            <div class="host-new-main">
+              <label>{{ _("Nome") }}<input type="text" name="name" maxlength="64" required placeholder="{{ _("es. nas") }}"></label>
+              <label>{{ _("Sistema") }}<select name="kind"><option value="linux">Linux</option><option value="windows">Windows</option></select></label>
+            </div>
+            <div class="host-new-svc">
+              <span class="field-label">{{ _("Servizi da controllare (modificabili poi)") }} <button type="button" class="help-btn" data-help="agents#discontinui" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></span>
               <div id="host-new-services"></div>
-              <p class="hint">{{ _("Su Windows il nome del servizio (es. Spooler, W32Time), non quello visualizzato; su Linux l'unità (es. ssh.service). Discontinuo: parte solo quando serve, da fermo nessun avviso.") }}</p></div>
+            </div>
           </div>
         </fieldset>
         <div class="form-actions"><button type="submit">{{ _("Crea e mostra il comando d'installazione") }}</button></div>
