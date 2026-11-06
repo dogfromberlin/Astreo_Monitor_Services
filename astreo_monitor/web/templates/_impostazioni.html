@@ -252,7 +252,9 @@
           <div class="grid-fields">
             <label>{{ _("Nome") }}<input type="text" name="name" maxlength="64" required placeholder="{{ _("es. nas") }}"></label>
             <label>{{ _("Sistema") }}<select name="kind"><option value="linux">Linux</option><option value="windows">Windows</option></select></label>
-            <label class="span-2">{{ _("Servizi da controllare (separati da virgola, modificabili poi)") }}<input type="text" name="services" placeholder="ssh.service, docker.service / Spooler, W32Time"></label>
+            <div class="span-2"><span class="field-label">{{ _("Servizi da controllare (modificabili poi)") }} <button type="button" class="help-btn" data-help="agents#discontinui" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></span>
+              <div id="host-new-services"></div>
+              <p class="hint">{{ _("Su Windows il nome del servizio (es. Spooler, W32Time), non quello visualizzato; su Linux l'unità (es. ssh.service). Discontinuo: parte solo quando serve, da fermo nessun avviso.") }}</p></div>
           </div>
         </fieldset>
         <div class="form-actions"><button type="submit">{{ _("Crea e mostra il comando d'installazione") }}</button></div>
@@ -401,7 +403,7 @@
       <p class="hint">{{ _("Le modifiche si salvano subito.") }} <em>{{ _("Avvisami") }}</em> {{ _("invia una notifica quando il servizio si ferma e quando riparte (controllo ogni 5 minuti, canali scelti nella scheda Notifiche).") }}</p>
       <div class="scroll table-tall">
         <table class="data" id="svc-table">
-          <thead><tr><th>{{ _("Stato") }}</th><th>{{ _("Servizio") }}</th><th>{{ _("Etichetta") }}</th><th>{{ _("Monitora") }}</th><th>{{ _("Avvisami") }}</th><th>{{ _("Ordine") }}</th></tr></thead>
+          <thead><tr><th>{{ _("Stato") }}</th><th>{{ _("Servizio") }}</th><th>{{ _("Etichetta") }}</th><th>{{ _("Monitora") }}</th><th>{{ _("Avvisami") }}</th><th title="{{ _("Parte solo quando serve: fermo non è un guasto, nessun avviso") }}">{{ _("Discontinuo") }}</th><th>{{ _("Ordine") }}</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

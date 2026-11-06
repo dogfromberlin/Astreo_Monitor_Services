@@ -15,7 +15,7 @@ param(
   [switch]$TestConnection
 )
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '4.3.0'
+$AgentVersion = '4.3.0.dev3'
 $Dir = Split-Path -Parent $ConfigPath
 $QueueDir = Join-Path $Dir 'queue'
 $StatePath = Join-Path $Dir 'state.json'
@@ -132,6 +132,14 @@ if (($epoch - [int](Get-StateValue 'metrics_sent' 0)) -ge $MetricsEvery) {
   # 4.2: container Docker, se Docker e' installato
   $docker = Get-Command docker -ErrorAction SilentlyContinue
   if ($docker) {
+    # 4.3: Docker installato ma motore fermo (es. Docker Desktop chiuso): nessun errore nel registro a ogni giro
+    $null = & $docker.Source info --format '{{.ServerVersion}}' 2>$null
+    if ($LASTEXITCODE -ne 0) {
+      [void]$items.Add(@{ type = 'containers'; time = $iso; running = $false; detail = 'Docker installato ma non in esecuzione'; containers = @() })
+      $docker = $null
+    }
+  }
+  if ($docker) {
     try {
       $conts = @(& $docker.Source ps -a --no-trunc --format '{{json .}}' 2>$null | Where-Object { $_ } | ForEach-Object { $_ | ConvertFrom-Json } | Select-Object -First 200)
       $list = @(foreach ($c in $conts) {
@@ -143,7 +151,7 @@ if (($epoch - [int](Get-StateValue 'metrics_sent' 0)) -ge $MetricsEvery) {
         } catch { }
         @{ name = [string]$c.Names; image = [string]$c.Image; state = [string]$c.State; status = [string]$c.Status; health = $hl; restart_policy = $pol }
       })
-      [void]$items.Add(@{ type = 'containers'; time = $iso; containers = $list })
+      [void]$items.Add(@{ type = 'containers'; time = $iso; running = $true; containers = $list })
     } catch { Write-AgentLog 'WARN' ('Docker non leggibile: {0}' -f $_.Exception.Message) }
   }
 }
@@ -220,6 +228,44 @@ function Add-QueueItem($it) {
   [System.IO.File]::WriteAllText("$name.tmp", ($it | ConvertTo-Json -Depth 6 -Compress), (New-Object System.Text.UTF8Encoding($false)))
   Move-Item "$name.tmp" $name -Force
 }
+function Update-AgentFiles($pub, [string]$tag) {
+  # 4.3: scarica i file nuovi dal centrale, verifica firma e impronte, controlla la sintassi, poi sostituisce
+  $url = ($cfg.central.TrimEnd('/')) + '/api/v1/agents/update-package'
+  $r = Invoke-Central $url $cfg.token '{}'
+  if ($r.Status -ne 200) { return @{ ok = $false; detail = ('pacchetto non disponibile ({0})' -f $r.Status) } }
+  $pkg = $r.Body | ConvertFrom-Json
+  if (-not (Test-CommandSignature $pub ([string]$pkg.payload) ([string]$pkg.sig))) { return @{ ok = $false; detail = 'firma del pacchetto non valida' } }
+  $m = [string]$pkg.payload | ConvertFrom-Json
+  if ($m.agent -ne $tag -or $m.kind -ne 'windows') { return @{ ok = $false; detail = 'pacchetto destinato a un altro agente' } }
+  if ([DateTimeOffset]::UtcNow -gt [DateTimeOffset]::Parse([string]$m.expires)) { return @{ ok = $false; detail = 'pacchetto scaduto' } }
+  $allowed = @('astreo-agent.ps1', 'AstreoTls.ps1')
+  $staged = @()
+  foreach ($f in @($m.files)) {
+    if ($allowed -notcontains [string]$f.name) { return @{ ok = $false; detail = ('file non ammesso: {0}' -f $f.name) } }
+    $content = @($pkg.files | Where-Object { $_.name -eq $f.name })[0].content
+    $bytes = [Convert]::FromBase64String([string]$content)
+    $sha = -join ([System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') })
+    if ($sha -ne [string]$f.sha256) { return @{ ok = $false; detail = ('impronta non valida: {0}' -f $f.name) } }
+    $tmp = Join-Path $Dir ($f.name + '.new')
+    [System.IO.File]::WriteAllBytes($tmp, $bytes)
+    $errs = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($tmp, [ref]$null, [ref]$errs)
+    if ($errs) { Remove-Item $tmp -Force; return @{ ok = $false; detail = ('script non valido: {0}' -f $f.name) } }
+    $staged += @{ name = [string]$f.name; tmp = $tmp }
+  }
+  foreach ($s in $staged) {
+    $dest = Join-Path $Dir $s.name
+    if (Test-Path $dest) { Copy-Item $dest ($dest + '.bak') -Force }
+  }
+  try {
+    foreach ($s in $staged) { Move-Item $s.tmp (Join-Path $Dir $s.name) -Force }
+  } catch {
+    foreach ($s in $staged) { $d = Join-Path $Dir $s.name; if (Test-Path ($d + '.bak')) { Copy-Item ($d + '.bak') $d -Force } }
+    return @{ ok = $false; detail = ('sostituzione non riuscita, ripristinati i file precedenti: {0}' -f $_.Exception.Message) }
+  }
+  return @{ ok = $true; detail = ('agente {0} installato (prima {1}); attivo dal prossimo giro' -f $m.version, $AgentVersion) }
+}
+
 function Invoke-AgentCommands($cmds) {
   $pubPath = Join-Path $Dir 'commands.pub.json'
   $pub = $null
@@ -231,7 +277,8 @@ function Invoke-AgentCommands($cmds) {
   foreach ($c in @($cmds | Select-Object -First 10)) {
     $cid = [string]$c.id
     $reason = $null; $p = $null
-    if (-not $cfg.allow_commands -or -not $pub) { $reason = "comandi non permessi su questo server (reinstalla l'agente con -AllowCommands)" }
+    if (-not $cfg.allow_commands) { $reason = "comandi non permessi su questo server (reinstalla l'agente con -AllowCommands)" }
+    elseif (-not $pub) { $reason = "chiave dei comandi mancante su questo server (reinstalla l'agente con -AllowCommands)" }
     elseif (-not (Test-CommandSignature $pub ([string]$c.payload) ([string]$c.sig))) { $reason = 'firma non valida' }
     else {
       try { $p = [string]$c.payload | ConvertFrom-Json } catch { $reason = 'comando non leggibile' }
@@ -239,6 +286,7 @@ function Invoke-AgentCommands($cmds) {
         $now = [DateTimeOffset]::UtcNow
         if ($p.agent -ne $tag) { $reason = 'comando destinato a un altro agente' }
         elseif ($done -contains [string]$p.id) { $reason = 'comando già eseguito' }
+        elseif ([string]$p.action -eq 'update') { if (-not $cfg.allow_update) { $reason = "aggiornamento non permesso su questo server (reinstalla l'agente con -AllowUpdate)" } }
         elseif (@('start', 'stop', 'restart') -notcontains [string]$p.action) { $reason = 'azione non ammessa' }
         elseif ($allowed -notcontains [string]$p.unit) { $reason = 'servizio non tra quelli controllati' }
         elseif ($now -gt [DateTimeOffset]::Parse([string]$p.expires) -or ([DateTimeOffset]::Parse([string]$p.issued) - $now).TotalMinutes -gt 5) { $reason = 'comando scaduto' }
@@ -251,6 +299,14 @@ function Invoke-AgentCommands($cmds) {
       continue
     }
     [void]$done.Add([string]$p.id)
+    if ([string]$p.action -eq 'update') {
+      Set-StateValue 'commands_done' @($done | Select-Object -Last 200)
+      $u = Update-AgentFiles $pub $tag
+      Write-AgentLog $(if ($u.ok) { 'INFO' } else { 'WARN' }) ('Aggiornamento dell''agente da {0}: {1}' -f $p.by, $u.detail)
+      Add-QueueItem @{ type = 'command_result'; time = (Get-Date).ToString('s'); id = [string]$p.id; ok = [bool]$u.ok; detail = [string]$u.detail }
+      $any = $true
+      continue
+    }
     $ok = $true; $detail = ''
     try {
       switch ([string]$p.action) {
@@ -260,7 +316,7 @@ function Invoke-AgentCommands($cmds) {
       }
       $detail = 'stato: ' + (Get-Service -Name $p.unit).Status.ToString().ToLower()
     } catch { $ok = $false; $detail = $_.Exception.Message }
-    Write-AgentLog 'INFO' ('Comando {0} {1} da {2}: {3}' -f $p.action, $p.unit, $p.by, $(if ($ok) { 'ok' } else { $detail }))
+    Write-AgentLog $(if ($ok) { 'INFO' } else { 'WARN' }) ('Comando {0} {1} da {2}: {3}' -f $p.action, $p.unit, $p.by, $(if ($ok) { 'ok' } else { $detail }))
     Add-QueueItem @{ type = 'command_result'; time = (Get-Date).ToString('s'); id = [string]$p.id; ok = $ok; detail = $detail }
     $any = $true
   }
@@ -299,7 +355,9 @@ function Send-Queue([bool]$Poll) {
       if ($chunk.Count) { $chunk | Remove-Item -Force }
       $count += $chunk.Count
       $answer = $r.Body | ConvertFrom-Json
-      Set-StateValue 'services' @($answer.services | Where-Object { $_ -is [string] } | Select-Object -First 60)
+      $newUnits = @($answer.services | Where-Object { $_ -is [string] } | Select-Object -First 60)
+      if ((@(Get-StateValue 'services' @()) -join ',') -ne ($newUnits -join ',') -or $answer.refresh) { $script:refreshNow = $true }
+      Set-StateValue 'services' $newUnits
       if ($answer.commands) { if (Invoke-AgentCommands $answer.commands) { $ranCommands = $true } }
     } elseif ($r.Status -eq 400) {
       Write-AgentLog 'ERROR' ('Dati rifiutati dal centrale: {0}' -f $r.Body)
@@ -312,8 +370,20 @@ function Send-Queue([bool]$Poll) {
   return @{ sent = $count; commands = $ranCommands }
 }
 
+$script:refreshNow = $false
 $res = Send-Queue $true
 $sent = $res.sent
-if ($res.commands) { $sent += (Send-Queue $false).sent }       # esiti dei comandi, inviati subito
+if ($script:refreshNow -and -not $res.commands) {
+  # 4.3: servizi cambiati o "Aggiorna" dalla dashboard: stato dei servizi nello stesso giro
+  $cur = @(foreach ($u in @(Get-StateValue 'services' @())) {
+    $svc = Get-Service -Name $u -ErrorAction SilentlyContinue
+    if ($svc) { @{ unit = $u; label = $svc.DisplayName; up = ($svc.Status -eq 'Running'); state = $svc.Status.ToString().ToLower() } }
+    else { @{ unit = $u; label = $u; up = $false; state = 'not-found' } }
+  })
+  Add-QueueItem @{ type = 'services'; time = (Get-Date).ToString('s'); services = $cur }
+  Set-StateValue 'services_sig' (($cur | ForEach-Object { '{0}={1}' -f $_.unit, $_.up }) -join ',')
+  Set-StateValue 'services_sent' $epoch
+}
+if ($res.commands -or $script:refreshNow) { $sent += (Send-Queue $false).sent }       # esiti e stato, inviati subito
 ($state | ConvertTo-Json -Depth 4 -Compress) | Set-Content -Path $StatePath -Encoding UTF8
 if ($sent -gt 0) { Write-AgentLog 'INFO' ('Inviati {0} dati al server centrale' -f $sent) }

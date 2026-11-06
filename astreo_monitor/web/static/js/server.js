@@ -82,10 +82,11 @@
       void leds;                                              // 4.1: niente più fila di LED in testata
       if (remote()) return;
       $("#services").replaceChildren(...list.map((s) => {
-        const li = el("li", { class: s.up ? "up" : "down" });
+        const st = s.up ? "up" : s.ondemand ? "rest" : "down";          // 4.3: discontinuo fermo = a riposo
+        const li = el("li", { class: st });
         const b = el("button", { type: "button", title: `${s.label} — ${s.unit}: ${s.state}` });
-        b.append(el("span", { class: `led ${s.up ? "up" : "down"}`, "aria-hidden": "true" }), el("span", { class: "svc-label" }, s.label));
-        if (!s.up) b.append(el("span", { class: "state" }, s.state));
+        b.append(el("span", { class: `led ${st}`, "aria-hidden": "true" }), el("span", { class: "svc-label" }, s.label));
+        if (!s.up) b.append(el("span", { class: "state" }, s.ondemand ? t("a riposo") : s.state));
         b.addEventListener("click", () => openService(s));
         li.appendChild(b);
         return li;
@@ -188,7 +189,10 @@
     state.custom = { from: f.get("from"), to: f.get("to") };
     loadHistory();
   });
-  $("#services-refresh").addEventListener("click", loadServices);
+  $("#services-refresh").addEventListener("click", () => {
+    if (remote() && window.AM.refreshRemoteServices) window.AM.refreshRemoteServices();   // 4.3: chiede all'agente
+    else loadServices();
+  });
 
   // --------------------------------------------- controlli e scadenze
   const STATUS_CLS = { OK: "up", WARNING: "warn", ALERT: "down", DOWN: "down", UNKNOWN: "" };

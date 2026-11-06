@@ -125,3 +125,78 @@ def test_agente_linux_esegue_solo_comandi_validi(env, tmp_path):
     with mock.patch.object(agent_run, "execute") as ex2, mock.patch.object(agent_run.services, "statuses", return_value=[]):
         b.run_commands([C.build(key, C.token_tag(token), "restart", "cron.service", "mario")])
     assert not ex2.called
+
+
+def test_servizi_discontinui_e_appena_aggiunti(env):
+    """4.3: discontinuo fermo = a riposo senza avvisi; servizio nuovo = in attesa; nome sbagliato = inesistente."""
+    c, hid, token, key = env
+    from astreo_monitor.jobs import hosts as job
+    from astreo_monitor import notifier
+    now = dt.datetime.now().replace(microsecond=0)
+    with db.connect(c.database) as conn:
+        conn.execute(update(models.hosts).where(models.hosts.c.id == hid).values(
+            services="Spooler,WinDefend,Nuovo,Sbagliato", services_ondemand="Spooler"))
+        hosts.prune_services(conn, hid)                                   # come dopo il salvataggio dalla dashboard
+        host = db.one(conn, select(models.hosts).where(models.hosts.c.id == hid))
+        ans = hosts.ingest(conn, host, {"agent": {"version": "4.3.0"}, "items": [
+            {"type": "metrics", "time": now.isoformat(), "cpu_pct": 1},
+            {"type": "services", "time": now.isoformat(), "services": [
+                {"unit": "Spooler", "label": "Spooler di stampa", "up": False, "state": "stopped"},
+                {"unit": "WinDefend", "label": "Defender", "up": False, "state": "stopped"},
+                {"unit": "Sbagliato", "label": "Sbagliato", "up": False, "state": "not-found"}]}]})
+        assert ans["refresh"] is True                                     # servizi cambiati: l'agente rimanda subito
+        h = next(x for x in hosts.listing(conn, 10) if x["id"] == hid)
+    st = {s["unit"]: s["status"] for s in h["services_state"]["services"]}
+    assert st == {"Spooler": "rest", "WinDefend": "down", "Nuovo": "pending", "Sbagliato": "missing"}
+    assert next(s for s in h["services_state"]["services"] if s["unit"] == "WinDefend")["protected"] is True
+    with mock.patch.object(notifier, "dispatch", return_value=True) as sent:
+        job.main(c, False)
+    subjects = " | ".join(call.args[3] for call in sent.call_args_list)
+    assert "Defender" in subjects and "Spooler" not in subjects and "Nuovo" not in subjects and "Sbagliato" not in subjects
+    with db.connect(c.database) as conn:                                  # la richiesta di aggiornamento è stata consumata
+        host = db.one(conn, select(models.hosts).where(models.hosts.c.id == hid))
+        assert "refresh" not in hosts.ingest(conn, host, {"agent": {}, "items": []})
+
+
+def test_aggiornamento_agente_windows(env):
+    """4.3: comando firmato "update", permesso separato, pacchetto firmato con le impronte dei file."""
+    import hashlib
+    import re
+    from astreo_monitor import __version__
+    c, hid, token, key = env
+    ps1 = open(os.path.join(os.path.dirname(__file__), "..", "agent", "windows", "astreo-agent.ps1"), encoding="utf-8").read()
+    assert re.search(r"\$AgentVersion = '([^']+)'", ps1).group(1) == __version__          # versione allineata
+    web, auth = client(c)
+    agent = {"Authorization": f"Bearer {token}"}
+    with mock.patch("astreo_monitor.schema.check", return_value=[]):
+        assert web.post(f"/api/v1/hosts/{hid}/agent-update", json={}, headers=auth).status_code == 403
+        assert web.post("/api/v1/agents/update-package", json={}, headers=agent).status_code == 403
+        web.put(f"/api/v1/hosts/{hid}", json={"allow_update": True}, headers=auth)
+        r = web.post(f"/api/v1/hosts/{hid}/agent-update", json={}, headers=auth)
+        assert r.status_code == 200 and r.get_json()["version"] == __version__
+        # basta il permesso di aggiornamento: i comandi ai servizi restano spenti
+        ans = web.post("/api/v1/agents/ingest", json={"agent": {"version": "4.2.0"}, "items": []}, headers=agent).get_json()
+        assert web.post(f"/api/v1/hosts/{hid}/services/Spooler/restart", json={}, headers=auth).status_code == 403
+        pub = C.public_key(key)
+        cmd = ans["commands"][0]
+        assert C.check(cmd, pub, C.token_tag(token), [], [], allow_update=False).startswith("aggiornamento non permesso")
+        assert C.check(cmd, pub, C.token_tag(token), [], [], allow_update=True) is None
+        pkg = web.post("/api/v1/agents/update-package", json={}, headers=agent).get_json()
+    assert C.verify(pub, pkg["payload"].encode(), pkg["sig"])
+    m = json.loads(pkg["payload"])
+    assert m["agent"] == C.token_tag(token) and {f["name"] for f in m["files"]} == {"astreo-agent.ps1", "AstreoTls.ps1"}
+    for f in m["files"]:
+        data = base64.b64decode(next(x["content"] for x in pkg["files"] if x["name"] == f["name"]))
+        assert hashlib.sha256(data).hexdigest() == f["sha256"]
+
+
+def test_discontinuo_scelto_alla_creazione(env):
+    c, hid, token, key = env
+    web, auth = client(c)
+    with mock.patch("astreo_monitor.schema.check", return_value=[]):
+        r = web.post("/api/v1/hosts", json={"name": "NAS", "kind": "linux", "services": "ssh.service,backup.service",
+                                            "services_ondemand": ["backup.service"]}, headers=auth)
+        assert r.status_code == 201
+        nas = next(h for h in web.get("/api/v1/hosts", headers=auth).get_json()["hosts"] if h["name"] == "NAS")
+    assert nas["services_ondemand"] == "backup.service"
+    assert {s["unit"]: s["ondemand"] for s in nas["services_state"]["services"]} == {"ssh.service": False, "backup.service": True}

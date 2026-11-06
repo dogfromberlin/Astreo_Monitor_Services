@@ -55,8 +55,10 @@ class Agent:
         self.queue = os.path.join(self.dir, "queue")
         os.makedirs(self.queue, mode=0o700, exist_ok=True)
         self.state_path = os.path.join(self.dir, "state.json")
+        self.refresh_now = False
         # 4.3: comandi dal centrale, solo se permessi qui e con la chiave pubblica salvata all'installazione
         self.allow_commands = a.getboolean("allow_commands", fallback=False)
+        self.allow_update = a.getboolean("allow_update", fallback=False)
         conf_dir = os.path.dirname(os.path.abspath(path))
         try:
             self.commands_pub = json.load(open(os.path.join(conf_dir, "commands.pub.json"), encoding="utf-8"))
@@ -105,7 +107,7 @@ class Agent:
             self.state["cpu_times"], self.state["metrics_sent"] = curr, time.time()
             conts = containers()
             if conts is not None:
-                items.append({"type": "containers", "time": iso, "containers": conts})
+                items.append({"type": "containers", "time": iso, **conts})
         if time.time() - self.state.get("health_sent", 0) >= HEALTH_EVERY:
             items.append({"type": "health", "time": iso, **health(now)})
             self.state["health_sent"] = time.time()
@@ -165,7 +167,10 @@ class Agent:
                         pass
                 sent += len(batch)
                 answer = r.json()
-                self.state["services"] = [u for u in answer.get("services", []) if isinstance(u, str)][:60]
+                new = [u for u in answer.get("services", []) if isinstance(u, str)][:60]
+                if new != self.state.get("services") or answer.get("refresh"):
+                    self.refresh_now = True                   # 4.3: servizi cambiati o "Aggiorna": stato subito
+                self.state["services"] = new
                 if answer.get("commands"):
                     self.run_commands(answer["commands"])
             elif r.status_code == 400:
@@ -177,6 +182,13 @@ class Agent:
                 return sent
         return sent
 
+    def services_item(self, now: dt.datetime) -> dict:
+        units = self.state.get("services", [])
+        current = [{"unit": x["unit"], "label": x["label"], "up": x["up"], "state": x["state"]}
+                   for x in services.statuses([{"unit": u, "label": u.removesuffix(".service")} for u in units])]
+        self.state["services_sig"], self.state["services_sent"] = [(x["unit"], x["up"]) for x in current], time.time()
+        return {"type": "services", "time": now.isoformat(), "services": current}
+
     # ---------------------------------------------------------------- 4.3: comandi
     def run_commands(self, cmds: list) -> None:
         from .. import commands
@@ -184,10 +196,16 @@ class Agent:
         results = []
         for c in cmds[:10]:
             cid = str((c or {}).get("id", ""))[:32] if isinstance(c, dict) else ""
-            if not self.allow_commands or not self.commands_pub:
+            is_update = '"action":"update"' in str((c or {}).get("payload", "")) if isinstance(c, dict) else False
+            if not self.allow_commands and not (is_update and self.allow_update):
                 reason = "comandi non permessi su questo server (reinstalla l'agente con --allow-commands)"
+            elif not self.commands_pub:
+                reason = "chiave dei comandi mancante su questo server (reinstalla l'agente con --allow-commands)"
             else:
-                reason = commands.check(c, self.commands_pub, commands.token_tag(self.token), self.state.get("services", []), done)
+                reason = commands.check(c, self.commands_pub, commands.token_tag(self.token), self.state.get("services", []), done,
+                                        allow_update=self.allow_update)
+                if not reason and is_update:
+                    reason = "aggiornamento dalla dashboard non ancora disponibile per l'agente Linux: usa install.sh --agent … --update"
             if reason:
                 log.warning("Comando %s rifiutato: %s", cid, reason)
                 if reason != "comando già eseguito":
@@ -197,7 +215,7 @@ class Agent:
             p = commands.parse(c)
             done.append(p["id"])
             ok, detail = execute(p["action"], p["unit"])
-            log.info("Comando %s %s da %s: %s", p["action"], p["unit"], p.get("by"), "ok" if ok else detail)
+            (log.info if ok else log.warning)("Comando %s %s da %s: %s", p["action"], p["unit"], p.get("by"), "ok" if ok else detail)
             results.append({"type": "command_result", "time": dt.datetime.now().isoformat(timespec="seconds"),
                             "id": p["id"], "ok": ok, "detail": detail})
         self.state["commands_done"] = done[-200:]
@@ -267,13 +285,15 @@ def health(now: dt.datetime) -> dict:
     return data
 
 
-def containers() -> list[dict] | None:
-    """4.2: container Docker, se Docker è presente (None = niente Docker su questo server)."""
-    present, _ = docker_mod.detect()
-    if not present:
+def containers() -> dict | None:
+    """4.2: container Docker. None = Docker non installato; 4.3: installato ma fermo = running False, senza errori."""
+    if not shutil.which("docker"):
         return None
-    return [{k: c.get(k) for k in ("name", "image", "state", "status", "health", "restart_policy")}
-            for c in docker_mod.containers(with_stats=False)][:200]
+    present, detail = docker_mod.detect()
+    if not present:
+        return {"running": False, "detail": detail[:200], "containers": []}
+    return {"running": True, "containers": [{k: c.get(k) for k in ("name", "image", "state", "status", "health", "restart_policy")}
+                                            for c in docker_mod.containers(with_stats=False)][:200]}
 
 
 def os_info() -> str:
@@ -297,7 +317,9 @@ def main() -> int:
         return 0
     agent.enqueue(items)
     sent = agent.send()
-    if agent.pending():                    # 4.3: esiti dei comandi appena eseguiti, inviati subito
+    if agent.refresh_now:                  # 4.3: servizi nuovi o "Aggiorna": stato dei servizi nello stesso giro
+        agent.enqueue([agent.services_item(dt.datetime.now().replace(microsecond=0))])
+    if agent.pending():                    # 4.3: esiti dei comandi e stato dei servizi, inviati subito
         sent += agent.send(poll=False)
     agent.save()
     if sent:

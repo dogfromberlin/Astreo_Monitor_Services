@@ -72,8 +72,36 @@ keeps in a file (not in the database) and that the agent received at installatio
 to that agent, runs only once and only concerns the checked services. Without the local consent the agent refuses
 any command, even a signed one. The read-only user does not see the buttons.
 
+<a id="aggiornare-dashboard"></a>
+### Updating the agent from the dashboard (Windows)
+
+With **Allow updating the agent** on and the agent installed with `-AllowUpdate`, when the agent version differs from
+the central one the server detail shows **Update agent to …**. The agent receives a signed command, downloads its own
+files from the central server, checks signature, hashes and syntax, keeps a copy of the previous ones (`.bak` in
+`C:\ProgramData\AstreoAgent`) and from the next round works with the new version; the result stays in the history.
+For Linux agents, for now: `sudo bash install.sh --agent … --update` on the connected server.
+
+The installation command shown by **New token** already contains `-AllowCommands` / `-AllowUpdate` if the two switches
+of the server are on on the central server.
+
 To give the permission to an agent already installed: generate a **New token** and repeat the installation adding
 the option (steps below).
+
+<a id="discontinui"></a>
+## On-demand services and newly added services
+
+An **on-demand** service runs only when needed: when stopped it is *idle* (grey), with no alerts and no entry in *To
+check*; when running it is green. Start and stop stay in the history as information events. It is chosen when the
+service is added: in **Settings → Connected servers** (and in *Add a server*) each service has its own **on demand**
+box, which can be changed later in the same row with **Save**; for the central server there is the **On demand**
+column in **Settings → Services**. Removing the tick brings the normal check back immediately.
+
+A newly added service shows straight away as *waiting for the first check*: the agent checks it at its next contact,
+within a minute. If after 5 minutes it has still not reported its state it becomes *not detected*; if there is no
+service with that name on that computer it shows *does not exist on this server* (check the name: on Windows it is the
+service name, e.g. `Spooler`, not the display name). **Refresh** in the Services panel makes the agent check all the
+services again straight away. Windows Firewall and Defender are *protected*: Windows does not let them be stopped or
+restarted, so they have no command buttons.
 
 <a id="aggiungere"></a>
 ## Adding a server

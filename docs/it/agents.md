@@ -71,8 +71,36 @@ Spooler riavviato dalla dashboard (admin)*). Ogni comando è **firmato** con una
 volta sola e riguarda solo i servizi controllati. Senza il consenso locale l'agente rifiuta qualsiasi comando, anche
 firmato. L'utente in sola lettura non vede i pulsanti.
 
+<a id="aggiornare-dashboard"></a>
+### Aggiornare l'agente dalla dashboard (Windows)
+
+Con **Consenti l'aggiornamento dell'agente** attivo e l'agente installato con `-AllowUpdate`, quando la versione
+dell'agente è diversa da quella del centrale nel dettaglio del server compare **Aggiorna agente a …**. L'agente riceve
+un comando firmato, scarica dal centrale i propri file, ne verifica firma, impronte e sintassi, tiene una copia dei
+precedenti (`.bak` in `C:\ProgramData\AstreoAgent`) e dal giro successivo lavora con la versione nuova; l'esito resta
+nello storico. Per gli agenti Linux, per ora: `sudo bash install.sh --agent … --update` sul server collegato.
+
+Il comando di installazione mostrato da **Nuovo token** contiene già `-AllowCommands` / `-AllowUpdate` se i due
+interruttori del server sono attivi sul centrale.
+
 Per dare il permesso a un agente già installato: genera un **Nuovo token** e ripeti l'installazione aggiungendo
 l'opzione (passi più sotto).
+
+<a id="discontinui"></a>
+## Servizi discontinui e servizi appena aggiunti
+
+Un servizio **discontinuo** parte solo quando serve: da fermo è *a riposo* (grigio), senza avvisi e senza voce in *Da
+controllare*; da attivo è verde. Avvio e arresto restano nello storico come eventi informativi. Si sceglie
+quando si aggiunge il servizio: in **Impostazioni → Server collegati** (e in *Aggiungi un server*) ogni servizio ha la
+sua casella **discontinuo**, modificabile poi nella stessa riga con **Salva**; per il server centrale c'è la colonna
+**Discontinuo** in **Impostazioni → Servizi**. Togliendo la spunta il controllo normale riprende subito.
+
+Un servizio appena aggiunto compare subito come *in attesa del primo controllo*: l'agente lo controlla al primo
+contatto, entro un minuto. Se dopo 5 minuti non ne ha ancora dato lo stato diventa *non rilevato*; se su quel computer
+non esiste un servizio con quel nome compare *inesistente su questo server* (controlla il nome: su Windows è il nome
+del servizio, es. `Spooler`, non quello visualizzato). **Aggiorna** nel pannello Servizi fa ricontrollare subito tutti
+i servizi all'agente. Firewall e Defender di Windows sono *protetti*: Windows non li lascia fermare o riavviare, quindi
+non hanno i pulsanti dei comandi.
 
 <a id="aggiungere"></a>
 ## Aggiungere un server

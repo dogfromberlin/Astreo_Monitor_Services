@@ -23,6 +23,7 @@ import secrets
 import subprocess
 
 ACTIONS = ("start", "stop", "restart")
+UPDATE = "update"           # 4.3: aggiornamento dell'agente (permesso separato: allow_update)
 VALID_MINUTES = 10
 KEY_NAME = "commands.key"
 PUB_NAME = "commands.pub.json"
@@ -79,12 +80,13 @@ def token_tag(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()[:24]
 
 
-def build(key: str, token_hash_or_tag: str, action: str, unit: str, user: str, now: dt.datetime | None = None) -> dict:
-    if action not in ACTIONS:
+def build(key: str, token_hash_or_tag: str, action: str, unit: str, user: str, now: dt.datetime | None = None,
+          **extra) -> dict:
+    if action not in ACTIONS + (UPDATE,):
         raise CommandError("Comando non valido")
     now = (now or dt.datetime.now(dt.timezone.utc)).replace(microsecond=0)
     cmd = {"id": secrets.token_hex(8), "agent": token_hash_or_tag, "action": action, "unit": unit, "by": user[:40],
-           "issued": now.isoformat(), "expires": (now + dt.timedelta(minutes=VALID_MINUTES)).isoformat()}
+           "issued": now.isoformat(), "expires": (now + dt.timedelta(minutes=VALID_MINUTES)).isoformat(), **extra}
     data = canonical(cmd)
     return {"id": cmd["id"], "payload": data.decode(), "sig": sign(key, data)}
 
@@ -119,7 +121,7 @@ def parse(cmd: dict) -> dict:
 
 
 def check(cmd: dict, pub: dict, own_tag: str, allowed_units: list[str], done: list[str],
-          now: dt.datetime | None = None) -> str | None:
+          now: dt.datetime | None = None, allow_update: bool = False) -> str | None:
     """Controlli dell'agente prima di eseguire. Ritorna il motivo del rifiuto, o None se il comando è valido."""
     if not isinstance(cmd, dict) or not isinstance(cmd.get("sig"), str) or not isinstance(cmd.get("payload"), str):
         return "comando senza firma"
@@ -133,9 +135,12 @@ def check(cmd: dict, pub: dict, own_tag: str, allowed_units: list[str], done: li
         return "comando destinato a un altro agente"
     if cmd.get("id") in done:
         return "comando già eseguito"
-    if cmd.get("action") not in ACTIONS:
+    if cmd.get("action") == UPDATE:
+        if not allow_update:
+            return "aggiornamento non permesso su questo server (reinstalla l'agente con l'opzione di aggiornamento)"
+    elif cmd.get("action") not in ACTIONS:
         return "azione non ammessa"
-    if cmd.get("unit") not in allowed_units:
+    elif cmd.get("unit") not in allowed_units:
         return "servizio non tra quelli controllati"
     now = now or dt.datetime.now(dt.timezone.utc)
     try:
@@ -145,3 +150,21 @@ def check(cmd: dict, pub: dict, own_tag: str, allowed_units: list[str], done: li
     if now > expires or issued - now > dt.timedelta(minutes=5):        # orologi un po' diversi: 5 minuti di tolleranza
         return "comando scaduto"
     return None
+
+
+# ---------------------------------------------------------------------------- 4.3: pacchetto di aggiornamento
+WINDOWS_FILES = ("astreo-agent.ps1", "AstreoTls.ps1")
+
+
+def windows_package(project_dir: str, key: str, tag: str, version: str) -> dict:
+    """File dell'agente Windows con impronte, in un manifesto firmato (l'agente verifica firma e impronte)."""
+    files = []
+    for name in WINDOWS_FILES:
+        data = open(os.path.join(project_dir, "agent", "windows", name), "rb").read()
+        files.append({"name": name, "sha256": hashlib.sha256(data).hexdigest(), "content": base64.b64encode(data).decode()})
+    now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    manifest = {"kind": "windows", "version": version, "agent": tag, "issued": now.isoformat(),
+                "expires": (now + dt.timedelta(minutes=VALID_MINUTES)).isoformat(),
+                "files": [{"name": f["name"], "sha256": f["sha256"]} for f in files]}
+    data = canonical(manifest)
+    return {"payload": data.decode(), "sig": sign(key, data), "files": files}

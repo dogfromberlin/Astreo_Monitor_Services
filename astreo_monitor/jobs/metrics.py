@@ -127,7 +127,7 @@ def main(cfg: Config, dry_run: bool) -> int:
             state.save()
 
         # --- Servizi con avviso attivo -----------------------------------------
-        watched = [r for r in services_store.monitored(conn, cfg) if r["notify"]]
+        watched = [r for r in services_store.monitored(conn, cfg) if r["notify"] and not r.get("ondemand")]   # 4.3
         rule = settings_mod.policy(values, "services")
         for s in services.statuses(watched):
             state = notifier.AlertState(conn, f"service:{s['unit']}")
@@ -185,8 +185,12 @@ def record_events(conn, cfg, values, now) -> None:
         current[s["unit"]] = s["state"]
         before = last.get(s["unit"])
         if before is not None and (before == "active") != s["up"]:
-            events.record(conn, "service", "info" if s["up"] else "alert",
-                          f"Servizio {s['label']} {'ripartito' if s['up'] else 'fermo'}", f"{before} → {s['state']}", when=now)
+            if s.get("ondemand"):                          # 4.3: discontinuo, avvio e arresto sono normali
+                events.record(conn, "service", "info", f"Servizio {s['label']} {'avviato' if s['up'] else 'fermato'}",
+                              f"{before} → {s['state']}", when=now)
+            else:
+                events.record(conn, "service", "info" if s["up"] else "alert",
+                              f"Servizio {s['label']} {'ripartito' if s['up'] else 'fermo'}", f"{before} → {s['state']}", when=now)
     db.state_set(conn, "events:services", current)
 
 

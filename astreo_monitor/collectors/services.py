@@ -57,7 +57,7 @@ def statuses(rows: list[dict]) -> list[dict]:
     for r in rows:
         state = st.get(r["unit"], "unknown")
         out.append({"key": r["unit"], "unit": r["unit"], "label": r["label"], "state": state, "up": state == "active",
-                    "notify": bool(r.get("notify"))})
+                    "notify": bool(r.get("notify")), "ondemand": bool(r.get("ondemand"))})
     return out
 
 

@@ -8,7 +8,7 @@ from .collectors import services as svc
 from .config import Config
 
 T = models.monitored_services
-COLS = (T.c.unit, T.c.label, T.c.enabled, T.c.notify, T.c.sort_order)
+COLS = (T.c.unit, T.c.label, T.c.enabled, T.c.notify, T.c.ondemand, T.c.sort_order)
 
 
 def _normalize(unit: str) -> str:
@@ -39,7 +39,7 @@ def get(conn, unit: str) -> dict | None:
     return db.one(conn, select(*COLS).where(T.c.unit == unit))
 
 
-def upsert(conn, unit: str, *, enabled=None, notify=None, label=None) -> dict:
+def upsert(conn, unit: str, *, enabled=None, notify=None, label=None, ondemand=None) -> dict:
     if not svc.valid_unit(unit):
         raise ValueError(f"Nome di servizio non valido: {unit}")
     existing = get(conn, unit)
@@ -50,12 +50,13 @@ def upsert(conn, unit: str, *, enabled=None, notify=None, label=None) -> dict:
         top = db.scalar(conn, select(func.coalesce(func.max(T.c.sort_order), 0))) or 0
         conn.execute(T.insert().values(unit=unit, label=(label or unit.removesuffix(".service"))[:100],
                                        enabled=True if enabled is None else bool(enabled), notify=bool(notify),
-                                       sort_order=top + 10, updated_at=db.now()))
+                                       ondemand=bool(ondemand), sort_order=top + 10, updated_at=db.now()))
     else:
         conn.execute(update(T).where(T.c.unit == unit).values(
             label=((label if label is not None else existing["label"])[:100] or unit),
             enabled=bool(enabled) if enabled is not None else existing["enabled"],
             notify=bool(notify) if notify is not None else existing["notify"],
+            ondemand=bool(ondemand) if ondemand is not None else existing["ondemand"],
             updated_at=db.now()))
     return get(conn, unit)
 

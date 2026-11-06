@@ -32,10 +32,16 @@
     $("#srv-name").textContent = h.name;
     $("#crumb-name").textContent = h.name;
     $("#srv-ic").className = `ic${h.kind === "local" ? "" : " remote"}`;
-    const stopped = ((h.services_state || {}).services || []).filter((x) => !x.up).length;
+    const stopped = ((h.services_state || {}).services || []).filter((x) => (x.status || (x.up ? "up" : "down")) === "down").length;
     let [cls, label] = h.kind === "local" ? ["", t("regolare")] : [STATUS[h.status][0], t(STATUS[h.status][1])];
     if (cls === "ok") cls = "";
     if (h.status === "OK" && stopped) { cls = "warn"; label = stopped === 1 ? t("1 servizio fermo") : t("{p0} servizi fermi", { p0: stopped }); }
+    // 4.3: agente Windows più vecchio del centrale e aggiornamento permesso: pulsante "Aggiorna agente"
+    const central = document.body.dataset.version;
+    const upd = $("#srv-agent-update");
+    const can = !window.AM.IS_VIEWER && h.kind === "windows" && h.allow_update && h.agent_version && h.agent_version !== central;
+    upd.hidden = !can;
+    if (can && !upd.dataset.busy) upd.textContent = t("Aggiorna agente a {p0}", { p0: central });
     const pill = $("#srv-pill");
     pill.className = `pill ${cls}`;
     pill.replaceChildren(el("span", { class: `dot ${cls || "ok"}`, "aria-hidden": "true" }), el("span", {}, label));
@@ -92,13 +98,19 @@
     ])));
     renderAgentHealth(h);
     const svc = (h.services_state || {}).services || [];
+    // 4.3: up, down, rest (discontinuo fermo), pending (in attesa del primo controllo), unseen, missing
+    const LABEL = { rest: t("a riposo"), pending: t("in attesa del primo controllo"), unseen: t("non rilevato"),
+                    missing: t("inesistente su questo server") };
     $("#services").replaceChildren(...(svc.length ? svc.map((x) => {
-      const li = el("li", { class: x.up ? "up" : "down" });
-      const b = el("button", { type: "button", title: `${x.label} — ${x.unit}: ${x.state}` });
-      b.append(el("span", { class: `led ${x.up ? "up" : "down"}` }), el("span", { class: "svc-label" }, x.label));
-      if (!x.up) b.append(el("span", { class: "state" }, x.state));
+      const st = x.status || (x.up ? "up" : "down");
+      const li = el("li", { class: st });
+      const why = { unseen: t("l'agente non ne ha ancora dato lo stato: premi Aggiorna o controlla che il server sia acceso"),
+                    missing: t("su questo server non esiste un servizio con questo nome: controlla in Impostazioni → Server collegati") }[st];
+      const b = el("button", { type: "button", title: `${x.label} — ${x.unit}: ${why || x.state}` });
+      b.append(el("span", { class: `led ${st}` }), el("span", { class: "svc-label" }, x.label));
+      if (st !== "up") b.append(el("span", { class: "state" }, LABEL[st] || x.state));
       li.append(b);
-      if (h.allow_commands && !window.AM.IS_VIEWER) li.append(commandButtons(h, x));   // 4.3
+      if (h.allow_commands && !window.AM.IS_VIEWER && ["up", "down", "rest"].includes(st)) li.append(commandButtons(h, x));
       return li;
     }) : [el("li", { class: "hint" }, t("Nessun servizio indicato per questo server (Impostazioni → Server collegati)."))]));
   }
@@ -111,6 +123,10 @@
     const box = el("span", { class: "svc-cmds" });
     const key = `${h.id}:${x.unit}`;
     if (pendingCmd[key]) { box.append(el("span", { class: "svc-wait" }, t("comando in corso…"))); return box; }
+    if (x.protected) {                  // 4.3: Windows non lascia fermare o riavviare Firewall e Defender
+      box.append(el("span", { class: "svc-wait", title: t("Windows non permette di fermarlo o riavviarlo dalla gestione dei servizi") }, t("protetto da Windows")));
+      return box;
+    }
     for (const a of x.up ? ["restart", "stop"] : ["start"]) {
       const b = el("button", { type: "button", class: `svc-cmd ${a}`, title: `${ACT[a][0]} ${x.label}`, "aria-label": `${ACT[a][0]} ${x.label}` }, ACT[a][1]);
       b.addEventListener("click", () => sendCommand(h, x, a));
@@ -150,6 +166,43 @@
     if (Date.now() - started < 12 * 60_000) setTimeout(() => waitResult(h, x, id, started), 5000);
     else { delete pendingCmd[key]; renderRemote(); }
   }
+  // 4.3: "Aggiorna" su un server collegato: l'agente ricontrolla i servizi al prossimo contatto (entro un minuto)
+  window.AM.refreshRemoteServices = async () => {
+    const id = window.AM.host;
+    const btn = $("#services-refresh");
+    try {
+      await api(`/api/v1/hosts/${id}/refresh`, { method: "POST", json: {} });
+      btn.disabled = true; btn.textContent = t("richiesta inviata…");
+      const until = Date.now() + 90_000;
+      const tick = async () => { await load(); if (Date.now() < until && window.AM.host === id) setTimeout(tick, 10_000);
+                                 else { btn.disabled = false; btn.textContent = t("Aggiorna"); } };
+      setTimeout(tick, 10_000);
+    } catch (e) { toast(e.message, "error"); }
+  };
+  async function updateAgent() {
+    const h = hosts.find((x) => x.id === window.AM.host);
+    if (!h || !confirm(t("Aggiornare l'agente di {p0} dalla {p1} alla {p2}? Parte entro un minuto; l'agente tiene una copia dei file precedenti.",
+                         { p0: h.name, p1: h.agent_version, p2: document.body.dataset.version }))) return;
+    const btn = $("#srv-agent-update");
+    try {
+      const r = await api(`/api/v1/hosts/${h.id}/agent-update`, { method: "POST", json: {} });
+      btn.dataset.busy = "1"; btn.disabled = true; btn.textContent = t("aggiornamento in corso…");
+      const started = Date.now();
+      const tick = async () => {
+        const st = await api(`/api/v1/hosts/${h.id}/commands`).catch(() => null);
+        const res = st && st.results.find((x) => x.id === r.id);
+        if (res || (st && !st.pending.some((p) => p.id === r.id)) || Date.now() - started > 12 * 60_000) {
+          delete btn.dataset.busy; btn.disabled = false;
+          if (res && res.ok) toast(t("{p0}: {p1}", { p0: h.name, p1: res.detail }));
+          else toast(t("Aggiornamento non riuscito: {p0}", { p0: res ? res.detail : t("nessuna risposta") }), "error");
+          await load();
+          return;
+        }
+        setTimeout(tick, 5000);
+      };
+      setTimeout(tick, 5000);
+    } catch (e) { toast(e.message, "error"); }
+  }
   window.AM.sendServiceCommand = (hid, unit, label, action) => {
     const h = hosts.find((y) => y.id === hid);
     if (h) sendCommand(h, { unit, label }, action);
@@ -188,18 +241,65 @@
       }
     }
     $("#ah-list").replaceChildren(...items);
+    if (h.containers && h.containers.running === false) {        // 4.3: Docker installato ma fermo
+      items.push(step("wait", t("Docker"), t("installato ma non in esecuzione")));
+      $("#ah-list").replaceChildren(...items);
+    }
     $("#ah-docker").hidden = $("#ah-docker-h").hidden = !cont.length;
     $("#ah-docker tbody").replaceChildren(...cont.map((c) => row([
       { text: c.name }, { text: c.image }, { text: c.status || c.state, cls: c.state === "running" ? "" : "alert" }])));
   }
 
   // ------------------------------------------------------------ Impostazioni → Server collegati
+  // 4.3: elenco dei servizi di un server collegato, con "discontinuo" scelto già quando si aggiunge
+  function serviceEditor(services, ondemand) {
+    const od = new Set((ondemand || "").split(",").map((u) => u.trim().toLowerCase()).filter(Boolean));
+    let items = (services || "").split(",").map((u) => u.trim()).filter(Boolean).map((u) => ({ unit: u, od: od.has(u.toLowerCase()) }));
+    const box = el("div", { class: "svc-editor" });
+    const list = el("ul", { class: "svc-edit-list" });
+    const add = el("div", { class: "svc-edit-add" });
+    const name = el("input", { type: "text", maxlength: "200", placeholder: t("nome del servizio, es. Spooler o ssh.service"),
+                               "aria-label": t("Nome del servizio da aggiungere") });
+    const odNew = el("input", { type: "checkbox", "aria-label": t("Discontinuo") });
+    const odLab = el("label", { class: "check-row" }); odLab.append(odNew, el("span", {}, t("discontinuo")));
+    const addB = el("button", { type: "button", class: "ghost" }, t("+ Aggiungi"));
+    function draw() {
+      list.replaceChildren(...(items.length ? items.map((it, i) => {
+        const li = el("li");
+        const cb = el("input", { type: "checkbox", "aria-label": t("{p0} discontinuo", { p0: it.unit }) });
+        cb.checked = it.od;
+        cb.addEventListener("change", () => { it.od = cb.checked; });
+        const lab = el("label", { class: "check-row", title: t("Parte solo quando serve: fermo non è un guasto, nessun avviso") });
+        lab.append(cb, el("span", {}, t("discontinuo")));
+        const rm = el("button", { type: "button", class: "ghost danger", "aria-label": t("Togli {p0}", { p0: it.unit }) }, "✕");
+        rm.addEventListener("click", () => { items.splice(i, 1); draw(); });
+        li.append(el("code", {}, it.unit), lab, rm);
+        return li;
+      }) : [el("li", { class: "hint" }, t("Nessun servizio controllato."))]));
+    }
+    function doAdd() {
+      const u = name.value.trim();
+      if (!u) return;
+      if (/[,\s]/.test(u)) { toast(t("Un servizio per volta, senza spazi né virgole"), "error"); return; }
+      if (!items.some((x) => x.unit.toLowerCase() === u.toLowerCase())) items.push({ unit: u, od: odNew.checked });
+      name.value = ""; odNew.checked = false; draw(); name.focus();
+    }
+    addB.addEventListener("click", doAdd);
+    name.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); doAdd(); } });
+    add.append(name, odLab, addB);
+    box.append(list, add);
+    draw();
+    return { node: box,
+             value: () => ({ services: items.map((x) => x.unit).join(","), services_ondemand: items.filter((x) => x.od).map((x) => x.unit) }),
+             reset: () => { items = []; draw(); } };
+  }
+
   function renderAdmin() {
     $("#hosts-admin tbody").replaceChildren(...hosts.filter((h) => h.kind !== "local").map((h) => {
-      const input = el("input", { type: "text", value: h.services || "", "aria-label": t("Servizi controllati") });
+      const editor = serviceEditor(h.services, h.services_ondemand);
       const save = el("button", { type: "button", class: "ghost" }, t("Salva"));
       save.addEventListener("click", async () => {
-        try { await api(`/api/v1/hosts/${h.id}`, { method: "PUT", json: { services: input.value } }); toast(t("Servizi salvati: l'agente li riceve al prossimo invio.")); load(); }
+        try { await api(`/api/v1/hosts/${h.id}`, { method: "PUT", json: editor.value() }); toast(t("Servizi salvati: l'agente li controlla entro un minuto.")); load(); }
         catch (e) { toast(e.message, "error"); }
       });
       const token = el("button", { type: "button", class: "ghost" }, t("Nuovo token"));
@@ -218,8 +318,7 @@
       conf.addEventListener("click", () => openSettings(h));
       const actions = el("div", { class: "row-actions" });
       actions.append(save, conf, token, del);
-      const svcBox = el("div");
-      svcBox.append(input);
+      const svcBox = editor.node;
       return row([
         { text: h.name, label: t("Nome") }, { text: h.os_info || (h.kind === "windows" ? "Windows" : "Linux"), label: t("Sistema") },
         { text: t(STATUS[h.status][1]), cls: STATUS[h.status][0], label: t("Stato") },
@@ -269,6 +368,7 @@
     $$("#hs-form .remote-only-field").forEach((x) => { x.hidden = !remote; });
     f.notify_offline.checked = editing.notify_offline !== false;
     f.allow_commands.checked = !!editing.allow_commands;
+
     f.allow_update.checked = !!editing.allow_update;
     for (const k of ["offline_minutes", "disk_warning", "disk_alert", "temp_warning", "temp_alert", "cpu_warning", "cpu_alert", "mem_warning", "mem_alert"]) {
       f[k].value = editing[k] ?? "";
@@ -287,6 +387,7 @@
     if (editing.kind !== "local") {
       data.notify_offline = f.notify_offline.checked;
       data.allow_commands = f.allow_commands.checked;
+
       data.allow_update = f.allow_update.checked;
       data.offline_minutes = f.offline_minutes.value === "" ? null : Number(f.offline_minutes.value);
     }
@@ -305,13 +406,15 @@
     }
   }
 
+  let newEditor = null;
   async function create(ev) {
     ev.preventDefault();
     const f = ev.target.elements;
     try {
-      const r = await api("/api/v1/hosts", { method: "POST", json: { name: f.name.value, kind: f.kind.value, services: f.services.value } });
+      const r = await api("/api/v1/hosts", { method: "POST", json: { name: f.name.value, kind: f.kind.value, ...newEditor.value() } });
       showInstall(f.name.value, f.kind.value, r);
       ev.target.reset();
+      newEditor.reset();
       load().then(renderAdmin);
     } catch (e) { toast(e.message, "error"); }
   }
@@ -330,8 +433,11 @@
     every(60_000, load, "server");
     window.AM.onView("server", load);
     if (window.AM.IS_VIEWER) return;
+    newEditor = serviceEditor("", "");
+    $("#host-new-services").append(newEditor.node);
     $("#hs-form").addEventListener("submit", saveSettings);
     $("#hs-cancel").addEventListener("click", () => $("#host-settings").close());
+    $("#srv-agent-update").addEventListener("click", updateAgent);
     $("#srv-settings").addEventListener("click", () => { const h = hosts.find((x) => x.id === window.AM.host); if (h) openSettings(h); });
     $("#host-form").addEventListener("submit", create);
     $("#form-hosts").addEventListener("submit", saveOffline);

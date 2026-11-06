@@ -1,5 +1,20 @@
 # Changelog
 
+## 4.3.0.dev3 — on-demand chosen when adding a service (test build, not a Release)
+
+- **Settings → Connected servers**: the comma-separated field becomes a list of services, each with its **on demand** box and a remove button, plus a row to add a service with the box already chosen. The same list is used in *Add a server*. The *On-demand services* section of the server settings window is removed: one place only, where services are added.
+
+## 4.3.0.dev2 — agent update from the dashboard, on-demand services, stage 2 of 2 (test build, not a Release)
+
+- **Update the Windows agent from the dashboard**: *Update agent to …* in the server detail when the agent version differs from the central one (permission *Allow updating the agent* on the central server and `-AllowUpdate` on the agent). Signed command, signed package with file hashes, syntax check, copy of the previous files, result in the history. Linux agents: `install.sh --agent … --update` for now.
+- **On-demand services**: per-service switch (Settings of this server for connected servers, *On demand* column in Settings → Services for the central server). When stopped they are *idle*, with no alerts and no entry in *To check*; start and stop are information events.
+- **Newly added services** show straight away as *waiting for the first check*, then *not detected* after 5 minutes, or *does not exist on this server* for a wrong name (no alerts). The agent reports the state of new services within a minute; **Refresh** in the Services panel makes the agent check again.
+- Windows Firewall and Defender are marked *protected by Windows* (no stop/restart buttons).
+- The installation command of *New token* includes `-AllowCommands` / `-AllowUpdate` when the switches are on.
+- Agents: separate messages for "permission not given" and "command key missing"; failed commands logged as WARN; Docker installed but not running is shown as such, without repeating an error every 5 minutes.
+- Database migration 0009 (`services_ondemand` in `hosts`, `ondemand` in `monitored_services`).
+- Guide: on-demand and newly added services, updating the agent from the dashboard (IT/EN).
+
 ## 4.3.0.dev1 — commands to the services of connected servers, stage 1 of 2 (test build, not a Release)
 
 - **Start, stop and restart** the checked services of a connected server from the dashboard: buttons next to each service in the server detail, **Start** in *To check* for a stopped service. The command travels in the answer to the agent's data (no port opened on the agent), starts within a minute, and its result comes back as an event in the server history.

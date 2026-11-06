@@ -93,6 +93,13 @@ def clean_settings(data: dict, hid: int) -> dict:
         for k in ("notify_offline", "allow_commands", "allow_update"):
             if k in data:
                 out[k] = bool(data[k])
+        if "services_ondemand" in data:                     # 4.3: servizi discontinui (elenco o testo con virgole)
+            v = data["services_ondemand"]
+            lst = v if isinstance(v, list) else str(v or "").split(",")
+            lst = [str(u).strip() for u in lst if str(u).strip()]
+            if len(lst) > 60 or not all(len(u) <= 200 and "," not in u for u in lst):
+                raise HostError("Servizi discontinui non validi")
+            out["services_ondemand"] = ",".join(dict.fromkeys(lst)) or None
         if "offline_minutes" in data:
             v = data["offline_minutes"]
             if v in (None, ""):
@@ -120,6 +127,51 @@ def only_configured(state: dict | None, services: str | None) -> dict | None:
     return {**state, "services": [s for s in state.get("services", []) if str(s.get("unit", "")).lower() in keep]}
 
 
+UNSEEN_MINUTES = 5          # 4.3: dopo, un servizio aggiunto e mai visto dall'agente è "non rilevato"
+PROTECTED_WINDOWS = {"mpssvc", "windefend", "wscsvc", "securityhealthservice", "wdnissvc", "sense"}
+
+
+def units(text: str | None) -> list[str]:
+    return [u.strip() for u in (text or "").split(",") if u.strip()]
+
+
+def with_expected(conn, h: dict, now: dt.datetime) -> dict:
+    """4.3: lo stato dei servizi come lo mostra la dashboard.
+
+    - ogni servizio porta ondemand (discontinuo: fermo non è un guasto);
+    - un servizio configurato ma non ancora nello stato inviato dall'agente compare "in attesa del primo
+      controllo" (pending), e dopo UNSEEN_MINUTES "non rilevato" (unseen);
+    - "not-found" dall'agente diventa "inesistente su questo server" (missing).
+    """
+    state = h.get("services_state") or {"services": []}
+    conf = units(h.get("services"))
+    od = {u.lower() for u in units(h.get("services_ondemand"))}
+    added = db.state_get(conn, f"host:{h['id']}:services_added") or {}
+    seen = {}
+    for s in state.get("services", []):
+        s = dict(s)
+        s["ondemand"] = s["unit"].lower() in od
+        s["protected"] = h.get("kind") == "windows" and s["unit"].lower() in PROTECTED_WINDOWS
+        if s.get("state") in ("not-found", "not found", "missing"):
+            s["status"] = "missing"
+        elif s.get("up"):
+            s["status"] = "up"
+        else:
+            s["status"] = "rest" if s["ondemand"] else "down"
+        seen[s["unit"].lower()] = s
+    out = []
+    for u in conf:
+        s = seen.get(u.lower())
+        if s is None:
+            since = added.get(u) or state.get("time")
+            old = since and (now - dt.datetime.fromisoformat(str(since)[:19])).total_seconds() > UNSEEN_MINUTES * 60
+            s = {"unit": u, "label": u, "up": None, "state": "unseen" if old else "pending",
+                 "status": "unseen" if old else "pending", "ondemand": u.lower() in od,
+                 "protected": h.get("kind") == "windows" and u.lower() in PROTECTED_WINDOWS}
+        out.append(s)
+    return {**state, "services": out}
+
+
 def prune_services(conn, hid: int) -> None:
     """Toglie subito dallo stato salvato i servizi non più controllati (dopo una modifica dell'elenco)."""
     services = db.scalar(conn, select(H.c.services).where(H.c.id == hid))
@@ -127,6 +179,17 @@ def prune_services(conn, hid: int) -> None:
     state = db.state_get(conn, key)
     if state:
         db.state_set(conn, key, only_configured(state, services or ""))
+    # 4.3: quando è stato aggiunto ogni servizio (per "in attesa" / "non rilevato") e richiesta di controllo immediato
+    added = db.state_get(conn, f"host:{hid}:services_added") or {}
+    now_iso = dt.datetime.now().isoformat(timespec="seconds")
+    added = {u: added.get(u) or now_iso for u in units(services)}
+    db.state_set(conn, f"host:{hid}:services_added", added)
+    request_refresh(conn, hid)
+
+
+def request_refresh(conn, hid: int) -> None:
+    """4.3: chiede all'agente di ricontrollare e rimandare subito lo stato dei servizi (richiesta innocua)."""
+    db.state_set(conn, f"host:{hid}:refresh", {"time": dt.datetime.now().isoformat(timespec="seconds")})
 
 
 def create(conn, name: str, kind: str, services: str = "") -> tuple[int, str]:
@@ -187,6 +250,8 @@ def listing(conn, offline_minutes: int) -> list[dict]:
                            else "DOWN" if (now - seen).total_seconds() > mins * 60 else "OK")
         h["snapshot"] = db.state_get(conn, f"host:{h['id']}:snapshot")
         h["services_state"] = only_configured(db.state_get(conn, f"host:{h['id']}:services"), h.get("services"))
+        if h["id"] != LOCAL_ID:
+            h["services_state"] = with_expected(conn, h, now)                 # 4.3: discontinui e in attesa
         if h["id"] != LOCAL_ID:                                    # 4.2: dati di salute e Docker degli agenti
             h["health"] = db.state_get(conn, f"host:{h['id']}:health")
             h["containers"] = db.state_get(conn, f"host:{h['id']}:containers")
@@ -296,7 +361,9 @@ def _item(conn, host: dict, it, now: dt.datetime, metrics: list, temps: list, la
         conts = it.get("containers") or []
         if not isinstance(conts, list) or len(conts) > 200:
             raise HostError("container non validi")
-        db.state_set(conn, f"host:{hid}:containers", {"time": t.isoformat(timespec="seconds"), "containers": [
+        db.state_set(conn, f"host:{hid}:containers", {"time": t.isoformat(timespec="seconds"),
+                                                      "running": it.get("running", True) is not False,     # 4.3: Docker fermo
+                                                      "detail": _txt(it.get("detail"), 200), "containers": [
             {"name": _txt(c.get("name"), 120), "image": _txt(c.get("image"), 200), "state": _txt(c.get("state"), 20),
              "status": _txt(c.get("status"), 80), "health": _txt(c.get("health"), 20) or None,
              "restart_policy": _txt(c.get("restart_policy"), 20)} for c in conts if isinstance(c, dict)]})
@@ -357,8 +424,11 @@ def _finish(conn, host, agent, items, metrics, temps, latest, rejected, now) -> 
     conn.execute(update(H).where(H.c.id == hid).values(**vals))
     answer = {"ok": True, "accepted": len(items) - len(rejected), "rejected": rejected[:20],
               "services": [u for u in (host.get("services") or "").split(",") if u]}
-    if host.get("allow_commands"):                        # 4.3: comandi in attesa per questo agente
+    if host.get("allow_commands") or host.get("allow_update"):   # 4.3: comandi in attesa per questo agente
         answer["commands"] = pending_commands(conn, hid, now)
+    if db.state_get(conn, f"host:{hid}:refresh"):          # 4.3: "Aggiorna" o servizi cambiati
+        answer["refresh"] = True
+        db.state_set(conn, f"host:{hid}:refresh", None)
     return answer
 
 
@@ -396,7 +466,7 @@ def command_status(conn, hid: int) -> dict:
             "results": st["results"][-10:]}
 
 
-ACTION_LABEL = {"start": "avviato", "stop": "fermato", "restart": "riavviato"}
+ACTION_LABEL = {"start": "avviato", "stop": "fermato", "restart": "riavviato", "update": "aggiornato"}
 
 
 def _command_result(conn, host: dict, it: dict, t: dt.datetime) -> None:
@@ -414,7 +484,11 @@ def _command_result(conn, host: dict, it: dict, t: dt.datetime) -> None:
     db.state_set(conn, f"host:{hid}:commands", st)
     label = next((s.get("label") for s in (db.state_get(conn, f"host:{hid}:services") or {}).get("services", [])
                   if s.get("unit") == match["unit"]), match["unit"])
-    if ok:
+    if match["action"] == "update":
+        events.record(conn, "host", "info" if ok else "warning",
+                      (f"Agente aggiornato dalla dashboard ({match['by']})" if ok else f"Aggiornamento dell'agente non riuscito ({match['by']})"),
+                      detail, ref=f"cmd:{hid}:{cid}", when=t, host_id=hid)
+    elif ok:
         events.record(conn, "service", "info", f"Servizio {label} {ACTION_LABEL[match['action']]} dalla dashboard ({match['by']})",
                       detail, ref=f"cmd:{hid}:{cid}", when=t, host_id=hid)
     else:
@@ -426,10 +500,15 @@ def _services(conn, host: dict, current: list[dict], t: dt.datetime) -> None:
     """Stato dei servizi dell'agente; un evento a ogni cambio (fermo / ripartito)."""
     hid = host["id"]
     prev = {s["unit"]: s for s in (db.state_get(conn, f"host:{hid}:services") or {}).get("services", [])}
+    od = {u.lower() for u in units(host.get("services_ondemand"))}
     for s in current:
         p = prev.get(s["unit"])
-        if p is not None and p["up"] != s["up"]:
-            events.record(conn, "service", "info" if s["up"] else "alert",
-                          f"Servizio {s['label']} ripartito" if s["up"] else f"Servizio {s['label']} fermo",
-                          s["state"], when=t, host_id=hid)
+        if p is not None and p["up"] != s["up"] and s.get("state") != "not-found":
+            if s["unit"].lower() in od:                    # 4.3: discontinuo, avvio e arresto sono normali
+                events.record(conn, "service", "info", f"Servizio {s['label']} {'avviato' if s['up'] else 'fermato'}",
+                              s["state"], when=t, host_id=hid)
+            else:
+                events.record(conn, "service", "info" if s["up"] else "alert",
+                              f"Servizio {s['label']} ripartito" if s["up"] else f"Servizio {s['label']} fermo",
+                              s["state"], when=t, host_id=hid)
     db.state_set(conn, f"host:{hid}:services", {"time": t.isoformat(timespec="seconds"), "services": current})

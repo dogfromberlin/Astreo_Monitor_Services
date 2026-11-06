@@ -70,6 +70,8 @@ def main(cfg: Config, dry_run: bool) -> int:
                                        tr("{nome} al {pct}%", nome=tr(label), pct=round(v)) + " · "
                                        + tr("Soglie: warning {w}%, alert {a}%", w=lim[w], a=lim[a2])))
                 for s in (h["services_state"] or {}).get("services", []):
+                    if s.get("status") in ("pending", "unseen", "missing", "rest") or s.get("ondemand") and not s["up"]:
+                        continue                                  # 4.3: discontinui, in attesa, inesistenti: niente avvisi
                     st = "OK" if s["up"] else "ALERT"
                     checks.append((f"service:{s['unit']}", "services", st,
                                    f"[{name}] " + (tr("Servizio {nome} di nuovo attivo", nome=s["label"]) if s["up"]

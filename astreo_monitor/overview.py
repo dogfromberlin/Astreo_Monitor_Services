@@ -49,7 +49,8 @@ def _local_host(cfg, row: dict, svc: list[dict], values: dict | None = None) -> 
         "uptime_s": snap["uptime"]["uptime_s"], "cpu_pct": round(snap["cpu_pct"], 1),
         "mem_pct": snap["memory"]["used_pct"], "disk_pct": snap["root_disk_pct"], "disks": disks,
         "temperature_max": max((t["value"] for t in temps), default=None),
-        "services": [{"unit": s["unit"], "label": s["label"], "up": s["up"], "state": s["state"]} for s in svc],
+        "services": [{"unit": s["unit"], "label": s["label"], "up": s["up"], "state": s["state"], "ondemand": bool(s.get("ondemand")),
+                      "status": "up" if s["up"] else ("rest" if s.get("ondemand") else "down")} for s in svc],
         "notify_offline": True, "limits": hosts_mod.limits(row, cfg, values),
     }
 
@@ -68,7 +69,9 @@ def _remote_host(h: dict, cfg, values: dict | None = None) -> dict:
         "disk_pct": max((d["used_pct"] for d in disks), default=snap.get("disk_used_pct")) if online else None,
         "disks": disks if online else [],
         "temperature_max": snap.get("temperature_max") if online else None,
-        "services": [{"unit": s["unit"], "label": s["label"], "up": bool(s["up"]), "state": s.get("state")}
+        "services": [{"unit": s["unit"], "label": s["label"], "up": bool(s["up"]), "state": s.get("state"),
+                      "ondemand": bool(s.get("ondemand")), "status": s.get("status") or ("up" if s["up"] else "down"),
+                      "protected": bool(s.get("protected"))}
                      for s in (h.get("services_state") or {}).get("services", [])] if online else [],
         "notify_offline": bool(h.get("notify_offline", True)), "limits": hosts_mod.limits(h, cfg, values),
         "health": h.get("health"), "containers": (h.get("containers") or {}).get("containers"),
@@ -139,6 +142,12 @@ def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.d
                 action={"kind": "view", "view": "impostazioni"})
             continue
         for s in h["services"]:
+            if s.get("status") == "missing":                       # 4.3: nome sbagliato, non un guasto
+                add("info", f"service:{h['id']}:{s['unit']}", f"{h['name']} · " + _("servizio {p0} inesistente su questo server", p0=s["unit"]),
+                    _("controlla il nome in Impostazioni → Server collegati"), host=h["id"], action={"kind": "host", "host": h["id"]})
+                continue
+            if s.get("status") in ("pending", "unseen", "rest"):
+                continue
             if not s["up"]:
                 add("alert", f"service:{h['id']}:{s['unit']}", f"{h['name']} · " + _("servizio {p0} fermo", p0=s["label"]),
                     _("stato: {p0}", p0=s["state"] or "–") + " · " + _("se non serve più, toglilo dai servizi controllati"),
@@ -262,7 +271,7 @@ def build(conn, cfg, lang: str, offline_minutes: int) -> dict:
 
     active = [h for h in hosts if h["enabled"] and (h["status"] != "DOWN" or h["notify_offline"])]
     reachable = [h for h in active if h["status"] == "OK"]
-    svc = [s for h in reachable for s in h["services"]]
+    svc = [s for h in reachable for s in h["services"] if s.get("status", "up" if s["up"] else "down") in ("up", "down")]
     conn_info = _connection(conn, now)
     backup = _backup(conn, values)
     todo = _todo(conn, cfg, hosts, conn_info, backup, now, lang, values)
@@ -291,7 +300,7 @@ def build(conn, cfg, lang: str, offline_minutes: int) -> dict:
         "hosts": hosts,
         "services": {"total": len(svc), "up": sum(1 for s in svc if s["up"]),
                      "down": [{"host": h["name"], "host_id": h["id"], "label": s["label"]}
-                              for h in reachable for s in h["services"] if not s["up"]]},
+                              for h in reachable for s in h["services"] if s.get("status", "down") == "down"]},
         "connection": conn_info,
         "backup": backup,
         "todo": todo,

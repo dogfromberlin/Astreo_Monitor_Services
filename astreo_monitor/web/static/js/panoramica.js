@@ -192,7 +192,7 @@
   function hostCard(h, d) {
     const problems = d.todo.filter((x) => x.host === h.id);
     const worst = problems.length ? problems[0].severity : null;
-    const stopped = h.services.filter((s) => !s.up);
+    const stopped = h.services.filter((s) => (s.status || (s.up ? "up" : "down")) === "down");
     let [cls, label] = STATUS[h.status] || ["wait", h.status];
     if (h.status === "DOWN" && h.notify_offline === false) [cls, label] = ["wait", t("spento")];   // 4.2
     if (h.status === "OK" && stopped.length) {
@@ -228,8 +228,13 @@
       a.append(m);
       if (h.services.length) {
         const chips = el("div", { class: "chips" });
-        const sorted = [...stopped, ...h.services.filter((s) => s.up)];
-        sorted.slice(0, 8).forEach((s) => chips.append(el("span", { class: s.up ? "" : "down" }, s.up ? s.label : `${s.label} · ${t("fermo")}`)));
+        const sorted = [...stopped, ...h.services.filter((s) => !stopped.includes(s))];
+        sorted.slice(0, 8).forEach((s) => {
+          const st = s.status || (s.up ? "up" : "down");               // 4.3: a riposo / in attesa non sono guasti
+          const txt = st === "up" ? s.label : st === "down" ? `${s.label} · ${t("fermo")}` : st === "rest" ? `${s.label} · ${t("a riposo")}`
+            : st === "missing" ? `${s.label} · ${t("inesistente")}` : `${s.label} · ${t("in attesa")}`;
+          chips.append(el("span", { class: st === "down" ? "down" : st === "up" ? "" : "rest" }, txt));
+        });
         if (sorted.length > 8) chips.append(el("span", { class: "more" }, t("+{p0} altri", { p0: sorted.length - 8 })));
         a.append(chips);
       }

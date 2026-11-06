@@ -292,6 +292,8 @@
     label.addEventListener("change", () => update(s, { label: label.value.trim() || s.unit }));
     const monSw = switchEl(s.monitored, `Monitora ${s.unit}`, (v) => update(s, { monitored: v }));
     const ntf = switchEl(s.notify, t("Avvisami per {p0}", { p0: s.unit }), (v) => update(s, { notify: v, monitored: v ? true : s.monitored }));
+    // 4.3: discontinuo = parte solo quando serve; fermo è "a riposo", senza avvisi
+    const odm = switchEl(s.ondemand, t("{p0} discontinuo", { p0: s.unit }), (v) => update(s, { ondemand: v, monitored: v ? true : s.monitored }));
     const order = el("div", { class: "order" });
     if (s.monitored) {
       const i = mon.indexOf(s);
@@ -302,7 +304,7 @@
       dnB.addEventListener("click", () => move(i, 1));
       order.append(upB, dnB);
     }
-    [[t("Stato"), led], [t("Servizio"), name], [t("Etichetta"), label], [t("Monitora"), monSw], [t("Avvisami"), ntf], [t("Ordine"), order]].forEach(([l, node]) => {
+    [[t("Stato"), led], [t("Servizio"), name], [t("Etichetta"), label], [t("Monitora"), monSw], [t("Avvisami"), ntf], [t("Discontinuo"), odm], [t("Ordine"), order]].forEach(([l, node]) => {
       const td = el("td", { "data-label": l }); td.append(node); tr.append(td);
     });
     return tr;
@@ -328,7 +330,7 @@
   async function update(s, changes) {
     try {
       const r = await api(`/api/v1/settings/services/${encodeURIComponent(s.unit)}`, { method: "PUT", json: changes });
-      Object.assign(s, { monitored: Boolean(r.enabled), notify: Boolean(r.notify), label: r.label, sort_order: r.sort_order });
+      Object.assign(s, { monitored: Boolean(r.enabled), notify: Boolean(r.notify), ondemand: Boolean(r.ondemand), label: r.label, sort_order: r.sort_order });
       renderServices(false);
       toast(`${r.label}: salvato`);
       document.dispatchEvent(new Event("services-changed"));

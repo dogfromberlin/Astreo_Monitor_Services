@@ -207,7 +207,7 @@ def create_app(cfg: Config) -> Flask:
         if request.path in TOKEN_PATHS and request.method == "GET" and bearer_ok():
             g.role = "integration"
             return None
-        if request.path in ("/api/v1/agents/ingest", "/api/v1/agents/commands-key"):   # solo il token di un agente
+        if request.path in ("/api/v1/agents/ingest", "/api/v1/agents/commands-key", "/api/v1/agents/update-package"):
             return agent_auth()
         auth = request.authorization
         if (
@@ -387,6 +387,7 @@ def create_app(cfg: Config) -> Flask:
         for u in services.catalog():
             s = stored.get(u["unit"])
             out.append({**u, "monitored": bool(s and s["enabled"]), "notify": bool(s and s["notify"]),
+                        "ondemand": bool(s and s.get("ondemand")),
                         "label": s["label"] if s else u["unit"].removesuffix(".service"),
                         "sort_order": s["sort_order"] if s else None})
         # servizi salvati ma non più presenti su astreo
@@ -404,7 +405,7 @@ def create_app(cfg: Config) -> Flask:
         with db.connect(cfg.database) as conn:
             try:
                 row = services_store.upsert(conn, unit, enabled=data.get("monitored"), notify=data.get("notify"),
-                                            label=data.get("label"))
+                                            label=data.get("label"), ondemand=data.get("ondemand"))
             except ValueError as exc:
                 abort(400, description=str(exc))
         return jsonify(row)
@@ -864,6 +865,41 @@ def create_app(cfg: Config) -> Flask:
         log.info("Comando %s %s su %s da %s", action, unit, host["name"], user)
         return jsonify({"ok": True, "id": signed["id"], "expires": expires})
 
+    PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    @app.post("/api/v1/hosts/<int:hid>/agent-update")
+    def api_host_agent_update(hid: int):
+        """4.3: chiede all'agente di aggiornarsi alla versione del centrale (comando firmato, permesso separato)."""
+        _ = i18n.translator(current_language())
+        key = commands_mod.key_path(cfg.path)
+        if not os.path.exists(key):
+            abort(503, description=_("Chiave dei comandi mancante sul centrale: rilancia update.sh"))
+        user = (request.authorization.username if request.authorization else "") or "admin"
+        with db.connect(cfg.database) as conn:
+            from sqlalchemy import select as sa_select
+            host = db.one(conn, sa_select(models.hosts).where(models.hosts.c.id == hid))
+            if not host or hid == hosts_mod.LOCAL_ID:
+                abort(404, description=_("Server inesistente"))
+            if not host["allow_update"]:
+                abort(403, description=_("Aggiornamento non consentito per questo server (Impostazioni di questo server)"))
+            if host["kind"] != "windows":
+                abort(400, description=_("Dalla dashboard si aggiornano per ora solo gli agenti Windows; su Linux: install.sh --agent … --update"))
+            if not host["token_hash"]:
+                abort(409, description=_("Agente senza token: generane uno nuovo e reinstallalo"))
+            signed = commands_mod.build(key, host["token_hash"][:24], commands_mod.UPDATE, "", user, version=__version__)
+            hosts_mod.queue_command(conn, host, signed, commands_mod.UPDATE, "(agente)", user, commands_mod.parse(signed)["expires"])
+        log.info("Aggiornamento dell'agente %s alla %s chiesto da %s", host["name"], __version__, user)
+        return jsonify({"ok": True, "id": signed["id"], "version": __version__})
+
+    @app.post("/api/v1/agents/update-package")
+    def api_agent_update_package():
+        """4.3: file dell'agente Windows, firmati; lo chiede l'agente dopo aver verificato il comando di aggiornamento."""
+        host = g.host
+        if not host.get("allow_update") or host.get("kind") != "windows":
+            return jsonify({"error": "Forbidden"}), 403
+        key = commands_mod.key_path(cfg.path)
+        return jsonify(commands_mod.windows_package(PROJECT_DIR, key, host["token_hash"][:24], __version__))
+
     @app.get("/api/v1/hosts/<int:hid>/commands")
     def api_host_commands(hid: int):
         with db.connect(cfg.database) as conn:
@@ -902,7 +938,7 @@ def create_app(cfg: Config) -> Flask:
         with db.connect(cfg.database) as conn:
             return jsonify(ui_prefs.save(conn, prefs_user(), data))
 
-    def install_commands(hid: int, kind: str, token: str) -> dict:
+    def install_commands(hid: int, kind: str, token: str, allow_commands: bool = False, allow_update: bool = False) -> dict:
         import hashlib
         base = request.host_url.rstrip("/")
         try:
@@ -911,9 +947,12 @@ def create_app(cfg: Config) -> Flask:
             ca_sha = ""
         if kind == "windows":
             cmd = (f"powershell -ExecutionPolicy Bypass -File .\\agent\\windows\\install-agent.ps1 "
-                   f"-Central {base} -Token {token}" + (f" -CaSha256 {ca_sha}" if ca_sha else ""))
+                   f"-Central {base} -Token {token}" + (f" -CaSha256 {ca_sha}" if ca_sha else "")
+                   + (" -AllowCommands" if allow_commands else "") + (" -AllowUpdate" if allow_update else ""))
         else:
-            cmd = (f"sudo bash install.sh --agent {base} --token {token}" + (f" --ca-sha256 {ca_sha}" if ca_sha else ""))
+            cmd = (f"sudo bash install.sh --agent {base} --token {token}" + (f" --ca-sha256 {ca_sha}" if ca_sha else "")
+                   + (" --allow-commands" if allow_commands else "") + (" --allow-update" if allow_update else ""))
+        # 4.3: le opzioni seguono gli interruttori "Consenti comandi / aggiornamento" del server sul centrale
         return {"id": hid, "token": token, "command": cmd, "ca_sha256": ca_sha}
 
     @app.post("/api/v1/hosts")
@@ -922,14 +961,25 @@ def create_app(cfg: Config) -> Flask:
         with db.connect(cfg.database) as conn:
             hid, token = hosts_mod.create(conn, str(data.get("name", "")), str(data.get("kind", "")),
                                           str(data.get("services", "")))
+            if data.get("services_ondemand"):                   # 4.3: discontinui scelti già alla creazione
+                vals = hosts_mod.clean_settings({"services_ondemand": data["services_ondemand"]}, hid)
+                conn.execute(sa_update(models.hosts).where(models.hosts.c.id == hid).values(**vals))
         return jsonify(install_commands(hid, data.get("kind"), token)), 201
 
     @app.post("/api/v1/hosts/<int:hid>/token")
     def api_host_token(hid: int):
         with db.connect(cfg.database) as conn:
             token = hosts_mod.regenerate(conn, hid)
-            kind = db.scalar(conn, sa_select(models.hosts.c.kind).where(models.hosts.c.id == hid))
-        return jsonify(install_commands(hid, kind, token))
+            row = db.one(conn, sa_select(models.hosts.c.kind, models.hosts.c.allow_commands, models.hosts.c.allow_update)
+                         .where(models.hosts.c.id == hid)) or {}
+        return jsonify(install_commands(hid, row.get("kind"), token, bool(row.get("allow_commands")), bool(row.get("allow_update"))))
+
+    @app.post("/api/v1/hosts/<int:hid>/refresh")
+    def api_host_refresh(hid: int):
+        """4.3: "Aggiorna" sui servizi di un server collegato: l'agente li ricontrolla al prossimo contatto."""
+        with db.connect(cfg.database) as conn:
+            hosts_mod.request_refresh(conn, hid)
+        return jsonify({"ok": True})
 
     @app.put("/api/v1/hosts/<int:hid>")
     def api_host_update(hid: int):

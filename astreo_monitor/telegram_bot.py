@@ -249,7 +249,9 @@ class Bot:
         icon = {"OK": "🟢", "DOWN": "🔴", "WAITING": "⚪", "DISABLED": "⚪"}
         svc = (h.get("services_state") or {}).get("services", [])
         if services_only:
-            body = "\n".join(f"{'🟢' if x['up'] else '🔴'} {x['label']} ({x.get('state') or '–'})" for x in svc) or \
+            ico = {"up": "🟢", "down": "🔴", "rest": "⚪", "pending": "⏳", "unseen": "⚪", "missing": "🟡"}
+            body = "\n".join(f"{ico.get(x.get('status') or ('up' if x['up'] else 'down'), '⚪')} {x['label']} ({x.get('state') or '–'})"
+                             for x in svc) or \
                 self.tr("Nessun servizio indicato per questo server (Impostazioni → Server collegati).")
             self.send(chat, self.tr("Servizi di {p0}:", p0=h["name"]) + "\n" + body)
             return
@@ -265,7 +267,7 @@ class Bot:
                                  cpu=f"{snap.get('cpu_pct') or 0:.0f}", ram=f"{snap.get('mem_used_pct') or 0:.0f}",
                                  disco=f"{snap.get('disk_used_pct') or 0:.0f}", g=up.days, o=up.seconds // 3600)
                          + (f" · {snap['temperature_max']:.0f} °C" if snap.get("temperature_max") is not None else ""))
-            down = [x["label"] for x in svc if not x["up"]]
+            down = [x["label"] for x in svc if x.get("status", "up" if x["up"] else "down") == "down"]   # 4.3
             lines.append(("🟢 " + self.tr("Servizi: tutti attivi ({n})", n=len(svc))) if not down
                          else "🔴 " + self.tr("Servizi fermi: {elenco}", elenco=", ".join(down)))
         hl = h.get("health") or {}

@@ -75,6 +75,7 @@ monitored_services = Table(
     Column("unit", String(255), primary_key=True), Column("label", Unicode(100), nullable=False),
     Column("enabled", Boolean, nullable=False, server_default="1"),
     Column("notify", Boolean, nullable=False, server_default="0"),
+    Column("ondemand", Boolean, nullable=False, server_default="0"),      # 4.3: servizio discontinuo
     Column("sort_order", Integer, nullable=False, server_default="0"),
     Column("updated_at", TS, nullable=False),
 )
@@ -172,6 +173,7 @@ hosts = Table(
     Column("mem_warning", Float), Column("mem_alert", Float),
     Column("allow_commands", Boolean, nullable=False, server_default="0"),   # 4.3: comandi ai servizi
     Column("allow_update", Boolean, nullable=False, server_default="0"),     # 4.3: aggiornamento dell'agente
+    Column("services_ondemand", Unicode(2000)),                              # 4.3: servizi discontinui
     Index("UX_hosts_token", "token_hash", unique=True, mssql_where=Column("token_hash").isnot(None),
           postgresql_where=Column("token_hash").isnot(None), sqlite_where=Column("token_hash").isnot(None)),
 )
