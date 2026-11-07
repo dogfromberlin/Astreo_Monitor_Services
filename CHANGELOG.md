@@ -1,43 +1,18 @@
 # Changelog
 
-## 4.3.0.dev6 — alignment fixes (test build, not a Release)
+## 4.3.0 — commands to the services of connected servers, agent update from the dashboard, on-demand services
 
-- Services list: the **…** button (or the lock) comes before the state, which stays aligned on the far right; the actions menu opens right under its button.
-- *Add a server* no longer overflows the frame on narrower windows (form sections could grow wider than the page).
-
-## 4.3.0.dev5 — services list (test build, not a Release)
-
-- **Services panel as a list of rows** (central and connected servers): full service name, state on the right (*running*, *stopped*, *idle*, *waiting for the first check*, *not detected*, *does not exist*, *· protected* with a lock) and one **…** button that opens the actions (Restart, Stop in red, or Start). No more truncated names or loose labels between cards.
-- *Add a server*: the empty services box spans the whole column and the add row wraps instead of overflowing.
-
-## 4.3.0.dev4 — design touches (test build, not a Release)
-
-- Start, restart and stop buttons of the services use the project's line icons instead of text symbols.
-- **Settings → Connected servers**: one card per server (name, system, agent, last data, state, actions at the top; services below, *Save services* at the bottom right) instead of a wide table; *Add a server* with name and system on the left and the services on the right. The long hint under the services is removed (the explanation stays in the guide, *?* button).
-
-## 4.3.0.dev3 — on-demand chosen when adding a service (test build, not a Release)
-
-- **Settings → Connected servers**: the comma-separated field becomes a list of services, each with its **on demand** box and a remove button, plus a row to add a service with the box already chosen. The same list is used in *Add a server*. The *On-demand services* section of the server settings window is removed: one place only, where services are added.
-
-## 4.3.0.dev2 — agent update from the dashboard, on-demand services, stage 2 of 2 (test build, not a Release)
-
-- **Update the Windows agent from the dashboard**: *Update agent to …* in the server detail when the agent version differs from the central one (permission *Allow updating the agent* on the central server and `-AllowUpdate` on the agent). Signed command, signed package with file hashes, syntax check, copy of the previous files, result in the history. Linux agents: `install.sh --agent … --update` for now.
-- **On-demand services**: per-service switch (Settings of this server for connected servers, *On demand* column in Settings → Services for the central server). When stopped they are *idle*, with no alerts and no entry in *To check*; start and stop are information events.
-- **Newly added services** show straight away as *waiting for the first check*, then *not detected* after 5 minutes, or *does not exist on this server* for a wrong name (no alerts). The agent reports the state of new services within a minute; **Refresh** in the Services panel makes the agent check again.
-- Windows Firewall and Defender are marked *protected by Windows* (no stop/restart buttons).
-- The installation command of *New token* includes `-AllowCommands` / `-AllowUpdate` when the switches are on.
-- Agents: separate messages for "permission not given" and "command key missing"; failed commands logged as WARN; Docker installed but not running is shown as such, without repeating an error every 5 minutes.
-- Database migration 0009 (`services_ondemand` in `hosts`, `ondemand` in `monitored_services`).
-- Guide: on-demand and newly added services, updating the agent from the dashboard (IT/EN).
-
-## 4.3.0.dev1 — commands to the services of connected servers, stage 1 of 2 (test build, not a Release)
-
-- **Start, stop and restart** the checked services of a connected server from the dashboard: buttons next to each service in the server detail, **Start** in *To check* for a stopped service. The command travels in the answer to the agent's data (no port opened on the agent), starts within a minute, and its result comes back as an event in the server history.
-- **Two consents**: *Allow start, stop and restart* in the settings of the server, and the agent installed with `-AllowCommands` (Windows) or `--allow-commands` (Linux). Without the local consent the agent refuses every command.
+- **Start, stop and restart** the checked services of a connected server from the dashboard: services panel as a list of rows (full name, state on the right, **…** menu with the actions, lock for services protected by Windows), **Start** in *To check* for a stopped service. The command travels in the answer to the agent's data (no port opened on the agent) and starts within a minute; the result comes back as an event in the server history.
+- **Two consents**: *Allow start, stop and restart* in the settings of the server, and the agent installed with `-AllowCommands` (Windows) or `--allow-commands` (Linux). The installation command of *New token* includes the options when the switches are on.
 - **Signed commands**: RSA 2048 / SHA-256 with a key kept by the central server in `/etc/astreo-monitor/commands.key` (created by the installer, never in the database); the agent verifies with the public key received at installation over the pinned TLS. A command is valid for 10 minutes, bound to that agent, runs once and only for the checked services.
-- Agents now contact the central server every minute even with nothing to send, so commands arrive within a minute. Windows agent 4.3.0.
-- Database migration 0008 (`allow_commands`, `allow_update` in `hosts`).
-- Guide: *Commands to services* in Connected servers (IT/EN).
+- **Update the Windows agent from the dashboard**: *Update agent to …* in the server detail (permission *Allow updating the agent* and `-AllowUpdate` on the agent); signed package with file hashes, syntax check, copy of the previous files. Linux agents: `install.sh --agent … --update` for now.
+- **On-demand services**: chosen when the service is added (list of services with its box in *Settings → Connected servers* and *Add a server*; *On demand* column in Settings → Services for the central server). When stopped they are *idle*, with no alerts and no entry in *To check*.
+- **Newly added services** show straight away as *waiting for the first check*, then *not detected* after 5 minutes, or *does not exist* for a wrong name (no alerts). The agent reports new services within a minute; **Refresh** makes the agent check again.
+- **Settings → Connected servers** redesigned: one card per server, *Add a server* aligned on a two-by-two grid.
+- Agents contact the central server every minute even with nothing to send; separate messages for "permission not given" and "command key missing"; failed commands logged as WARN; Docker installed but not running is shown as such without repeating errors.
+- Form sections in Settings no longer grow wider than the page on narrower windows.
+- Database migrations 0008 and 0009 (`allow_commands`, `allow_update`, `services_ondemand` in `hosts`; `ondemand` in `monitored_services`).
+- Guide (IT/EN): commands to services, on-demand and newly added services, updating the agent from the dashboard.
 
 ## 4.2.1 — alerts sent outside the database transactions
 

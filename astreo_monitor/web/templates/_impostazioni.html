@@ -245,14 +245,11 @@
         <fieldset>
           <legend>{{ _("Aggiungi un server") }} <button type="button" class="help-btn" data-help="agents#aggiungere" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <div class="host-new">
-            <div class="host-new-main">
-              <label>{{ _("Nome") }}<input type="text" name="name" maxlength="64" required placeholder="{{ _("es. nas") }}"></label>
-              <label>{{ _("Sistema") }}<select name="kind"><option value="linux">Linux</option><option value="windows">Windows</option></select></label>
-            </div>
-            <div class="host-new-svc">
-              <span class="field-label">{{ _("Servizi da controllare (modificabili poi)") }} <button type="button" class="help-btn" data-help="agents#discontinui" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></span>
-              <div id="host-new-services"></div>
-            </div>
+            <label class="hn-name">{{ _("Nome") }}<input type="text" name="name" maxlength="64" required placeholder="{{ _("es. nas") }}"></label>
+            <div class="hn-list"><span class="field-label">{{ _("Servizi da controllare (modificabili poi)") }} <button type="button" class="help-btn" data-help="agents#discontinui" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></span>
+              <div id="host-new-list"></div></div>
+            <label class="hn-kind">{{ _("Sistema") }}<select name="kind"><option value="linux">Linux</option><option value="windows">Windows</option></select></label>
+            <div class="hn-add"><span class="field-label">{{ _("Aggiungi un servizio") }}</span><div id="host-new-add"></div></div>
           </div>
         </fieldset>
         <div class="form-actions"><button type="submit">{{ _("Crea e mostra il comando d'installazione") }}</button></div>

@@ -97,6 +97,7 @@
  "Aggiornare l'agente di {p0} dalla {p1} alla {p2}? Parte entro un minuto; l'agente tiene una copia dei file precedenti.": "Update the agent of {p0} from {p1} to {p2}? It starts within a minute; the agent keeps a copy of the previous files.",
  "Aggiungi o modifica": "Add or edit",
  "Aggiungi un server": "Add a server",
+ "Aggiungi un servizio": "Add a service",
  "Aiuto": "Help",
  "Al massimo 60 servizi per server": "At most 60 services per server",
  "Al rientro in OK": "When back to OK",

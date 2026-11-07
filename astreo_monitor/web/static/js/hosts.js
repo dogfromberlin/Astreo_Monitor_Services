@@ -346,7 +346,7 @@
     add.append(name, odLab, addB);
     box.append(list, add);
     draw();
-    return { node: box,
+    return { node: box, list, add,
              value: () => ({ services: items.map((x) => x.unit).join(","), services_ondemand: items.filter((x) => x.od).map((x) => x.unit) }),
              reset: () => { items = []; draw(); } };
   }
@@ -501,7 +501,8 @@
     window.AM.onView("server", load);
     if (window.AM.IS_VIEWER) return;
     newEditor = serviceEditor("", "");
-    $("#host-new-services").append(newEditor.node);
+    $("#host-new-list").append(newEditor.list);        // elenco e riga di aggiunta in due celle della griglia,
+    $("#host-new-add").append(newEditor.add);          // allineate a Nome e a Sistema
     $("#hs-form").addEventListener("submit", saveSettings);
     $("#hs-cancel").addEventListener("click", () => $("#host-settings").close());
     $("#srv-agent-update").addEventListener("click", updateAgent);

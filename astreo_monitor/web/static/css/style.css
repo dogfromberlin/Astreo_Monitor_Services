@@ -891,10 +891,10 @@ body.editing .card-hidden { opacity: .45; }
 .svc-edit-add { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .svc-edit-add input[type=text] { flex: 1 1 12rem; min-width: 0; }
 .field-label { display: block; font-size: .85rem; margin-bottom: .3rem; }
-.svc-editor .check-row { flex: none !important; display: inline-flex !important; align-items: center; width: max-content !important; min-width: max-content;
+.svc-edit-list .check-row, .svc-edit-add .check-row { flex: none !important; display: inline-flex !important; align-items: center; width: max-content !important; min-width: max-content;
                           gap: .35rem; font-family: var(--font); font-size: .8rem; color: var(--muted); margin: 0; padding: 0; }
-.svc-editor .check-row span { white-space: nowrap; }
-.svc-editor input[type=checkbox] { width: 1rem; height: 1rem; min-height: 0; margin: 0; flex: none; }
+.svc-edit-list .check-row span, .svc-edit-add .check-row span { white-space: nowrap; }
+.svc-edit-list input[type=checkbox], .svc-edit-add input[type=checkbox] { width: 1rem; height: 1rem; min-height: 0; margin: 0; flex: none; }
 .svc-edit-add input[type=text] { flex: 1 1 12rem; width: auto; }
 
 /* 4.3: Server collegati, una scheda per server */
@@ -912,11 +912,25 @@ body.editing .card-hidden { opacity: .45; }
 .btn.danger { color: var(--alert-text); }
 .btn.danger:hover { border-color: var(--alert); color: var(--alert-text); }
 fieldset { min-width: 0; }          /* i fieldset di serie si allargano al contenuto e uscivano dal riquadro */
-.host-new { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); gap: 1rem 1.5rem; align-items: start; }
-.host-new-main { display: grid; gap: .75rem; }
-.host-new-svc { display: grid; gap: .3rem; }
+.host-new { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); gap: 1rem 1.5rem; align-items: end;
+            grid-template-areas: "name list" "kind add"; }
+.host-new .hn-name { grid-area: name; } .host-new .hn-kind { grid-area: kind; }
+.host-new .hn-list { grid-area: list; min-width: 0; } .host-new .hn-add { grid-area: add; min-width: 0; }
+.host-new > label, .host-new .hn-list, .host-new .hn-add { display: grid; gap: .35rem; margin: 0; }
+.host-new .field-label { margin: 0; font-size: .9rem; display: flex; align-items: center; gap: .4rem; min-height: 1.4rem; }
+.host-new label { font-size: .9rem; }
+#host-form .host-new input[type=text], #host-form .host-new select { height: 2.5rem; box-sizing: border-box; font-size: .9rem; }
 .host-new .svc-edit-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); }
-@media (max-width: 900px) { .host-new { grid-template-columns: 1fr; } }
+.host-new .svc-edit-list li.hint { height: 2.5rem; min-height: 0; padding: 0 .75rem; box-sizing: border-box; display: flex; align-items: center; }
+.host-new .svc-edit-list { margin: 0; }
+.host-new .svc-edit-list li.hint { margin: 0; max-width: none; }
+.host-new .svc-edit-add > * { margin: 0; }
+.host-new .svc-edit-add .check-row { height: 2.5rem; }
+.host-new .svc-edit-add { align-items: center; }
+.host-new .svc-edit-add button { height: 2.5rem; min-height: 0; box-sizing: border-box; }
+.host-new .svc-edit-add { flex-wrap: wrap; }
+.host-new .svc-edit-add input[type=text] { flex: 1 1 14rem; min-width: 0; }
+@media (max-width: 900px) { .host-new { grid-template-columns: 1fr; grid-template-areas: "name" "kind" "list" "add"; } }
 
 /* 4.3: servizi in elenco a righe (nome intero, stato, azioni a destra) */
 .services.svc-rows { display: block; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
