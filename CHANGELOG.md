@@ -1,6 +1,6 @@
 # Changelog
 
-## 4.5.0.dev1 — buttons under the Telegram alerts (test build, not a Release)
+## 4.5.0 — buttons under the Telegram alerts
 
 - Telegram alerts carry buttons: **🔕 Mute 1 h** (service, server or event type of the alert), **▶ Start** for a stopped service of a connected server with commands allowed, **⚡ Switch on** for an unreachable server with a known MAC, **📊 Open** for the right page of the dashboard. After the tap the message is updated with the result; buttons answer only the configured chat and are valid for 48 hours.
 - Database migration 0011 (`meta` in `notification_queue`: which alert a queued message belongs to).
