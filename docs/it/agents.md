@@ -103,6 +103,33 @@ del servizio, es. `Spooler`, non quello visualizzato). **Aggiorna** nel pannello
 i servizi all'agente. Firewall e Defender di Windows sono *protetti*: Windows non li lascia fermare o riavviare, quindi
 non hanno i pulsanti dei comandi.
 
+<a id="accensione"></a>
+## Accendere un server (Wake-on-LAN)
+
+Quando un server collegato non risponde, il dettaglio del server e la voce in *Da controllare* mostrano **Accendi**;
+dal bot: `/accendi ATLAS`. Il centrale invia sulla rete di casa il "pacchetto magico" all'indirizzo MAC della scheda di
+rete principale, che l'agente 4.4 comunica da solo (si può scrivere a mano in **Impostazioni di questo server →
+Accensione**, insieme a un broadcast diverso da quello della sua rete). Funziona solo se server e centrale sono sulla
+stessa rete locale, non attraverso la VPN. L'evento resta nello storico; quando l'agente torna a inviare dati il
+server torna *raggiungibile*.
+
+Su Windows il Wake-on-LAN va abilitato una volta:
+
+| Dove | Cosa |
+|---|---|
+| BIOS/UEFI | *Wake on LAN* (o *Power On by PCI-E / PME*) attivo |
+| Gestione dispositivi → scheda di rete → Risparmio energia | *Consenti al dispositivo di riattivare il computer* e *Consenti solo a un pacchetto Magic Packet…* |
+| Gestione dispositivi → scheda di rete → Avanzate | *Wake on Magic Packet*: Abilitato |
+| Avvio rapido di Windows | disattivato: con l'avvio rapido attivo, da spento la scheda spesso non resta in ascolto |
+
+Controlli da PowerShell come amministratore:
+```powershell
+powercfg /devicequery wake_armed
+Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' -Name HiberbootEnabled
+Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' -Name HiberbootEnabled -Value 0
+```
+Il primo deve elencare la scheda di rete; il secondo mostra l'avvio rapido (1 = attivo); il terzo lo disattiva.
+
 <a id="aggiungere"></a>
 ## Aggiungere un server
 

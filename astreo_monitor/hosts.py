@@ -93,6 +93,21 @@ def clean_settings(data: dict, hid: int) -> dict:
         for k in ("notify_offline", "allow_commands", "allow_update"):
             if k in data:
                 out[k] = bool(data[k])
+        if "wol_mac" in data:                               # 4.4: Wake-on-LAN, vuoto = quello inviato dall'agente
+            from . import wol
+            v = str(data["wol_mac"] or "").strip()
+            if v and not wol.normalize(v):
+                raise HostError("Indirizzo MAC non valido (es. 00:11:22:aa:bb:cc)")
+            out["wol_mac"] = wol.normalize(v) if v else None
+        if "wol_broadcast" in data:
+            import ipaddress
+            v = str(data["wol_broadcast"] or "").strip()
+            if v:
+                try:
+                    ipaddress.IPv4Address(v)
+                except ValueError:
+                    raise HostError("Indirizzo di broadcast non valido (es. 192.168.10.255)") from None
+            out["wol_broadcast"] = v or None
         if "services_ondemand" in data:                     # 4.3: servizi discontinui (elenco o testo con virgole)
             v = data["services_ondemand"]
             lst = v if isinstance(v, list) else str(v or "").split(",")
@@ -253,6 +268,7 @@ def listing(conn, offline_minutes: int) -> list[dict]:
         if h["id"] != LOCAL_ID:
             h["services_state"] = with_expected(conn, h, now)                 # 4.3: discontinui e in attesa
         if h["id"] != LOCAL_ID:                                    # 4.2: dati di salute e Docker degli agenti
+            h["net"] = db.state_get(conn, f"host:{h['id']}:net")      # 4.4: MAC e IP inviati dall'agente
             h["health"] = db.state_get(conn, f"host:{h['id']}:health")
             h["containers"] = db.state_get(conn, f"host:{h['id']}:containers")
         for k in ("created_at", "last_seen"):
@@ -337,6 +353,12 @@ def _item(conn, host: dict, it, now: dt.datetime, metrics: list, temps: list, la
         mb = _num(it.get("mem_used_mb"), 0, 1e9)
         row["mem_used_mb"] = int(mb) if mb is not None else None
         metrics.append(row)
+        mac = _txt(it.get("mac"), 32)                         # 4.4: scheda di rete principale, per il Wake-on-LAN
+        if mac:
+            from . import wol
+            if wol.normalize(mac):
+                db.state_set(conn, f"host:{hid}:net", {"mac": wol.normalize(mac), "ip": _txt(it.get("ip"), 45) or None,
+                                                       "time": t.isoformat(timespec="seconds")})
         if latest is None or t >= latest["time"]:
             latest = {**{k: v for k, v in row.items() if k not in ("timestamp", "host_id", "source")}, "time": t,
                       "uptime_s": _num(it.get("uptime_s"), 0, 1e10), "mem_total_mb": _num(it.get("mem_total_mb"), 0, 1e9),

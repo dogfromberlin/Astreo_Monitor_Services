@@ -1,5 +1,19 @@
 # Changelog
 
+## 4.4.0.dev4 — Wake-on-LAN, stage 3 of 3 (test build, not a Release)
+
+- **Switch a server on with Wake-on-LAN**: **Switch on** in the server detail and in the *To check* item when a connected server does not respond, Telegram `/accendi ATLAS` (`/wake`). The central server sends the magic packet to the subnet broadcast and to 255.255.255.255 (ports 9 and 7); the event stays in the history.
+- Agents 4.4 report MAC and IP of the main network card (the one with the default route), so nothing has to be typed; MAC and broadcast can be set by hand in *Settings of this server → Switching on*.
+- Database migration 0010 (`wol_mac`, `wol_broadcast` in `hosts`).
+- Guide: *Switching a server on (Wake-on-LAN)* in Connected servers, with the Windows settings to check (BIOS, network card, Fast Startup) (IT/EN).
+
+## 4.4.0.dev3 — disk full forecast, stage 2 of 3 (test build, not a Release)
+
+- **Disk full forecast** from the last 14 days of the system disk of each server (central and agents): under the disk gauge *full in about N days*, *stable usage* or *forecast after 3 days of data*; in the Overview cards *full in ~N d* when within 60 days.
+- Only for regular growth (least squares with R² ≥ 0.5, growth spread over the days: no single day may account for more than 60% of it), so a one-off copy of large files does not trigger it.
+- New alert event **Disk running out** (Settings → Notifications): warning when the disk fills up within the days set in *Disk full forecast* (14 by default), alert under 3 days; entry in *To check*.
+- Guide: *Disk full forecast* in Server (IT/EN).
+
 ## 4.4.0.dev2 — Windows agent fix and mute state (test build, not a Release)
 
 - **Fix, Windows agent**: with Docker installed but its engine stopped, `docker info` wrote to stderr and Windows PowerShell 5.1 (with *ErrorActionPreference Stop*) stopped the agent at every run, before sending anything: the server looked unreachable and commands (including the update) never arrived. External commands now run through a wrapper that never stops the agent.

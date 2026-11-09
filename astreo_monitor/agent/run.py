@@ -98,7 +98,7 @@ class Agent:
                           "load5": ld["load5"], "load15": ld["load15"], "mem_used_pct": mem["used_pct"],
                           "mem_used_mb": mem["used_mb"], "mem_total_mb": mem.get("total_mb"),
                           "swap_used_pct": mem["swap_used_pct"], "disk_used_pct": system.disk_used_pct(self.root_disk),
-                          "uptime_s": int(time.time() - curr["boot_time"]),
+                          "uptime_s": int(time.time() - curr["boot_time"]), **primary_nic(),
                           "disks": [{k: d[k] for k in ("mountpoint", "device", "fstype", "total_mb", "used_mb", "free_mb", "used_pct")}
                                     for d in system.disks()][:32]})
             temps = [{"adapter": t["adapter"], "device": t["device"], "value": t["value"]} for t in sensors.read()]
@@ -233,6 +233,26 @@ class Agent:
         with open(self.state_path + ".tmp", "w", encoding="utf-8") as f:
             json.dump(self.state, f)
         os.replace(self.state_path + ".tmp", self.state_path)
+
+
+def primary_nic() -> dict:
+    """4.4: MAC e IP della scheda con la rotta predefinita, per il Wake-on-LAN dal centrale."""
+    try:
+        import psutil
+        iface = None
+        with open("/proc/net/route") as f:
+            for line in f.readlines()[1:]:
+                p = line.split()
+                if len(p) > 2 and p[1] == "00000000":
+                    iface = p[0]
+                    break
+        if not iface:
+            return {}
+        mac = open(f"/sys/class/net/{iface}/address").read().strip()
+        ip = next((a.address for a in psutil.net_if_addrs().get(iface, []) if a.family.name == "AF_INET"), None)
+        return {"mac": mac, "ip": ip}
+    except (OSError, ValueError, AttributeError):
+        return {}
 
 
 def execute(action: str, unit: str) -> tuple[bool, str]:

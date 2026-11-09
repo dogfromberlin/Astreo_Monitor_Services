@@ -76,6 +76,7 @@ def _remote_host(h: dict, cfg, values: dict | None = None) -> dict:
         "notify_offline": bool(h.get("notify_offline", True)), "limits": hosts_mod.limits(h, cfg, values),
         "health": h.get("health"), "containers": (h.get("containers") or {}).get("containers"),
         "allow_commands": bool(h.get("allow_commands")),
+        "can_wake": bool(h.get("wol_mac") or (h.get("net") or {}).get("mac")),          # 4.4: Wake-on-LAN
     }
 
 
@@ -186,6 +187,15 @@ def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.d
             if st != "OK":
                 add("alert" if st == "ALERT" else "warn", f"docker:{h['id']}:{c['name']}",
                     f"{h['name']} · " + _("container {p0}: {p1}", p0=c["name"], p1=c["state"]), c.get("status") or "",
+                    host=h["id"], action={"kind": "host", "host": h["id"]})
+        fc = h.get("disk_forecast")                                 # 4.4: disco pieno a breve
+        if fc and fc.get("status") == "growing":
+            from . import forecast as _fc
+            lv = _fc.level(fc, values.get("forecast.warn_days", 14))
+            if lv != "OK":
+                add("alert" if lv == "ALERT" else "warn", f"diskfill:{h['id']}",
+                    f"{h['name']} · " + _("disco pieno tra circa {p0} giorni", p0=round(fc["days_left"])),
+                    _("al ritmo attuale ({p0} punti al giorno, oggi {p1}%)", p0=fc["slope_per_day"], p1=fc["current"]),
                     host=h["id"], action={"kind": "host", "host": h["id"]})
         lvl = _level(h["temperature_max"], m["temp_warning"], m["temp_alert"])
         if lvl:
@@ -299,6 +309,9 @@ def build(conn, cfg, lang: str, offline_minutes: int) -> dict:
     svc = [s for h in reachable for s in h["services"] if s.get("status", "up" if s["up"] else "down") in ("up", "down")]
     conn_info = _connection(conn, now)
     backup = _backup(conn, values)
+    from . import forecast as forecast_mod                       # 4.4: previsione del disco pieno
+    for h in hosts:
+        h["disk_forecast"] = forecast_mod.get(conn, h["id"]) if h["status"] == "OK" else None
     todo = _todo(conn, cfg, hosts, conn_info, backup, now, lang, values)
     from . import silences as silences_mod                       # 4.4: server silenziati (tutto o quel server)
     _sil = silences_mod.active(conn)

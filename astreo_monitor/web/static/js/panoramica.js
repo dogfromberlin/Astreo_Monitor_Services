@@ -121,6 +121,11 @@
     const a = item.action || {};
     const out = [];
     const host = d.hosts.find((h) => h.id === (a.host || item.host));
+    if (a.kind === "host" && item.key === `host:${a.host}` && host && host.can_wake && !IS_VIEWER && window.AM.wakeHost) {   // 4.4
+      const w = el("button", { type: "button", class: "btn small primary" }, t("Accendi"));
+      w.addEventListener("click", () => window.AM.wakeHost(a.host));
+      out.push(w);
+    }
     if (a.kind === "host" || a.kind === "unmonitor") {
       out.push(el("a", { class: "btn small", href: hostHref(a.host) }, t("Apri {p0}", { p0: host ? host.name : t("server") })));
     }
@@ -250,6 +255,16 @@
     return m;
   }
 
+  // 4.4: disco con la previsione sotto la barra, se si riempie entro 60 giorni
+  function diskMetric(h, L) {
+    const m = metric(h.disks.length > 1 ? t("Disco più pieno") : t("Disco"), pct(h.disk_pct), h.disk_pct, meterLevel(h.disk_pct, L.disk_warning ?? 85, L.disk_alert ?? 95));
+    const fc = h.disk_forecast;
+    if (fc && fc.status === "growing" && fc.days_left <= 60) {
+      m.append(el("span", { class: `fc${fc.days_left <= 14 ? " warn" : ""}` }, t("pieno tra ~{p0} g", { p0: Math.round(fc.days_left) })));
+    }
+    return m;
+  }
+
   function hostCard(h, d) {
     const problems = d.todo.filter((x) => x.host === h.id);
     const worst = problems.length ? problems[0].severity : null;
@@ -290,7 +305,7 @@
       const L = h.limits || {};                       // 4.2: soglie del server (o generali)
       m.append(metric(t("CPU"), pct(h.cpu_pct), h.cpu_pct, meterLevel(h.cpu_pct, L.cpu_warning ?? 90, L.cpu_alert ?? 98)),
                metric(t("Memoria"), pct(h.mem_pct), h.mem_pct, meterLevel(h.mem_pct, L.mem_warning ?? 90, L.mem_alert ?? 97)),
-               metric(h.disks.length > 1 ? t("Disco più pieno") : t("Disco"), pct(h.disk_pct), h.disk_pct, meterLevel(h.disk_pct, L.disk_warning ?? 85, L.disk_alert ?? 95)),
+               diskMetric(h, L),
                h.temperature_max !== null && h.temperature_max !== undefined
                  ? metric(t("Temperatura"), `${fmtNum(h.temperature_max, 0)} °C`, null)
                  : metric(t("Acceso da"), h.uptime_s ? fmtUptime(h.uptime_s) : "–", null));

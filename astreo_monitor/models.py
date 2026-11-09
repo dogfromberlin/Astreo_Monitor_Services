@@ -174,6 +174,7 @@ hosts = Table(
     Column("allow_commands", Boolean, nullable=False, server_default="0"),   # 4.3: comandi ai servizi
     Column("allow_update", Boolean, nullable=False, server_default="0"),     # 4.3: aggiornamento dell'agente
     Column("services_ondemand", Unicode(2000)),                              # 4.3: servizi discontinui
+    Column("wol_mac", Unicode(17)), Column("wol_broadcast", Unicode(64)),    # 4.4: Wake-on-LAN (NULL = dall'agente)
     Index("UX_hosts_token", "token_hash", unique=True, mssql_where=Column("token_hash").isnot(None),
           postgresql_where=Column("token_hash").isnot(None), sqlite_where=Column("token_hash").isnot(None)),
 )

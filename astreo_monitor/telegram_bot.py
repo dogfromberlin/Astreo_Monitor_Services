@@ -37,6 +37,7 @@ COMMANDS = [
     ("silenzia", "mute", "Silenzia gli avvisi: /silenzia ATLAS 1h, /silenzia connessione 30m, /silenzia tutto 2h"),
     ("silenzi", "mutes", "Silenzi attivi"),
     ("riattiva", "unmute", "Toglie un silenzio: /riattiva ATLAS, /riattiva tutto"),
+    ("accendi", "wake", "Accende un server con Wake-on-LAN: /accendi ATLAS"),
     ("aiuto", "help", "Elenco dei comandi"),
 ]
 ALIASES = {en: it for it, en, _d in COMMANDS}
@@ -166,7 +167,7 @@ class Bot:
             if arg and cmd in ("stato", "servizi"):          # 4.2: /stato nome-server, /servizi nome-server
                 self.cmd_host(chat, arg, services_only=cmd == "servizi")
                 return
-            if cmd in ("silenzia", "silenzi", "riattiva"):        # 4.4: silenzia per un po'
+            if cmd in ("silenzia", "silenzi", "riattiva", "accendi"):   # 4.4: silenzi e accensione
                 getattr(self, f"cmd_{cmd}")(chat, arg)
                 return
             handler = {"stato": self.cmd_stato, "connessione": self.cmd_connessione, "speedtest": self.cmd_speedtest,
@@ -370,6 +371,34 @@ class Bot:
                 silences.remove(conn, s["id"])
         self.send(chat, ("🔔 " + self.tr("Avvisi riattivati: {p0}", p0=", ".join(s["label"] or s["scope"] for s in gone))) if gone
                   else self.tr("Nessun silenzio corrispondente. /silenzi per l'elenco."))
+
+    def cmd_accendi(self, chat, arg: str) -> None:
+        """4.4: Wake-on-LAN di un server collegato."""
+        from . import events, wol
+        if not arg.strip():
+            self.send(chat, self.tr("Scrivi il nome del server: /accendi ATLAS"))
+            return
+        found, lst = self.find_host(arg.split()[0])
+        if len(found) != 1 or found[0]["kind"] == "local":
+            self.send(chat, self.tr("Nessun server di nome «{p0}». Server: {p1}", p0=arg, p1=", ".join(h["name"] for h in lst if h["kind"] != "local")))
+            return
+        h = found[0]
+        if h["status"] == "OK":
+            self.send(chat, "🟢 " + self.tr("{p0} è già acceso.", p0=h["name"]))
+            return
+        net = h.get("net") or {}
+        mac = h.get("wol_mac") or net.get("mac")
+        if not mac:
+            self.send(chat, self.tr("Indirizzo MAC di {p0} sconosciuto: aggiorna l'agente alla 4.4 o scrivilo nelle impostazioni del server.", p0=h["name"]))
+            return
+        try:
+            dests = wol.send(mac, net.get("ip"), h.get("wol_broadcast"))
+        except (wol.WolError, OSError) as exc:
+            self.send(chat, self.tr("Accensione non riuscita: {p0}", p0=exc))
+            return
+        with db.connect(self.cfg.database) as conn:
+            events.record(conn, "host", "info", "Accensione richiesta da Telegram", f"{mac} → {', '.join(dests)}", host_id=h["id"])
+        self.send(chat, "⚡ " + self.tr("Pacchetto di accensione inviato a {p0}: se il Wake-on-LAN è attivo, risponde entro qualche minuto.", p0=h["name"]))
 
     def cmd_connessione(self, chat) -> None:
         from .web import history

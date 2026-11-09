@@ -56,6 +56,7 @@
   <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
   <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M6 16V11c0-1.2.3-2.3.9-3.3M9 4.5A6 6 0 0 1 18 11v5l1.5 2H8"/><path d="M10 20.5a2 2 0 0 0 4 0M3 3l18 18"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></symbol>
   <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.4M12 17h.01"/></symbol>
 </svg>
 
@@ -176,6 +177,7 @@
       <p class="remote-note" id="remote-note" hidden></p>
     </div>
     <button type="button" class="btn small admin-only" id="srv-agent-update" hidden></button>
+    <button type="button" class="btn small primary admin-only" id="srv-wake" hidden><svg class="icon"><use href="#i-power"/></svg><span>{{ _("Accendi") }}</span></button>
     <span class="admin-only" id="srv-silence"></span>
     <button type="button" class="btn small admin-only" id="srv-settings"><svg class="icon"><use href="#i-settings"/></svg><span>{{ _("Impostazioni di questo server") }}</span></button>
     <span class="pill" id="srv-pill"><span class="dot ok" aria-hidden="true"></span><span>{{ _("regolare") }}</span></span>
@@ -192,6 +194,7 @@
     <article class="gauge" id="g-disk">
       <h2>{{ _("Disco /") }}</h2><p class="value"><span>–</span>%</p>
       <div class="bar"><i></i></div><p class="sub" id="g-disk-sub">–</p>
+      <p class="sub fc" id="g-disk-fc" hidden></p>
     </article>
     <article class="gauge" id="g-temp">
       <h2>{{ _("Temperatura max") }}</h2><p class="value"><span>–</span>°C</p>
@@ -411,6 +414,14 @@
       <div class="switch-row"><label class="switch compact"><input type="checkbox" name="allow_commands" aria-labelledby="hs-cmd-l"><span></span></label><span id="hs-cmd-l">{{ _("Consenti avvia, ferma e riavvia dei servizi controllati") }}</span></div>
       <div class="switch-row"><label class="switch compact"><input type="checkbox" name="allow_update" aria-labelledby="hs-upd-l"><span></span></label><span id="hs-upd-l">{{ _("Consenti l'aggiornamento dell'agente") }}</span></div>
       <p class="hint">{{ _("Servono anche sul server stesso: l'agente va installato con -AllowCommands / -AllowUpdate (Windows) o --allow-commands / --allow-update (Linux).") }}</p>
+    </fieldset>
+    <fieldset class="remote-only-field">
+      <legend>{{ _("Accensione (Wake-on-LAN)") }} <button type="button" class="help-btn" data-help="agents#accensione" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
+      <div class="hs-grid">
+        <label>{{ _("Indirizzo MAC") }}<input type="text" name="wol_mac" maxlength="17" autocomplete="off"></label>
+        <label>{{ _("Broadcast") }}<input type="text" name="wol_broadcast" maxlength="15" autocomplete="off"></label>
+      </div>
+      <p class="hint">{{ _("Vuoti: il MAC inviato dall'agente e il broadcast della sua rete, mostrati in grigio.") }}</p>
     </fieldset>
     <fieldset>
       <legend>{{ _("Soglie") }}</legend>

@@ -35,6 +35,7 @@ SOURCES = {
     "hosts": "Server collegati",
     "cpu": "CPU",
     "memory": "Memoria",
+    "diskfill": "Disco in esaurimento",
     "docker": "Container Docker",
     "pihole": "Pi-hole",
     "summary": "Riepilogo settimanale",
@@ -43,7 +44,7 @@ SOURCES = {
 
 # Monitoraggi con stato (OK/WARNING/ALERT...) a cui si applica una regola di avviso
 POLICY_SOURCES = ("connectivity", "speedtest", "temperature", "disk", "services", "backup", "expiry",
-                  "smart", "updates", "restoretest", "docker", "pihole", "checks", "hosts", "cpu", "memory")
+                  "smart", "updates", "restoretest", "docker", "pihole", "checks", "hosts", "cpu", "memory", "diskfill")
 GH_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 
 
@@ -154,6 +155,8 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "hosts.offline_minutes": Spec(int, 10, 2, 1440, label="Server non raggiungibile dopo (minuti)"),
         # --- 4.2: avvisi di CPU e memoria (spenti di serie; soglie generali, modificabili per server)
         "load.alerts_enabled": Spec(bool, False, label="Avvisi di CPU e memoria"),
+        # 4.4: previsione del disco pieno
+        "forecast.warn_days": Spec(int, 14, 2, 90, label="Avvisa se il disco si riempie entro (giorni)"),
         "load.cpu_warning": Spec(float, 90, 10, 100, label="CPU: avviso (%)"),
         "load.cpu_alert": Spec(float, 98, 10, 100, label="CPU: allarme (%)"),
         "load.mem_warning": Spec(float, 90, 10, 100, label="Memoria: avviso (%)"),
@@ -188,7 +191,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "speedtest": s.notify, "temperature": cfg.metrics.notify, "disk": cfg.metrics.notify,
         "services": True, "backup": cfg.backup.notify if cfg.backup else True, "publicip": cfg.publicip.notify,
         "connectivity": True, "expiry": True, "smart": True, "updates": True, "restoretest": True, "summary": True,
-        "docker": True, "pihole": True, "checks": True, "hosts": True, "cpu": True, "memory": True,
+        "docker": True, "pihole": True, "checks": True, "hosts": True, "cpu": True, "memory": True, "diskfill": True,
     }
     # --- regole di avviso per monitoraggio
     backup_rem = cfg.backup.reminder_hours if cfg.backup else 24
@@ -202,6 +205,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "hosts": ("change", True, 0.0),
         "cpu": ("escalation", True, 24.0),
         "memory": ("escalation", True, 24.0),
+        "diskfill": ("escalation", True, 72.0),
         "pihole": ("change", True, 24.0),
         "expiry": ("escalation", True, 24.0),
         "speedtest": ("escalation", False, 36.0),

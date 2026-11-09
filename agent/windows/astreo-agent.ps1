@@ -15,7 +15,7 @@ param(
   [switch]$TestConnection
 )
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '4.4.0.dev2'
+$AgentVersion = '4.4.0.dev4'
 $Dir = Split-Path -Parent $ConfigPath
 $QueueDir = Join-Path $Dir 'queue'
 $StatePath = Join-Path $Dir 'state.json'
@@ -140,6 +140,14 @@ if (($epoch - [int](Get-StateValue 'metrics_sent' 0)) -ge $MetricsEvery) {
   }
   if ($pageAlloc -gt 0) { $item.swap_used_pct = [math]::Round($pageUsed / $pageAlloc * 100, 1) }
   if ($sysDisk -and $sysDisk.Size -gt 0) { $item.disk_used_pct = [math]::Round(($sysDisk.Size - $sysDisk.FreeSpace) / $sysDisk.Size * 100, 1) }
+  # 4.4: scheda di rete principale (quella con il gateway), per il Wake-on-LAN dal centrale
+  try {
+    $nic = Get-NetIPConfiguration -ErrorAction Stop | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1
+    if ($nic) {
+      $item.mac = [string]$nic.NetAdapter.MacAddress
+      $item.ip = [string](@($nic.IPv4Address)[0].IPAddress)
+    }
+  } catch { }
   # 4.0.1: tutti i dischi fissi (unità locali, DriveType 3)
   $item.disks = @(Get-CimInstance -ClassName Win32_LogicalDisk -Filter 'DriveType=3' | Where-Object { $_.Size -gt 0 } | Select-Object -First 32 | ForEach-Object {
     @{ mountpoint = $_.DeviceID; device = $_.DeviceID; fstype = [string]$_.FileSystem; label = [string]$_.VolumeName

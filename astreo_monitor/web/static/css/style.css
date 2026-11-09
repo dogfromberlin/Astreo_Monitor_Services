@@ -987,6 +987,9 @@ fieldset { min-width: 0; }          /* i fieldset di serie si allargano al conte
 .sil-badge { font-size: .82rem; color: var(--muted); }
 .sil-ic-wrap { display: inline-grid; place-items: center; color: var(--muted); }
 .sil-ic { width: 1.1rem; height: 1.1rem; }
+.metric .fc { font-size: .72rem; color: var(--muted); }
+.metric .fc.warn { color: var(--warn-text); }
+.gauge .fc { margin-top: .15rem; }
 .sil-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
 .sil-list li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem 1rem; padding: .6rem .8rem; border-radius: 10px; background: var(--raised); }
 .sil-list li strong { color: var(--strong); }

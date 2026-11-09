@@ -32,6 +32,16 @@ Stato a colpo d'occhio di: connessione (ping), heartbeat esterno, certificati e 
 aggiornamenti, verifica del ripristino. Dettagli in [Connessione](connection.md), [Notifiche](notifications.md#heartbeat)
 e [Salute del sistema](health.md).
 
+<a id="previsione-disco"></a>
+## Previsione del disco pieno
+
+Dallo storico degli ultimi 14 giorni del **disco di sistema** (radice sul centrale, unità di sistema sugli agenti)
+Astreo calcola il ritmo di riempimento: sotto l'indicatore del disco compare *pieno tra circa N giorni*, *occupazione
+stabile* o, nei primi 3 giorni, *previsione dopo 3 giorni di dati*. La previsione vale solo se la crescita è regolare
+(una copia occasionale di file grandi non la fa scattare). Se il disco si riempie entro il numero di giorni impostato
+in **Impostazioni → Notifiche → Previsione del disco pieno** (14 di serie) compare in *Da controllare* e parte l'avviso
+*Disco in esaurimento*; sotto i 3 giorni diventa allarme.
+
 <a id="eventi"></a>
 ## Eventi sui grafici
 

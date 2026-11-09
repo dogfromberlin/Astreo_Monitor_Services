@@ -40,6 +40,23 @@
     const central = document.body.dataset.version;
     const upd = $("#srv-agent-update");
     // 4.4: "Silenzia" per il server
+    // 4.4: "Accendi" quando il server collegato non risponde e il MAC è noto
+    const wk = $("#srv-wake");
+    if (wk) wk.hidden = window.AM.IS_VIEWER || h.kind === "local" || h.status !== "DOWN" || !(h.wol_mac || (h.net && h.net.mac));
+
+    // 4.4: previsione del disco pieno sotto l'indicatore del disco
+    const fcBox = $("#g-disk-fc");
+    if (fcBox) {
+      const fc = h.disk_forecast;
+      fcBox.hidden = !fc || !["growing", "stable", "learning"].includes(fc.status);
+      if (fc) {
+        fcBox.className = `sub fc${fc.status === "growing" && fc.days_left <= 14 ? " warn-text" : ""}`;
+        fcBox.textContent = fc.status === "growing"
+          ? (fc.days_left > 60 ? t("cresce di {p0} punti al giorno", { p0: fc.slope_per_day })
+                               : t("pieno tra circa {p0} giorni ({p1})", { p0: Math.round(fc.days_left), p1: new Date(fc.full_at).toLocaleDateString(window.AM.LOCALE) }))
+          : fc.status === "stable" ? t("occupazione stabile") : t("previsione dopo 3 giorni di dati");
+      }
+    }
     // con un silenzio attivo mostra fino a quando e "Riattiva", non di nuovo "Silenzia"
     const sb = $("#srv-silence");
     const sil = silences.find((x) => x.scope === "all" || (x.scope === "host" && x.host_id === h.id));
@@ -291,6 +308,21 @@
       setTimeout(tick, 5000);
     } catch (e) { toast(e.message, "error"); }
   }
+  // 4.4: accensione con Wake-on-LAN
+  async function wake(hid) {
+    const h = hosts.find((x) => x.id === hid);
+    if (!h || !confirm(t("Accendere {p0} con Wake-on-LAN?", { p0: h.name }))) return;
+    try {
+      const r = await api(`/api/v1/hosts/${hid}/wake`, { method: "POST", json: {} });
+      toast(t("Pacchetto di accensione inviato a {p0} ({p1}): se il Wake-on-LAN è attivo, {p2} risponde entro qualche minuto", { p0: r.mac, p1: r.targets.join(", "), p2: h.name }));
+      const until = Date.now() + 6 * 60_000;
+      const tick = async () => { await load(); const x = hosts.find((y) => y.id === hid);
+        if (x && x.status === "OK") { toast(t("{p0} è acceso", { p0: x.name })); document.dispatchEvent(new CustomEvent("hosts-changed")); }
+        else if (Date.now() < until) setTimeout(tick, 15_000); };
+      setTimeout(tick, 15_000);
+    } catch (e) { toast(e.message, "error"); }
+  }
+  window.AM.wakeHost = wake;
   window.AM.sendServiceCommand = (hid, unit, label, action) => {
     const h = hosts.find((y) => y.id === hid);
     if (h) sendCommand(h, { unit, label }, action);
@@ -466,6 +498,9 @@
     $$("#hs-form .remote-only-field").forEach((x) => { x.hidden = !remote; });
     f.notify_offline.checked = editing.notify_offline !== false;
     f.allow_commands.checked = !!editing.allow_commands;
+    f.wol_mac.value = editing.wol_mac || ""; f.wol_mac.placeholder = (editing.net && editing.net.mac) || t("es. 00:11:22:aa:bb:cc");
+    f.wol_broadcast.value = editing.wol_broadcast || "";
+    f.wol_broadcast.placeholder = editing.net && editing.net.ip ? editing.net.ip.replace(/\.\d+$/, ".255") : "255.255.255.255";
 
     f.allow_update.checked = !!editing.allow_update;
     for (const k of ["offline_minutes", "disk_warning", "disk_alert", "temp_warning", "temp_alert", "cpu_warning", "cpu_alert", "mem_warning", "mem_alert"]) {
@@ -485,6 +520,7 @@
     if (editing.kind !== "local") {
       data.notify_offline = f.notify_offline.checked;
       data.allow_commands = f.allow_commands.checked;
+      data.wol_mac = f.wol_mac.value.trim(); data.wol_broadcast = f.wol_broadcast.value.trim();
 
       data.allow_update = f.allow_update.checked;
       data.offline_minutes = f.offline_minutes.value === "" ? null : Number(f.offline_minutes.value);
@@ -537,6 +573,7 @@
     $("#hs-form").addEventListener("submit", saveSettings);
     $("#hs-cancel").addEventListener("click", () => $("#host-settings").close());
     $("#srv-agent-update").addEventListener("click", updateAgent);
+    $("#srv-wake").addEventListener("click", () => wake(window.AM.host));
     $("#srv-settings").addEventListener("click", () => { const h = hosts.find((x) => x.id === window.AM.host); if (h) openSettings(h); });
     $("#host-form").addEventListener("submit", create);
     $("#form-hosts").addEventListener("submit", saveOffline);

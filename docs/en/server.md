@@ -32,6 +32,16 @@ At-a-glance status of: connection (ping), external heartbeat, expiring certifica
 restore check. Details in [Connection](connection.md), [Notifications](notifications.md#heartbeat) and
 [System health](health.md).
 
+<a id="previsione-disco"></a>
+## Disk full forecast
+
+From the last 14 days of history of the **system disk** (root on the central server, system drive on the agents)
+Astreo computes the filling rate: under the disk gauge it shows *full in about N days*, *stable usage* or, in the
+first 3 days, *forecast after 3 days of data*. The forecast is used only if the growth is regular (an occasional copy
+of large files does not trigger it). If the disk fills up within the days set in **Settings → Notifications → Disk full
+forecast** (14 by default) it appears in *To check* and the *Disk running out* alert is sent; under 3 days it becomes an
+alert.
+
 <a id="eventi"></a>
 ## Events on charts
 

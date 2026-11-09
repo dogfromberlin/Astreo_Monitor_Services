@@ -178,6 +178,12 @@
         </fieldset>
 
         <fieldset>
+          <legend>{{ _("Previsione del disco pieno") }} <button type="button" class="help-btn" data-help="server#previsione-disco" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
+          <label class="narrow">{{ _("Avvisa se il disco si riempie entro (giorni)") }}<input type="number" min="2" max="90" step="1" data-key="forecast.warn_days"></label>
+          <p class="hint">{{ _("Dallo storico degli ultimi 14 giorni del disco di sistema di ogni server; solo se la crescita è regolare. Sotto i 3 giorni l'avviso diventa allarme. L'evento è «Disco in esaurimento» nelle regole qui sotto.") }}</p>
+        </fieldset>
+
+        <fieldset>
           <legend>{{ _("Avvisi di CPU e memoria") }} <button type="button" class="help-btn" data-help="notifications#cpu-memoria" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></legend>
           <label class="switch"><input type="checkbox" data-key="load.alerts_enabled"><span>{{ _("Attiva") }}</span></label>
           <div class="grid-fields">

@@ -15,6 +15,7 @@ from .. import db, events, heartbeat, i18n, models, notifier, services_store
 from ..integrations import docker as docker_mod
 from ..integrations import pihole as pihole_mod
 from .. import settings as settings_mod
+from .. import forecast
 from .. import hosts as hosts_mod
 from ..collectors import sensors, services, system
 from ..config import Config
@@ -30,6 +31,13 @@ def level(value: float, warning: float, alert: float) -> str:
     if value >= warning:
         return "WARNING"
     return "OK"
+
+
+def forecast_text(_, fc: dict, disk: str) -> str:
+    if fc.get("status") != "growing":
+        return _("Disco {disco}: occupazione stabile ({pct}%)", disco=disk, pct=fc.get("current"))
+    return _("Disco {disco} al {pct}%: cresce di {g} punti al giorno, al ritmo attuale è pieno tra circa {d} giorni ({quando})",
+             disco=disk, pct=fc["current"], g=fc["slope_per_day"], d=round(fc["days_left"]), quando=fc["full_at"])
 
 
 def top_processes(_, field: str, n: int = 3) -> str:
@@ -103,6 +111,12 @@ def main(cfg: Config, dry_run: bool) -> int:
             + _("Soglie: warning {w}%, alert {a}%", w=lim["disk_warning"], a=lim["disk_alert"]),
         ))
 
+        # 4.4: previsione del disco pieno (ricalcolata al massimo ogni 30 minuti)
+        fc = forecast.get(conn, hosts_mod.LOCAL_ID)
+        st = forecast.level(fc, values["forecast.warn_days"])
+        if fc.get("status") in ("growing", "stable"):
+            checks.append(("diskfill", st, forecast_text(_, fc, cfg.metrics.root_disk)))
+
         # 4.2: CPU e memoria, solo se attivati (Impostazioni → Notifiche)
         if values["load.alerts_enabled"]:
             for key, value, w, a, label in (("cpu", cpu, lim["cpu_warning"], lim["cpu_alert"], "CPU"),
@@ -118,7 +132,7 @@ def main(cfg: Config, dry_run: bool) -> int:
             state = notifier.AlertState(conn, key)
             should_notify, reason, previous = state.evaluate(status, settings_mod.policy(values, key))
             if should_notify:
-                name = _({"temperature": "Temperatura", "disk": "Disco", "cpu": "CPU", "memory": "Memoria"}[key])
+                name = _({"temperature": "Temperatura", "disk": "Disco", "cpu": "CPU", "memory": "Memoria", "diskfill": "Disco in esaurimento"}[key])
                 subject = _("Allarme {nome} rientrato", nome=name.lower()) if status == "OK" else f"{name}: {status}"
                 body = "\n".join(x for x in (notifier.reason_line(reason, state, lang), text,
                                               _("Stato precedente: {stato}", stato=previous or "n/d")) if x)

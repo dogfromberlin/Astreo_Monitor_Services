@@ -104,6 +104,33 @@ service name, e.g. `Spooler`, not the display name). **Refresh** in the Services
 services again straight away. Windows Firewall and Defender are *protected*: Windows does not let them be stopped or
 restarted, so they have no command buttons.
 
+<a id="accensione"></a>
+## Switching a server on (Wake-on-LAN)
+
+When a connected server does not respond, the server detail and the *To check* item show **Switch on**; from the bot:
+`/wake ATLAS` (or `/accendi`). The central server sends the "magic packet" on the home network to the MAC address of
+the main network card, which the 4.4 agent reports by itself (it can be written by hand in **Settings of this server →
+Switching on**, together with a broadcast other than its network's). It works only if the server and the central
+server are on the same local network, not through the VPN. The event stays in the history; when the agent sends data
+again the server is *reachable* again.
+
+On Windows Wake-on-LAN has to be enabled once:
+
+| Where | What |
+|---|---|
+| BIOS/UEFI | *Wake on LAN* (or *Power On by PCI-E / PME*) enabled |
+| Device Manager → network card → Power Management | *Allow this device to wake the computer* and *Only allow a magic packet…* |
+| Device Manager → network card → Advanced | *Wake on Magic Packet*: Enabled |
+| Windows Fast Startup | off: with Fast Startup on, the card often does not listen when the PC is off |
+
+Checks from PowerShell as administrator:
+```powershell
+powercfg /devicequery wake_armed
+Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' -Name HiberbootEnabled
+Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' -Name HiberbootEnabled -Value 0
+```
+The first must list the network card; the second shows Fast Startup (1 = on); the third turns it off.
+
 <a id="aggiungere"></a>
 ## Adding a server
 

@@ -77,6 +77,16 @@ def main(cfg: Config, dry_run: bool) -> int:
                                    f"[{name}] " + (tr("Servizio {nome} di nuovo attivo", nome=s["label"]) if s["up"]
                                                    else tr("Servizio {nome} fermo ({stato})", nome=s["label"], stato=s["state"])),
                                    tr("Servizio: {nome} ({unit})", nome=s["label"], unit=s["unit"])))
+            if online:                                                   # 4.4: previsione del disco pieno
+                from .. import forecast
+                fc = forecast.get(conn, h["id"])
+                if fc.get("status") in ("growing", "stable"):
+                    st = forecast.level(fc, values["forecast.warn_days"])
+                    txt = (tr("Disco di sistema: occupazione stabile ({pct}%)", pct=fc.get("current")) if fc["status"] != "growing" else
+                           tr("Disco di sistema al {pct}%: cresce di {g} punti al giorno, al ritmo attuale è pieno tra circa {d} giorni ({quando})",
+                              pct=fc["current"], g=fc["slope_per_day"], d=round(fc["days_left"]), quando=fc["full_at"]))
+                    checks.append(("diskfill", "diskfill", st, f"[{name}] " + (tr("Disco in esaurimento: rientrato") if st == "OK"
+                                                                                  else tr("Disco in esaurimento: {p0}", p0=st)), txt))
             if online:                                                   # 4.2: dischi, aggiornamenti e Docker dagli agenti
                 health = h.get("health") or {}
                 for d in health.get("disks", []):

@@ -939,7 +939,11 @@ def create_app(cfg: Config) -> Flask:
         mins = offline_minutes()
         with db.connect(cfg.database) as conn:
             from .. import silences as _sil
-            return jsonify({"hosts": hosts_mod.listing(conn, mins), "offline_minutes": mins, "silences": _sil.active(conn),
+            from .. import forecast as _fc
+            lst = hosts_mod.listing(conn, mins)
+            for h in lst:                                                   # 4.4: previsione del disco pieno
+                h["disk_forecast"] = _fc.get(conn, h["id"]) if h["status"] in ("OK", None) or h["id"] == hosts_mod.LOCAL_ID else None
+            return jsonify({"hosts": lst, "offline_minutes": mins, "silences": _sil.active(conn),
                             "defaults": hosts_mod.limits({}, cfg, settings_mod.load(conn, cfg))})   # 4.2: soglie generali
 
     # ------------------------------------------------------ 4.1: panoramica e preferenze
@@ -1003,6 +1007,29 @@ def create_app(cfg: Config) -> Flask:
             row = db.one(conn, sa_select(models.hosts.c.kind, models.hosts.c.allow_commands, models.hosts.c.allow_update)
                          .where(models.hosts.c.id == hid)) or {}
         return jsonify(install_commands(hid, row.get("kind"), token, bool(row.get("allow_commands")), bool(row.get("allow_update"))))
+
+    @app.post("/api/v1/hosts/<int:hid>/wake")
+    def api_host_wake(hid: int):
+        """4.4: accende il server con Wake-on-LAN (pacchetto magico in broadcast dalla rete del centrale)."""
+        from .. import wol
+        _ = i18n.translator(current_language())
+        user = (request.authorization.username if request.authorization else "") or "admin"
+        with db.connect(cfg.database) as conn:
+            host = db.one(conn, sa_select(models.hosts).where(models.hosts.c.id == hid))
+            if not host or hid == hosts_mod.LOCAL_ID:
+                abort(404, description=_("Server inesistente"))
+            net = db.state_get(conn, f"host:{hid}:net") or {}
+            mac = host["wol_mac"] or net.get("mac")
+            if not mac:
+                abort(400, description=_("Indirizzo MAC sconosciuto: aggiorna l'agente alla 4.4 o scrivilo in Impostazioni di questo server"))
+            try:
+                dests = wol.send(mac, net.get("ip"), host["wol_broadcast"])
+            except (wol.WolError, OSError) as exc:
+                abort(400, description=str(exc))
+            db.state_set(conn, f"host:{hid}:wake", {"time": dt.datetime.now().isoformat(timespec="seconds"), "by": user})
+            events.record(conn, "host", "info", f"Accensione richiesta dalla dashboard ({user})", f"{mac} → {', '.join(dests)}", host_id=hid)
+        log.info("Wake-on-LAN per %s (%s) da %s", host["name"], mac, user)
+        return jsonify({"ok": True, "mac": mac, "targets": dests})
 
     @app.post("/api/v1/hosts/<int:hid>/refresh")
     def api_host_refresh(hid: int):
