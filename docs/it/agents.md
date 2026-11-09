@@ -74,8 +74,9 @@ firmato. L'utente in sola lettura non vede i pulsanti.
 <a id="aggiornare-dashboard"></a>
 ### Aggiornare l'agente dalla dashboard (Windows)
 
-Con **Consenti l'aggiornamento dell'agente** attivo e l'agente installato con `-AllowUpdate`, quando la versione
-dell'agente è diversa da quella del centrale nel dettaglio del server compare **Aggiorna agente a …**. L'agente riceve
+Con **Consenti l'aggiornamento dell'agente** attivo e l'agente installato con `-AllowUpdate`, nel dettaglio del server
+il pulsante **Aggiorna agente** (sempre presente per i server collegati) avvia l'aggiornamento quando la versione
+dell'agente è diversa da quella del centrale; se non si può, un clic spiega perché. Non avviene mai in automatico. L'agente riceve
 un comando firmato, scarica dal centrale i propri file, ne verifica firma, impronte e sintassi, tiene una copia dei
 precedenti (`.bak` in `C:\ProgramData\AstreoAgent`) e dal giro successivo lavora con la versione nuova; l'esito resta
 nello storico. Per gli agenti Linux, per ora: `sudo bash install.sh --agent … --update` sul server collegato.

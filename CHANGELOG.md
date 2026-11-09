@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.3.1 — agent update button always visible
+
+- The server detail of a connected server always shows the agent button: *Update agent 4.2.0 → 4.3.1* when an update is possible, *Agent up to date* when it is already at the central version, and, when the update cannot start, a click explains why (permission *Allow updating the agent* off, agent not installed with `-AllowUpdate`, Linux agent, no data yet). Before, the button was simply hidden in those cases. The agent is never updated automatically.
+- An agent installed with the first 4.3.0 test build knows the service commands but not the update: its refusal ("azione non ammessa") is now explained in the dashboard with what to do (reinstall it once by hand).
+
 ## 4.3.0 — commands to the services of connected servers, agent update from the dashboard, on-demand services
 
 - **Start, stop and restart** the checked services of a connected server from the dashboard: services panel as a list of rows (full name, state on the right, **…** menu with the actions, lock for services protected by Windows), **Start** in *To check* for a stopped service. The command travels in the answer to the agent's data (no port opened on the agent) and starts within a minute; the result comes back as an event in the server history.

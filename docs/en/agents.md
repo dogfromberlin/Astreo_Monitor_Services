@@ -75,8 +75,9 @@ any command, even a signed one. The read-only user does not see the buttons.
 <a id="aggiornare-dashboard"></a>
 ### Updating the agent from the dashboard (Windows)
 
-With **Allow updating the agent** on and the agent installed with `-AllowUpdate`, when the agent version differs from
-the central one the server detail shows **Update agent to …**. The agent receives a signed command, downloads its own
+With **Allow updating the agent** on and the agent installed with `-AllowUpdate`, the **Update agent** button in the server
+detail (always there for connected servers) starts the update when the agent version differs from the central one;
+if it cannot, a click explains why. It never happens automatically. The agent receives a signed command, downloads its own
 files from the central server, checks signature, hashes and syntax, keeps a copy of the previous ones (`.bak` in
 `C:\ProgramData\AstreoAgent`) and from the next round works with the new version; the result stays in the history.
 For Linux agents, for now: `sudo bash install.sh --agent … --update` on the connected server.

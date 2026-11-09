@@ -478,6 +478,10 @@ def _command_result(conn, host: dict, it: dict, t: dt.datetime) -> None:
         return                                          # già registrato (risultato rimandato) o sconosciuto
     ok = bool(it.get("ok"))
     detail = _txt(it.get("detail"), 300)
+    if match["action"] == "update" and not ok and detail == "azione non ammessa":
+        # agente precedente alla 4.3.0.dev2: conosce i comandi ai servizi ma non l'aggiornamento
+        detail = ("questo agente è di una versione che non sa ancora aggiornarsi dalla dashboard: "
+                  "reinstallalo una volta a mano con il pacchetto attuale (Nuovo token), poi gli aggiornamenti partono da qui")
     st["pending"] = [c for c in st["pending"] if c["id"] != cid]
     st["results"] = (st["results"] + [{"id": cid, "action": match["action"], "unit": match["unit"], "by": match["by"],
                                        "ok": ok, "detail": detail, "time": t.isoformat(timespec="seconds")}])[-30:]

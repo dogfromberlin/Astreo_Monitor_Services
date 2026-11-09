@@ -968,6 +968,8 @@ fieldset { min-width: 0; }          /* i fieldset di serie si allargano al conte
 .icon.solid { fill: currentColor; stroke: none; }
 @media (max-width: 760px) { .services.svc-rows > li.svc-row { grid-template-columns: minmax(0, 1fr) 2.6rem auto; gap: .5rem; } .svc-state { font-size: .76rem; } }
 
+#srv-agent-update[aria-disabled=true] { opacity: .7; cursor: help; }
+
 /* piè di pagina compatto sul telefono (sul computer le stesse voci sono nel menu laterale) */
 .mobile-foot { display: none; }
 

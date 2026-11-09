@@ -39,9 +39,21 @@
     // 4.3: agente Windows più vecchio del centrale e aggiornamento permesso: pulsante "Aggiorna agente"
     const central = document.body.dataset.version;
     const upd = $("#srv-agent-update");
-    const can = !window.AM.IS_VIEWER && h.kind === "windows" && h.allow_update && h.agent_version && h.agent_version !== central;
-    upd.hidden = !can;
-    if (can && !upd.dataset.busy) upd.textContent = t("Aggiorna agente a {p0}", { p0: central });
+    // 4.3.1: il pulsante c'è sempre per i server collegati; se non si può aggiornare spiega perché
+    upd.hidden = window.AM.IS_VIEWER || h.kind === "local";
+    let why = "";
+    if (h.kind !== "windows") why = t("Dalla dashboard si aggiornano per ora solo gli agenti Windows; su Linux: install.sh --agent … --update");
+    else if (!h.agent_version) why = t("L'agente non ha ancora inviato dati");
+    else if (h.agent_version === central) why = t("L'agente è già alla versione del centrale ({p0})", { p0: central });
+    else if (!h.allow_update) why = t("Attiva «Consenti l'aggiornamento dell'agente» in Impostazioni di questo server; sull'agente serve l'installazione con -AllowUpdate");
+    upd.dataset.why = why;
+    upd.setAttribute("aria-disabled", String(!!why));
+    upd.title = why;
+    if (!upd.dataset.busy) {
+      upd.textContent = h.agent_version === central ? t("Agente aggiornato ({p0})", { p0: central })
+        : t("Aggiorna agente {p0} → {p1}", { p0: h.agent_version || "–", p1: central });
+      upd.classList.toggle("primary", !why);
+    }
     const pill = $("#srv-pill");
     pill.className = `pill ${cls}`;
     pill.replaceChildren(el("span", { class: `dot ${cls || "ok"}`, "aria-hidden": "true" }), el("span", {}, label));
@@ -237,6 +249,8 @@
     } catch (e) { toast(e.message, "error"); }
   };
   async function updateAgent() {
+    const why = $("#srv-agent-update").dataset.why;
+    if (why) { toast(why); return; }
     const h = hosts.find((x) => x.id === window.AM.host);
     if (!h || !confirm(t("Aggiornare l'agente di {p0} dalla {p1} alla {p2}? Parte entro un minuto; l'agente tiene una copia dei file precedenti.",
                          { p0: h.name, p1: h.agent_version, p2: document.body.dataset.version }))) return;
