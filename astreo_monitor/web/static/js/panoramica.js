@@ -158,7 +158,7 @@
       return;
     }
     list.replaceChildren(...d.todo.map((item) => {
-      const li = el("li", { class: `todo ${item.severity}` });
+      const li = el("li", { class: `todo ${item.severity}${item.silenced_until ? " silenced" : ""}` });
       const sev = el("span", { class: "sev" });
       sev.append(svgIcon(SEV[item.severity][1]), el("span", {}, SEV[item.severity][0]));
       const what = el("div", { class: "what" });
@@ -166,11 +166,72 @@
       what.append(el("strong", {}, item.title));
       if (detail) what.append(el("span", {}, detail));
       const acts = el("div", { class: "acts" });
-      acts.append(...actions(item, d));
+      if (item.silenced_until) {                                   // 4.4: silenziata
+        what.append(el("span", { class: "sil-note" }, t("silenziato fino alle {p0}", { p0: item.silenced_until.slice(11, 16) })));
+        if (!IS_VIEWER) {
+          const r = el("button", { type: "button", class: "btn small" }, t("Riattiva"));
+          r.addEventListener("click", () => unsilence(item.silence_id));
+          acts.append(r);
+        }
+      } else {
+        acts.append(...actions(item, d));
+        const st = item.silence_target || {};
+        if (!IS_VIEWER && item.key !== "nobackup" && (st.host_id || st.source)) {
+          const scope = st.unit ? "service" : st.host_id ? "host" : "source";
+          const host = d.hosts.find((h) => h.id === st.host_id);
+          const label = st.unit ? `${host ? host.name : ""} · ${st.unit}` : host ? host.name : item.title;
+          acts.append(silenceButton({ scope, ...st }, label));
+        }
+      }
       li.append(sev, what, acts);
       return li;
     }));
   }
+
+  // ------------------------------------------------------------------ 4.4: silenzia per un po'
+  const DURATIONS = () => {
+    const now = new Date(), morning = new Date(now); morning.setDate(now.getDate() + 1); morning.setHours(8, 0, 0, 0);
+    return [[t("30 minuti"), 30], [t("1 ora"), 60], [t("2 ore"), 120], [t("4 ore"), 240],
+            [t("Fino a domattina (08:00)"), Math.round((morning - now) / 60000)]];
+  };
+  function closeSilenceMenus() { document.querySelectorAll(".sil-menu").forEach((m) => m.remove()); }
+  document.addEventListener("click", (ev) => { if (!ev.target.closest(".sil-menu, .sil-btn")) closeSilenceMenus(); });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeSilenceMenus(); });
+
+  // pulsante "Silenzia…" con il menu delle durate; target = {scope, host_id, source, unit}
+  function silenceButton(target, label, onDone, cls = "btn small") {
+    const b = el("button", { type: "button", class: `${cls} sil-btn`, "aria-haspopup": "menu" });
+    b.append(svgIcon("i-bell-off"), el("span", {}, t("Silenzia")));
+    b.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const open = b.nextElementSibling && b.nextElementSibling.classList.contains("sil-menu");
+      closeSilenceMenus();
+      if (open) return;
+      const menu = el("div", { class: "sil-menu", role: "menu" });
+      menu.append(el("span", { class: "sil-title" }, t("Silenzia {p0} per…", { p0: label })));
+      for (const [txt, minutes] of DURATIONS()) {
+        const it = el("button", { type: "button", role: "menuitem" }, txt);
+        it.addEventListener("click", async () => {
+          closeSilenceMenus();
+          try {
+            const r = await api("/api/v1/silences", { method: "POST", json: { ...target, minutes, label } });
+            toast(t("{p0}: avvisi silenziati fino alle {p1}", { p0: label, p1: r.until.slice(11, 16) }));
+            (onDone || load)();
+          } catch (e) { toast(e.message, "error"); }
+        });
+        menu.append(it);
+      }
+      b.after(menu);
+      menu.querySelector("[role=menuitem]").focus();
+    });
+    return b;
+  }
+  async function unsilence(id, onDone) {
+    try { await api(`/api/v1/silences/${id}`, { method: "DELETE", json: {} }); toast(t("Avvisi riattivati")); (onDone || load)(); }
+    catch (e) { toast(e.message, "error"); }
+  }
+  window.AM.silenceButton = silenceButton;
+  window.AM.unsilence = unsilence;
 
   // ------------------------------------------------------------------ server
   const STATUS = { OK: ["", t("regolare")], DOWN: ["alert", t("non raggiungibile")], WAITING: ["wait", t("in attesa")],
@@ -211,9 +272,17 @@
     const meta = [h.os, h.kind === "local" ? (h.uptime_s ? t("acceso da {p0}", { p0: fmtUptime(h.uptime_s) }) : "")
       : (h.last_seen ? t("ultimo invio {p0}", { p0: fmtDateTime(h.last_seen) }) : "")].filter(Boolean).join(" · ");
     who.append(name, el("span", {}, meta || "–"));
+    let silWrap = null;
+    if (h.silenced_until) {                                        // 4.4: server silenziato
+      const si = svgIcon("i-bell-off"); si.classList.add("sil-ic");
+      silWrap = el("span", { class: "sil-ic-wrap", title: t("silenziato fino alle {p0}", { p0: h.silenced_until.slice(11, 16) }) });
+      silWrap.append(si);
+    }
     const pill = el("span", { class: `pill ${cls}` });
     pill.append(el("span", { class: `dot ${cls === "" ? "ok" : cls === "wait" ? "" : cls}`, "aria-hidden": "true" }), el("span", {}, label));
-    head.append(ic, who, pill);
+    head.append(ic, who);
+    if (silWrap) head.append(silWrap);
+    head.append(pill);
     a.append(head);
 
     if (h.status === "OK") {

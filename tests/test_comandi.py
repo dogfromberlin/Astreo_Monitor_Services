@@ -200,3 +200,12 @@ def test_discontinuo_scelto_alla_creazione(env):
         nas = next(h for h in web.get("/api/v1/hosts", headers=auth).get_json()["hosts"] if h["name"] == "NAS")
     assert nas["services_ondemand"] == "backup.service"
     assert {s["unit"]: s["ondemand"] for s in nas["services_state"]["services"]} == {"ssh.service": False, "backup.service": True}
+
+
+def test_agente_windows_non_si_ferma_per_i_comandi_esterni():
+    """4.4.0.dev2: con ErrorActionPreference = Stop, un comando esterno che scrive su stderr (docker con il motore
+    fermo) fermava l'agente a ogni giro senza scrivere nulla nel registro."""
+    ps1 = open(os.path.join(os.path.dirname(__file__), "..", "agent", "windows", "astreo-agent.ps1"), encoding="utf-8").read()
+    assert "function Invoke-Native" in ps1 and "trap {" in ps1
+    import re
+    assert not re.search(r"& \$docker\.Source [^\n]*2>\$null", ps1)          # niente più chiamate dirette a docker

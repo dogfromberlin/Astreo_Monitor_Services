@@ -60,7 +60,28 @@
     } catch (e) { /* registro non disponibile */ }
   }
 
+  // 4.4: silenzi attivi
+  async function loadSilences() {
+    let lst = [];
+    try { lst = (await api("/api/v1/silences")).silences; } catch (e) { return; }
+    const SCOPE = { all: t("tutto"), host: t("server"), source: t("tipo di evento"), service: t("servizio") };
+    $("#sil-list").replaceChildren(...(lst.length ? lst.map((s) => {
+      const li = el("li");
+      li.append(el("strong", {}, s.label || SCOPE[s.scope]), el("span", {}, `${SCOPE[s.scope]} · ${t("fino alle {p0}", { p0: s.until.slice(11, 16) })}${s.by ? " · " + s.by : ""}`));
+      if (!IS_VIEWER) {
+        const b = el("button", { type: "button", class: "btn small" }, t("Riattiva"));
+        b.addEventListener("click", () => window.AM.unsilence(s.id, loadSilences));
+        li.append(b);
+      }
+      return li;
+    }) : [el("li", { class: "hint" }, t("Nessun silenzio attivo: gli avvisi partono normalmente."))]));
+    if (!IS_VIEWER && window.AM.silenceButton && !$("#sil-all").children.length) {
+      $("#sil-all").append(window.AM.silenceButton({ scope: "all" }, t("tutti gli avvisi"), loadSilences));
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    onView("avvisi", loadSilences);
     $("#ev-period").addEventListener("click", (ev) => {
       const b = ev.target.closest("button[data-range]");
       if (!b) return;

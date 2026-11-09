@@ -88,6 +88,24 @@ during a line drop arrives as soon as the line is back, with the time it was det
 **Alerts and events → Notifications sent** failed attempts show as *Queued* with the reason and the next attempt;
 after 5 attempts the alert shows as *Not sent*. Tests from the dashboard are sent immediately.
 
+<a id="silenzia"></a>
+## Mute for a while
+
+For planned work (rebooting a server, the provider working on the line) alerts can be **muted** for 30 minutes, 1, 2
+or 4 hours or until the next morning:
+
+| From | What |
+|---|---|
+| *To check* (Overview) | **Mute** on each item: the service, the server or the event type of that item |
+| server detail | **Mute** at the top: everything about that server |
+| Alerts and events → Active mutes | **Mute** all alerts; list of mutes with **Resume** |
+| Telegram bot | `/mute ATLAS 1h`, `/mute ATLAS Spooler 30m`, `/mute connessione 2h`, `/mute tutto domattina`, `/mutes`, `/unmute ATLAS`, `/unmute tutto` (also in Italian: `/silenzia`, `/silenzi`, `/riattiva`) |
+
+During a mute the dashboard and the history record everything and the item shows grey *muted until …*, but no alert
+is sent. When it ends, if the problem is still there, the alert is sent normally (respecting *Alert after*); if it
+cleared in the meantime nothing arrives, not even the recovery. The read-only user sees the mutes but cannot create or
+remove them.
+
 <a id="heartbeat"></a>
 ## External heartbeat
 

@@ -91,6 +91,7 @@ class Policy:
     recovery: bool
     reminder_hours: float
     delay_minutes: float = 0
+    source: str | None = None          # 4.4: tipo di evento, per i silenzi
 
 
 def build_spec(cfg: Config) -> dict[str, Spec]:
@@ -368,7 +369,7 @@ def deferred_until(values: dict, when: dt.datetime) -> dt.datetime:
 
 def policy(values: dict, source: str) -> Policy:
     return Policy(values[f"alert.{source}.mode"], values[f"alert.{source}.recovery"],
-                  values[f"alert.{source}.reminder_hours"], values.get(f"alert.{source}.delay_minutes", 0))
+                  values[f"alert.{source}.reminder_hours"], values.get(f"alert.{source}.delay_minutes", 0), source)
 
 
 def email_config(cfg: Config, values: dict) -> EmailConfig:

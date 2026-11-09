@@ -15,7 +15,7 @@ param(
   [switch]$TestConnection
 )
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '4.3.1'
+$AgentVersion = '4.4.0.dev2'
 $Dir = Split-Path -Parent $ConfigPath
 $QueueDir = Join-Path $Dir 'queue'
 $StatePath = Join-Path $Dir 'state.json'
@@ -24,11 +24,31 @@ $MetricsEvery = 290
 $HealthEvery = 21600
 $Batch = 200
 
+# 4.4.0.dev2: esegue un comando esterno raccogliendo uscita ed errori senza mai interrompere lo script
+function Invoke-Native([scriptblock]$Command) {
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $all = @(& $Command 2>&1)
+    $code = $LASTEXITCODE
+  } catch { return @{ ok = $false; out = @(); err = $_.Exception.Message } }
+  finally { $ErrorActionPreference = $prev }
+  $err = @($all | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() }) -join ' '
+  $out = @($all | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ })
+  return @{ ok = ($code -eq 0); out = $out; err = $err }
+}
+
 function Write-AgentLog([string]$Level, [string]$Message) {
   $line = '{0} {1} {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message
   if ((Test-Path $LogPath) -and (Get-Item $LogPath).Length -gt 1MB) { Move-Item $LogPath "$LogPath.1" -Force }
   Add-Content -Path $LogPath -Value $line -Encoding UTF8
   if ($DryRun -or $TestConnection) { Write-Output $line }
+}
+
+# 4.4.0.dev2: un errore non previsto finisce nel registro (riga e messaggio) invece di chiudere l'agente in silenzio
+trap {
+  try { Write-AgentLog 'ERROR' ('Errore non previsto alla riga {0}: {1}' -f $_.InvocationInfo.ScriptLineNumber, $_.Exception.Message) } catch { }
+  exit 1
 }
 
 # --- verifica del certificato del centrale con la sua CA, senza installarla in Windows
@@ -133,19 +153,23 @@ if (($epoch - [int](Get-StateValue 'metrics_sent' 0)) -ge $MetricsEvery) {
   $docker = Get-Command docker -ErrorAction SilentlyContinue
   if ($docker) {
     # 4.3: Docker installato ma motore fermo (es. Docker Desktop chiuso): nessun errore nel registro a ogni giro
-    $null = & $docker.Source info --format '{{.ServerVersion}}' 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    # 4.4.0.dev2: un comando esterno che scrive su stderr non deve mai interrompere l'agente
+    # (con ErrorActionPreference = Stop, Windows PowerShell 5.1 lo tratta come errore bloccante)
+    $dockerUp = Invoke-Native { & $docker.Source info --format '{{.ServerVersion}}' }
+    if (-not $dockerUp.ok) {
       [void]$items.Add(@{ type = 'containers'; time = $iso; running = $false; detail = 'Docker installato ma non in esecuzione'; containers = @() })
       $docker = $null
     }
   }
   if ($docker) {
     try {
-      $conts = @(& $docker.Source ps -a --no-trunc --format '{{json .}}' 2>$null | Where-Object { $_ } | ForEach-Object { $_ | ConvertFrom-Json } | Select-Object -First 200)
+      $ps = Invoke-Native { & $docker.Source ps -a --no-trunc --format '{{json .}}' }
+      if (-not $ps.ok) { throw ('docker ps: ' + $ps.err) }
+      $conts = @($ps.out | Where-Object { $_ } | ForEach-Object { $_ | ConvertFrom-Json } | Select-Object -First 200)
       $list = @(foreach ($c in $conts) {
         $pol = ''; $hl = $null
         try {
-          $ins = (& $docker.Source inspect $c.ID 2>$null | Out-String | ConvertFrom-Json)[0]
+          $ins = ((Invoke-Native { & $docker.Source inspect $c.ID }).out | Out-String | ConvertFrom-Json)[0]
           $pol = [string]$ins.HostConfig.RestartPolicy.Name
           if ($ins.State.Health) { $hl = [string]$ins.State.Health.Status }
         } catch { }

@@ -89,6 +89,24 @@ un avviso nato durante una caduta della linea arriva appena la linea torna, con 
 quella di invio. In **Avvisi ed eventi → Notifiche inviate** i tentativi falliti compaiono *In coda* con il motivo e
 il prossimo tentativo; dopo 5 tentativi l'avviso risulta *Non inviata*. Le prove dalla dashboard partono subito.
 
+<a id="silenzia"></a>
+## Silenzia per un po'
+
+Per un intervento programmato (riavvio di un server, lavori del fornitore sulla linea) gli avvisi si possono
+**silenziare** per 30 minuti, 1, 2 o 4 ore o fino al mattino dopo:
+
+| Da dove | Cosa |
+|---|---|
+| *Da controllare* (Panoramica) | **Silenzia** su ogni voce: il servizio, il server o il tipo di evento di quella voce |
+| dettaglio di un server | **Silenzia** in alto: tutto ciò che riguarda quel server |
+| Avvisi ed eventi → Silenzi attivi | **Silenzia** tutti gli avvisi; elenco dei silenzi con **Riattiva** |
+| bot Telegram | `/silenzia ATLAS 1h`, `/silenzia ATLAS Spooler 30m`, `/silenzia connessione 2h`, `/silenzia tutto domattina`, `/silenzi`, `/riattiva ATLAS`, `/riattiva tutto` |
+
+Durante il silenzio dashboard e storico registrano tutto e la voce compare grigia *silenziato fino alle …*, ma non
+parte nessun avviso. Allo scadere, se il problema c'è ancora, l'avviso parte normalmente (rispettando *Avvisa dopo*);
+se si è risolto nel frattempo non arriva nulla, nemmeno il rientro. L'utente in sola lettura vede i silenzi ma non
+può crearli né toglierli.
+
 <a id="heartbeat"></a>
 ## Heartbeat esterno
 

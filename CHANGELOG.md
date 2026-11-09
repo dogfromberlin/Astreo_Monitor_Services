@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.4.0.dev2 — Windows agent fix and mute state (test build, not a Release)
+
+- **Fix, Windows agent**: with Docker installed but its engine stopped, `docker info` wrote to stderr and Windows PowerShell 5.1 (with *ErrorActionPreference Stop*) stopped the agent at every run, before sending anything: the server looked unreachable and commands (including the update) never arrived. External commands now run through a wrapper that never stops the agent.
+- **Windows agent**: any unexpected error is written to `agent.log` with line and message before exiting, so an agent can no longer fail silently.
+- **Mute state shown**: the server detail shows *muted until …* with **Resume** instead of *Mute* while a mute is active (server or everything); the server card in the Overview shows a muted-bell icon.
+
+## 4.4.0.dev1 — mute for a while, stage 1 of 3 (test build, not a Release)
+
+- **Mute alerts for a while** (30 minutes, 1, 2, 4 hours, until the next morning) for a service, a server, an event type or everything: **Mute** on each *To check* item and in the server detail, *Active mutes* panel in Alerts and events with **Resume**, Telegram `/silenzia` (`/mute`), `/silenzi` (`/mutes`), `/riattiva` (`/unmute`).
+- During a mute everything is still recorded and the item shows grey *muted until …*; muted items do not count in the status sentence. When the mute ends, if the problem is still there, the alert is sent normally (respecting *Alert after*); if it cleared, nothing is sent.
+- Mutes are stored in `monitor_state`: no database migration.
+- Guide: *Mute for a while* in Notifications (IT/EN).
+
 ## 4.3.1 — agent update button always visible
 
 - The server detail of a connected server always shows the agent button: *Update agent 4.2.0 → 4.3.1* when an update is possible, *Agent up to date* when it is already at the central version, and, when the update cannot start, a click explains why (permission *Allow updating the agent* off, agent not installed with `-AllowUpdate`, Linux agent, no data yet). Before, the button was simply hidden in those cases. The agent is never updated automatically.

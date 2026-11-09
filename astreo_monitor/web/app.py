@@ -900,6 +900,35 @@ def create_app(cfg: Config) -> Flask:
         key = commands_mod.key_path(cfg.path)
         return jsonify(commands_mod.windows_package(PROJECT_DIR, key, host["token_hash"][:24], __version__))
 
+    # ------------------------------------------------------ 4.4: silenzia per un po'
+    from .. import silences as silences_mod
+
+    @app.get("/api/v1/silences")
+    def api_silences():
+        with db.connect(cfg.database) as conn:
+            return jsonify({"silences": silences_mod.active(conn)})
+
+    @app.post("/api/v1/silences")
+    def api_silence_add():
+        data = request.get_json(silent=True) or {}
+        user = (request.authorization.username if request.authorization else "") or "admin"
+        try:
+            with db.connect(cfg.database) as conn:
+                item = silences_mod.add(conn, str(data.get("scope", "")), host_id=data.get("host_id"), source=data.get("source"),
+                                        unit=data.get("unit"), minutes=data.get("minutes"), until=data.get("until"), by=user,
+                                        label=str(data.get("label", "")))
+        except silences_mod.SilenceError as exc:
+            abort(400, description=str(exc))
+        log.info("Silenzio %s fino alle %s da %s", item["label"] or item["scope"], item["until"], user)
+        return jsonify(item), 201
+
+    @app.delete("/api/v1/silences/<sid>")
+    def api_silence_remove(sid: str):
+        with db.connect(cfg.database) as conn:
+            if not silences_mod.remove(conn, sid):
+                abort(404)
+        return jsonify({"ok": True})
+
     @app.get("/api/v1/hosts/<int:hid>/commands")
     def api_host_commands(hid: int):
         with db.connect(cfg.database) as conn:
@@ -909,7 +938,8 @@ def create_app(cfg: Config) -> Flask:
     def api_hosts():
         mins = offline_minutes()
         with db.connect(cfg.database) as conn:
-            return jsonify({"hosts": hosts_mod.listing(conn, mins), "offline_minutes": mins,
+            from .. import silences as _sil
+            return jsonify({"hosts": hosts_mod.listing(conn, mins), "offline_minutes": mins, "silences": _sil.active(conn),
                             "defaults": hosts_mod.limits({}, cfg, settings_mod.load(conn, cfg))})   # 4.2: soglie generali
 
     # ------------------------------------------------------ 4.1: panoramica e preferenze

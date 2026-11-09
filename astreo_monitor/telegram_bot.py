@@ -10,6 +10,7 @@ import argparse
 import datetime as dt
 import json
 import logging
+import re
 import sys
 import threading
 import time
@@ -33,6 +34,9 @@ COMMANDS = [
     ("speedtest", "speedtest", "Avvia uno speedtest e mostra il risultato"),
     ("servizi", "services", "Servizi monitorati; con un nome (/servizi ATLAS) quelli di quel server"),
     ("controlli", "checks", "Dischi, aggiornamenti, scadenze, backup"),
+    ("silenzia", "mute", "Silenzia gli avvisi: /silenzia ATLAS 1h, /silenzia connessione 30m, /silenzia tutto 2h"),
+    ("silenzi", "mutes", "Silenzi attivi"),
+    ("riattiva", "unmute", "Toglie un silenzio: /riattiva ATLAS, /riattiva tutto"),
     ("aiuto", "help", "Elenco dei comandi"),
 ]
 ALIASES = {en: it for it, en, _d in COMMANDS}
@@ -162,6 +166,9 @@ class Bot:
             if arg and cmd in ("stato", "servizi"):          # 4.2: /stato nome-server, /servizi nome-server
                 self.cmd_host(chat, arg, services_only=cmd == "servizi")
                 return
+            if cmd in ("silenzia", "silenzi", "riattiva"):        # 4.4: silenzia per un po'
+                getattr(self, f"cmd_{cmd}")(chat, arg)
+                return
             handler = {"stato": self.cmd_stato, "connessione": self.cmd_connessione, "speedtest": self.cmd_speedtest,
                        "servizi": self.cmd_servizi, "controlli": self.cmd_controlli}.get(cmd, self.cmd_aiuto)
             handler(chat)
@@ -282,6 +289,87 @@ class Bot:
             lines.append(("🟢 " + self.tr("Container: tutti in esecuzione ({n})", n=len(conts))) if not stopped
                          else "🔴 " + self.tr("Container fermi: {elenco}", elenco=", ".join(stopped)))
         self.send(chat, "\n".join(lines))
+
+    # -------------------------------------------------------- 4.4: silenzi
+    EVENT_WORDS = {"connessione": "connectivity", "connection": "connectivity", "internet": "connectivity",
+                   "dispositivi": "checks", "devices": "checks", "backup": "backup", "speedtest": "speedtest",
+                   "scadenze": "expiry", "aggiornamenti": "updates", "dischi": "smart", "servizi": "services"}
+
+    @staticmethod
+    def parse_duration(text: str, now: dt.datetime) -> int | None:
+        t = text.strip().lower()
+        if t in ("domattina", "domani", "tomorrow"):
+            end = (now + dt.timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+            return int((end - now).total_seconds() // 60)
+        m = re.fullmatch(r"(\d{1,4})\s*(m|min|h|ore|g|d)?", t)
+        if not m:
+            return None
+        n, u = int(m.group(1)), (m.group(2) or "m")
+        return n * {"m": 1, "min": 1, "h": 60, "ore": 60, "g": 1440, "d": 1440}[u]
+
+    def silence_target(self, words: list[str]):
+        """(scope, host_id, source, unit, etichetta) dalle parole del comando, o un messaggio d'errore."""
+        if not words or words[0].lower() in ("tutto", "all", "tutti"):
+            return ("all", None, None, None, self.tr("tutti gli avvisi"))
+        w = words[0].lower()
+        if w in self.EVENT_WORDS:
+            return ("source", None, self.EVENT_WORDS[w], None, words[0])
+        found, lst = self.find_host(words[0])
+        if len(found) != 1:
+            return self.tr("Server o evento «{p0}» non trovato. Server: {p1}; eventi: connessione, dispositivi, backup, speedtest, scadenze, aggiornamenti, dischi, servizi",
+                           p0=words[0], p1=", ".join(h["name"] for h in lst))
+        h = found[0]
+        if len(words) > 1:
+            return ("service", h["id"], None, words[1], f"{h['name']} · {words[1]}")
+        return ("host", h["id"], None, None, h["name"])
+
+    def cmd_silenzia(self, chat, arg: str) -> None:
+        from . import silences
+        words = arg.split()
+        now = dt.datetime.now().replace(microsecond=0)
+        minutes = 60
+        if words and self.parse_duration(words[-1], now) is not None and (len(words) > 1 or words[0][0].isdigit()):
+            minutes = self.parse_duration(words.pop(), now)
+        target = self.silence_target(words)
+        if isinstance(target, str):
+            self.send(chat, target)
+            return
+        scope, hid, source, unit, label = target
+        try:
+            with db.connect(self.cfg.database) as conn:
+                item = silences.add(conn, scope, host_id=hid, source=source, unit=unit, minutes=minutes, by="telegram", label=label)
+        except silences.SilenceError as exc:
+            self.send(chat, str(exc))
+            return
+        self.send(chat, "🔕 " + self.tr("{p0}: avvisi silenziati fino alle {p1}. /riattiva per toglierlo.", p0=label, p1=item["until"][11:16]))
+
+    def cmd_silenzi(self, chat, arg: str = "") -> None:
+        from . import silences
+        with db.connect(self.cfg.database) as conn:
+            lst = silences.active(conn)
+        if not lst:
+            self.send(chat, self.tr("Nessun silenzio attivo."))
+            return
+        self.send(chat, "🔕 " + self.tr("Silenzi attivi:") + "\n" + "\n".join(
+            f"- {s['label'] or s['scope']}: " + self.tr("fino alle {p0}", p0=s["until"][11:16]) for s in lst))
+
+    def cmd_riattiva(self, chat, arg: str) -> None:
+        from . import silences
+        words = arg.split()
+        with db.connect(self.cfg.database) as conn:
+            lst = silences.active(conn)
+            if words and words[0].lower() in ("tutto", "all", "tutti"):
+                gone = [s for s in lst]
+            else:
+                target = self.silence_target(words) if words else None
+                if isinstance(target, str):
+                    self.send(chat, target)
+                    return
+                gone = [s for s in lst if target is None or (s["scope"], s["host_id"], s["source"], s["unit"]) == target[:4]] if target else []
+            for s in gone:
+                silences.remove(conn, s["id"])
+        self.send(chat, ("🔔 " + self.tr("Avvisi riattivati: {p0}", p0=", ".join(s["label"] or s["scope"] for s in gone))) if gone
+                  else self.tr("Nessun silenzio corrispondente. /silenzi per l'elenco."))
 
     def cmd_connessione(self, chat) -> None:
         from .web import history

@@ -437,13 +437,32 @@ class AlertState:
                 elif self.data.get("pending") and elapsed >= dt.timedelta(minutes=delay):
                     notify, reason = True, self.data.pop("pending")
 
+        # 4.4: silenzio attivo ("silenzia per un po'"): l'avviso resta in attesa e parte alla fine del silenzio
+        # se il problema c'è ancora; un rientro durante il silenzio non manda nulla
+        from . import silences
+        conn = getattr(self, "conn", None)
+        sil = silences.match(conn, self.key, getattr(rule, "source", None), now) if conn is not None else None
+        if sil:
+            if new_status == OK:
+                self.data.pop("pending", None)
+                if notify:
+                    notify, reason = False, None
+            elif notify and reason != "promemoria":
+                self.data["pending"] = reason
+                notify, reason = False, None
+            self.data["silenced_until"] = sil["until"]
+        else:
+            self.data.pop("silenced_until", None)
+            if not notify and new_status != OK and delay <= 0 and self.data.get("pending"):
+                notify, reason = True, self.data.pop("pending")         # silenzio finito, problema ancora presente
+
         # inizio e fine della situazione anomala (WARNING/ALERT/... anche alternati)
         if new_status == OK:
             self.data.pop("anomaly_since", None)
         elif previous in (None, OK) or "anomaly_since" not in self.data:
             self.data["anomaly_since"] = now.isoformat(timespec="seconds")
 
-        if not notify and new_status != OK and rule.reminder_hours > 0 and not self.data.get("pending"):
+        if not notify and new_status != OK and rule.reminder_hours > 0 and not self.data.get("pending") and not sil:
             anchor = self.data.get("last_notified")
             since = self.data.get("anomaly_since")
             # l'ultimo avviso deve appartenere alla situazione anomala in corso

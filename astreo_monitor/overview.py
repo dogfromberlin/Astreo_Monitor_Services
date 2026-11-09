@@ -243,8 +243,33 @@ def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.d
         add("info", "reboot", _("Il server centrale va riavviato per completare gli aggiornamenti"), "",
             action={"kind": "host", "host": hosts_mod.LOCAL_ID})
 
-    items.sort(key=lambda x: SEVERITY_ORDER[x["severity"]])
+    # 4.4: voci coperte da un silenzio (restano visibili, in grigio, con l'ora di fine)
+    from . import silences
+    sil = silences.active(conn)
+    for it in items:
+        host, source, unit = silence_target(it)
+        it["silence_target"] = {"host_id": host, "source": source, "unit": unit}
+        s_ = silences.for_item(sil, host, source, unit) if sil else None
+        it["silenced_until"] = s_["until"] if s_ else None
+        it["silence_id"] = s_["id"] if s_ else None
+    items.sort(key=lambda x: (x["silenced_until"] is not None, SEVERITY_ORDER[x["severity"]]))
     return items
+
+
+SOURCE_OF = {"connection": "connectivity", "backup": "backup", "restoretest": "restoretest", "updates": "updates",
+             "reboot": "updates", "check": "checks", "expiry": "expiry", "nobackup": None}
+
+
+def silence_target(it: dict) -> tuple[int | None, str | None, str | None]:
+    """Cosa silenziare per una voce di "Da controllare": il servizio, il server o il tipo di evento."""
+    k = it["key"]
+    if k.startswith("service:"):
+        _, h, unit = k.split(":", 2)
+        return int(h), "services", unit
+    kind = k.split(":", 1)[0]
+    if it.get("host") and kind not in ("check", "expiry"):
+        return it["host"], None, None
+    return None, SOURCE_OF.get(kind, kind), None
 
 
 def _events(conn, hosts: list[dict], now: dt.datetime, lang: str) -> list[dict]:
@@ -275,9 +300,15 @@ def build(conn, cfg, lang: str, offline_minutes: int) -> dict:
     conn_info = _connection(conn, now)
     backup = _backup(conn, values)
     todo = _todo(conn, cfg, hosts, conn_info, backup, now, lang, values)
+    from . import silences as silences_mod                       # 4.4: server silenziati (tutto o quel server)
+    _sil = silences_mod.active(conn)
+    for h in hosts:
+        s_ = next((x for x in _sil if x["scope"] == "all" or (x["scope"] == "host" and x["host_id"] == h["id"])), None)
+        h["silenced_until"], h["silence_id"] = (s_["until"], s_["id"]) if s_ else (None, None)
 
-    worst = todo[0]["severity"] if todo else "ok"
-    n_check = sum(1 for x in todo if x["severity"] in ("alert", "warn"))
+    live = [x for x in todo if not x.get("silenced_until")]          # 4.4: i silenziati non contano nella frase di stato
+    worst = live[0]["severity"] if live else "ok"
+    n_check = sum(1 for x in live if x["severity"] in ("alert", "warn"))
     if worst == "alert":
         headline = _("Attenzione · {p0} cose da controllare", p0=n_check) if n_check > 1 else _("Attenzione · 1 cosa da controllare")
     elif n_check:

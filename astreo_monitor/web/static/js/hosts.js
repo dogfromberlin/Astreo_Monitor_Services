@@ -39,6 +39,22 @@
     // 4.3: agente Windows più vecchio del centrale e aggiornamento permesso: pulsante "Aggiorna agente"
     const central = document.body.dataset.version;
     const upd = $("#srv-agent-update");
+    // 4.4: "Silenzia" per il server
+    // con un silenzio attivo mostra fino a quando e "Riattiva", non di nuovo "Silenzia"
+    const sb = $("#srv-silence");
+    const sil = silences.find((x) => x.scope === "all" || (x.scope === "host" && x.host_id === h.id));
+    const sig = `${h.id}:${sil ? sil.id : ""}`;
+    if (sb && window.AM.silenceButton && sb.dataset.sig !== sig) {
+      sb.dataset.sig = sig;
+      const done = () => { load(); document.dispatchEvent(new CustomEvent("hosts-changed")); };
+      if (sil) {
+        const note = el("span", { class: "sil-badge" }, sil.scope === "all" ? t("tutti gli avvisi silenziati fino alle {p0}", { p0: sil.until.slice(11, 16) })
+                                                                            : t("silenziato fino alle {p0}", { p0: sil.until.slice(11, 16) }));
+        const r = el("button", { type: "button", class: "btn small" }, t("Riattiva"));
+        r.addEventListener("click", () => window.AM.unsilence(sil.id, done));
+        sb.replaceChildren(note, r);
+      } else sb.replaceChildren(window.AM.silenceButton({ scope: "host", host_id: h.id }, h.name, done));
+    }
     // 4.3.1: il pulsante c'è sempre per i server collegati; se non si può aggiornare spiega perché
     upd.hidden = window.AM.IS_VIEWER || h.kind === "local";
     let why = "";
@@ -59,8 +75,9 @@
     pill.replaceChildren(el("span", { class: `dot ${cls || "ok"}`, "aria-hidden": "true" }), el("span", {}, label));
   }
 
+  let silences = [];
   async function load() {
-    try { hosts = (await api("/api/v1/hosts")).hosts; } catch (e) { return; }
+    try { const d = await api("/api/v1/hosts"); hosts = d.hosts; silences = d.silences || []; } catch (e) { return; }
     if (!hosts.some((h) => h.id === window.AM.host)) window.AM.host = 1;
     const want = detailId();
     if (want && want !== window.AM.host && hosts.some((h) => h.id === want)) { select(want); return; }

@@ -970,6 +970,29 @@ fieldset { min-width: 0; }          /* i fieldset di serie si allargano al conte
 
 #srv-agent-update[aria-disabled=true] { opacity: .7; cursor: help; }
 
+/* 4.4: silenzi */
+.sil-btn { position: relative; }
+.sil-btn .icon { width: 1rem; height: 1rem; }
+#srv-silence, .todo .acts, #sil-all { position: relative; }
+.sil-menu { position: absolute; right: 0; top: calc(100% + .3rem); z-index: 30; min-width: 13rem; padding: .3rem; border-radius: 10px;
+            background: var(--surface); border: 1px solid var(--line-strong); box-shadow: var(--shadow); display: grid; gap: .1rem; }
+.sil-menu .sil-title { font-size: .75rem; color: var(--muted); padding: .35rem .6rem .2rem; }
+.sil-menu button { display: flex; align-items: center; width: 100%; min-height: 2.3rem; padding: 0 .65rem; border: 0; border-radius: 7px;
+                   background: transparent; color: var(--strong); font: 500 .88rem var(--font); text-align: left; }
+.sil-menu button:hover, .sil-menu button:focus-visible { background: var(--raised); }
+.todo.silenced { background: var(--raised) !important; border-color: var(--line) !important; opacity: .8; }
+.todo.silenced .sev { color: var(--muted) !important; }
+.sil-note { font-size: .8rem; color: var(--muted); }
+#srv-silence { display: inline-flex; align-items: center; gap: .5rem; }
+.sil-badge { font-size: .82rem; color: var(--muted); }
+.sil-ic-wrap { display: inline-grid; place-items: center; color: var(--muted); }
+.sil-ic { width: 1.1rem; height: 1.1rem; }
+.sil-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.sil-list li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem 1rem; padding: .6rem .8rem; border-radius: 10px; background: var(--raised); }
+.sil-list li strong { color: var(--strong); }
+.sil-list li span { font-size: .85rem; color: var(--muted); margin-right: auto; }
+.sil-list li.hint { background: transparent; padding: 0; }
+
 /* piè di pagina compatto sul telefono (sul computer le stesse voci sono nel menu laterale) */
 .mobile-foot { display: none; }
 
