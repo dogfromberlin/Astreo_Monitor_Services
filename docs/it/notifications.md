@@ -130,6 +130,15 @@ sono ignorati e registrati):
 | `/controlli` · `/checks` | dischi, aggiornamenti, scadenze, backup, ripristino, heartbeat, dispositivi |
 | `/aiuto` · `/help` | elenco dei comandi |
 
+<a id="pulsanti"></a>
+### Pulsanti sotto gli avvisi
+
+Gli avvisi su Telegram hanno i pulsanti adatti: **🔕 Silenzia 1 h** (il servizio, il server o il tipo di evento
+dell'avviso), **▶ Avvia** per un servizio fermo di un server collegato con i comandi permessi, **⚡ Accendi** per un
+server non raggiungibile con MAC noto, **📊 Apri** per la pagina giusta della dashboard (compare dopo il primo
+accesso alla dashboard in HTTPS, da cui prende l'indirizzo). Dopo il tocco il messaggio si aggiorna con l'esito. I
+pulsanti rispondono solo alla chat configurata e valgono 48 ore.
+
 <a id="riepilogo"></a>
 ## Riepilogo settimanale
 

@@ -124,7 +124,7 @@ class Bot:
                 time.sleep(30)
                 continue
             try:
-                params = {"timeout": 50, "allowed_updates": ["message"]}
+                params = {"timeout": 50, "allowed_updates": ["message", "callback_query"]}
                 if self.offset:
                     params["offset"] = self.offset
                 updates = self.call("getUpdates", timeout_s=60, **params)
@@ -134,6 +134,9 @@ class Bot:
                 continue
             for u in updates:
                 self.offset = u["update_id"] + 1
+                if u.get("callback_query"):                       # 4.5: tocco su un pulsante sotto un avviso
+                    threading.Thread(target=self.handle_button, args=(u["callback_query"],), daemon=True).start()
+                    continue
                 msg = u.get("message") or u.get("channel_post")
                 if not msg or not msg.get("text", "").startswith("/"):
                     continue
@@ -147,6 +150,37 @@ class Bot:
                     continue
                 log.info("Comando /%s da %s", cmd, who)
                 threading.Thread(target=self.handle, args=(chat, cmd, arg), daemon=True).start()
+
+    # -------------------------------------------------------- 4.5: pulsanti
+    def handle_button(self, cq: dict) -> None:
+        from . import tg_actions
+        msg = cq.get("message") or {}
+        chat = str((msg.get("chat") or {}).get("id", ""))
+        who = (cq.get("from") or {}).get("username") or (cq.get("from") or {}).get("first_name", "?")
+        data = str(cq.get("data") or "")
+        if chat != self.chat_id or not data.startswith("a:"):
+            log.warning("Pulsante ignorato: chat %s non autorizzata (da %s)", chat, who)
+            try:
+                self.call("answerCallbackQuery", callback_query_id=cq["id"], text="Non autorizzato")
+            except Exception:  # noqa: BLE001
+                pass
+            return
+        self.refresh_language()
+        try:
+            with db.connect(self.cfg.database) as conn:
+                ok, text = tg_actions.perform(conn, self.cfg, data[2:], f"telegram ({who})", self.lang)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("Errore nel pulsante")
+            ok, text = False, str(exc)
+        log.info("Pulsante da %s: %s", who, text)
+        try:
+            self.call("answerCallbackQuery", callback_query_id=cq["id"], text=text[:190])
+            if ok and msg.get("message_id"):
+                self.call("editMessageText", chat_id=chat, message_id=msg["message_id"],
+                          text=(msg.get("text") or "") + "\n\n" + ("✅ " if not text[:1] in "🔕▶⚡" else "") + text,
+                          disable_web_page_preview=True)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Risposta al pulsante non inviata: %s", str(exc).replace(self.token, "***"))
 
     # -------------------------------------------------------- comandi
     def tr(self, text, **kw):

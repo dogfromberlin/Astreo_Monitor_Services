@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.5.0.dev1 — buttons under the Telegram alerts (test build, not a Release)
+
+- Telegram alerts carry buttons: **🔕 Mute 1 h** (service, server or event type of the alert), **▶ Start** for a stopped service of a connected server with commands allowed, **⚡ Switch on** for an unreachable server with a known MAC, **📊 Open** for the right page of the dashboard. After the tap the message is updated with the result; buttons answer only the configured chat and are valid for 48 hours.
+- Database migration 0011 (`meta` in `notification_queue`: which alert a queued message belongs to).
+- Guide: *Buttons under the alerts* in Notifications (IT/EN).
+
 ## 4.4.0 — mute for a while, disk full forecast, Wake-on-LAN
 
 - **Mute alerts for a while** (30 minutes, 1, 2, 4 hours, until the next morning) for a service, a server, an event type or everything: **Mute** on each *To check* item and in the server detail, *Active mutes* in Alerts and events with **Resume**, Telegram `/silenzia` (`/mute`), `/silenzi` (`/mutes`), `/riattiva` (`/unmute`). Everything is still recorded; muted items show grey *muted until …* and do not count in the status sentence; when the mute ends, if the problem is still there, the alert is sent (respecting *Alert after*). The server detail shows the active mute with **Resume**, the Overview card a muted-bell icon.

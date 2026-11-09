@@ -129,6 +129,15 @@ ignored and logged):
 | `/checks` · `/controlli` | disks, updates, expirations, backup, restore, heartbeat, devices |
 | `/help` · `/aiuto` | list of commands |
 
+<a id="pulsanti"></a>
+### Buttons under the alerts
+
+Telegram alerts carry the fitting buttons: **🔕 Mute 1 h** (the service, server or event type of the alert),
+**▶ Start** for a stopped service of a connected server with commands allowed, **⚡ Switch on** for an unreachable
+server with a known MAC, **📊 Open** for the right page of the dashboard (it appears after the first visit to the
+dashboard over HTTPS, from which it takes the address). After the tap the message is updated with the result. The
+buttons answer only the configured chat and are valid for 48 hours.
+
 <a id="riepilogo"></a>
 ## Weekly summary
 

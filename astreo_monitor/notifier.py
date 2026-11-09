@@ -72,15 +72,14 @@ def _chat_text(subject: str, body: str) -> str:
     return text if len(text) <= CHAT_LIMIT else text[: CHAT_LIMIT - 1] + "…"
 
 
-def send_telegram(bot_token: str, chat_id: str, subject: str, body: str) -> tuple[bool, str]:
+def send_telegram(bot_token: str, chat_id: str, subject: str, body: str, markup: dict | None = None) -> tuple[bool, str]:
     if not bot_token or not chat_id:
         return False, "token del bot o chat ID mancanti"
+    payload = {"chat_id": chat_id, "text": _chat_text(subject, body), "disable_web_page_preview": True}
+    if markup:                                          # 4.5: pulsanti sotto l'avviso
+        payload["reply_markup"] = markup
     try:
-        r = requests.post(
-            f"https://api.telegram.org/bot{bot_token}/sendMessage",
-            json={"chat_id": chat_id, "text": _chat_text(subject, body), "disable_web_page_preview": True},
-            timeout=20,
-        )
+        r = requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json=payload, timeout=20)
         data = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
         if r.ok and data.get("ok"):
             return True, ""
@@ -185,14 +184,14 @@ def send_channel(conn, cfg, values: dict, channel: str, source: str, subject: st
     return ok, err
 
 
-def _send(cfg, values: dict, channel: str, source: str, subject: str, body: str) -> tuple[bool, str]:
+def _send(cfg, values: dict, channel: str, source: str, subject: str, body: str, markup: dict | None = None) -> tuple[bool, str]:
     """Invio vero e proprio su un canale. Nessun accesso al database: si può chiamare fuori dalle transazioni."""
     if channel == "email":
         from . import settings as settings_mod
         ok = send_email(settings_mod.email_config(cfg, values), subject, body)
         err = "" if ok else "invio fallito (vedi journal)"
     elif channel == "telegram":
-        ok, err = send_telegram(values["notify.telegram.bot_token"], values["notify.telegram.chat_id"], subject, body)
+        ok, err = send_telegram(values["notify.telegram.bot_token"], values["notify.telegram.chat_id"], subject, body, markup)
     elif channel == "whatsapp":
         ok, err = send_whatsapp(values["notify.whatsapp.phone"], values["notify.whatsapp.apikey"], subject, body)
     elif channel == "ntfy":
@@ -240,9 +239,10 @@ def dispatch(conn, cfg, source: str, subject: str, body: str, detected_at: dt.da
         for channel in channels:
             conn.execute(models.notification_queue.insert().values(
                 created_at=detected_at.replace(microsecond=0), due_at=due, source=source, channel=channel,
-                subject=subject[:200], body=body, attempts=0, quiet=True))
+                subject=subject[:200], body=body, attempts=0, quiet=True, meta=_meta_json(source)))
             _log(conn, channel, source, subject, True, f"recapito alle {_fmt(due)}", status="in coda")
         log.info("Fascia di silenzio: '%s' trattenuto fino alle %s", subject, _fmt(due))
+        _current_alert.set(None)
         return True
 
     # 4.2.1: "posta in uscita". Qui si scrive solo il messaggio in coda, nella stessa transazione dello stato
@@ -251,10 +251,25 @@ def dispatch(conn, cfg, source: str, subject: str, body: str, detected_at: dt.da
     for channel in channels:
         conn.execute(models.notification_queue.insert().values(
             created_at=detected_at.replace(microsecond=0), due_at=now.replace(microsecond=0), source=source,
-            channel=channel, subject=subject[:200], body=body, attempts=0, quiet=False))
+            channel=channel, subject=subject[:200], body=body, attempts=0, quiet=False, meta=_meta_json(source)))
+    _current_alert.set(None)                    # vale solo per l'avviso appena valutato
     db.after_commit(lambda: deliver(cfg), key="notify")
     log.info("Avviso in uscita su %s: %s", ", ".join(channels), subject)
     return True
+
+
+# 4.5: l'allarme appena valutato (chiave, tipo di evento, stato), per i pulsanti di Telegram dell'avviso che segue
+import contextvars as _cv
+_current_alert: "_cv.ContextVar[dict | None]" = _cv.ContextVar("current_alert", default=None)
+
+
+def _meta_json(source: str | None = None) -> str | None:
+    """Solo se l'allarme appena valutato è dello stesso tipo dell'avviso che si sta mandando (niente pulsanti sbagliati)."""
+    import json as _json
+    m = _current_alert.get()
+    if not m or (source and m.get("source") and m["source"] != source):
+        return None
+    return _json.dumps(m)[:400]
 
 
 # 4.2.1: intervallo prima di ritentare un invio non riuscito (minuti, per tentativo)
@@ -277,7 +292,7 @@ def deliver(cfg, limit: int = 50) -> int:
     try:
         with db.connect(cfg.database) as conn:
             values = settings_mod.load(conn, cfg)
-            rows = db.rows(conn, select(Q.c.id, Q.c.created_at, Q.c.source, Q.c.channel, Q.c.subject, Q.c.body, Q.c.attempts)
+            rows = db.rows(conn, select(Q.c.id, Q.c.created_at, Q.c.source, Q.c.channel, Q.c.subject, Q.c.body, Q.c.attempts, Q.c.meta)
                            .where(Q.c.sent_at.is_(None), Q.c.quiet == False, Q.c.attempts < MAX_ATTEMPTS,  # noqa: E712
                                   Q.c.due_at <= now).order_by(Q.c.created_at).limit(limit))
     except Exception as exc:  # noqa: BLE001 - riproverà il prossimo job
@@ -298,7 +313,17 @@ def deliver(cfg, limit: int = 50) -> int:
         sending = dt.datetime.now()
         tail = (_("Rilevato e inviato alle {quando}.", quando=_fmt(detected, lang)) if sending - detected < dt.timedelta(minutes=2)
                 else _("Rilevato alle {r}, inviato alle {i}.", r=_fmt(detected, lang), i=_fmt(sending, lang)))
-        ok, err = _send(cfg, values, r["channel"], r["source"], r["subject"], f"{r['body'].rstrip()}\n\n{tail}")
+        markup = None
+        if r["channel"] == "telegram" and r.get("meta"):           # 4.5: pulsanti sotto l'avviso
+            try:
+                import json as _json
+                from . import tg_actions
+                with db.connect(cfg.database) as conn:
+                    markup = tg_actions.buttons(conn, _json.loads(r["meta"]), lang)
+            except Exception as exc:  # noqa: BLE001 - l'avviso parte comunque, senza pulsanti
+                log.warning("Pulsanti Telegram non preparati: %s", exc)
+        extra = {"markup": markup} if markup else {}
+        ok, err = _send(cfg, values, r["channel"], r["source"], r["subject"], f"{r['body'].rstrip()}\n\n{tail}", **extra)
         attempts = r["attempts"] + 1
         with db.connect(cfg.database) as conn:
             if ok:
@@ -475,6 +500,8 @@ class AlertState:
             self.data["since"] = now.isoformat(timespec="seconds")
         self.data["status"] = new_status
         self.data["checked_at"] = now.isoformat(timespec="seconds")
+        _current_alert.set({"key": getattr(self, "key", None), "source": getattr(rule, "source", None), "status": new_status}
+                           if notify and getattr(self, "key", None) else None)
         return notify, reason, previous
 
     @property

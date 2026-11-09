@@ -97,6 +97,7 @@ notification_queue = Table(
     Column("attempts", Integer, nullable=False, server_default="0"),
     Column("sent_at", TS), Column("error", Unicode(400)),
     Column("quiet", Boolean, nullable=False, server_default="0"),     # 4.2.1: 1 = trattenuto dalla fascia di silenzio
+    Column("meta", Unicode(400)),                                       # 4.5: allarme di origine (pulsanti Telegram)
     Index("IX_notification_queue_due", "due_at", mssql_clustered=True),
 )
 

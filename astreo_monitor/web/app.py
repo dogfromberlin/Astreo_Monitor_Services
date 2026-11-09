@@ -95,6 +95,7 @@ def create_app(cfg: Config) -> Flask:
 
     # --- lingua dell'interfaccia (impostazione ui.language, letta al massimo ogni 30 secondi)
     lang_state = {"checked": 0.0, "lang": i18n.DEFAULT}
+    base_url_cache: dict = {}
 
     def current_language() -> str:
         if time.time() - lang_state["checked"] > 30:
@@ -305,6 +306,15 @@ def create_app(cfg: Config) -> Flask:
     def dashboard():
         lang = current_language()
         user = (request.authorization.username if request.authorization else "") or ""
+        # 4.5: indirizzo della dashboard (per il pulsante "Apri" sotto gli avvisi Telegram), salvato quando cambia
+        base = request.host_url.rstrip("/")
+        if base.startswith("https://") and base_url_cache.get("url") != base:
+            try:
+                with db.connect(cfg.database) as conn:
+                    db.state_set(conn, "ui:base_url", {"url": base})
+                base_url_cache["url"] = base
+            except db.DatabaseError:
+                pass
         return render_template("index.html", version=__version__, lang=lang, languages=i18n.LANGUAGES,
                                catalog=i18n.catalog(lang), service_user=service_user(), role=g.get("role", "admin"),
                                username=user)
