@@ -1,31 +1,13 @@
 # Changelog
 
-## 4.4.0.dev4 — Wake-on-LAN, stage 3 of 3 (test build, not a Release)
+## 4.4.0 — mute for a while, disk full forecast, Wake-on-LAN
 
-- **Switch a server on with Wake-on-LAN**: **Switch on** in the server detail and in the *To check* item when a connected server does not respond, Telegram `/accendi ATLAS` (`/wake`). The central server sends the magic packet to the subnet broadcast and to 255.255.255.255 (ports 9 and 7); the event stays in the history.
-- Agents 4.4 report MAC and IP of the main network card (the one with the default route), so nothing has to be typed; MAC and broadcast can be set by hand in *Settings of this server → Switching on*.
+- **Mute alerts for a while** (30 minutes, 1, 2, 4 hours, until the next morning) for a service, a server, an event type or everything: **Mute** on each *To check* item and in the server detail, *Active mutes* in Alerts and events with **Resume**, Telegram `/silenzia` (`/mute`), `/silenzi` (`/mutes`), `/riattiva` (`/unmute`). Everything is still recorded; muted items show grey *muted until …* and do not count in the status sentence; when the mute ends, if the problem is still there, the alert is sent (respecting *Alert after*). The server detail shows the active mute with **Resume**, the Overview card a muted-bell icon.
+- **Disk full forecast** from the last 14 days of the system disk of each server: *full in about N days* under the disk gauge and in the Overview cards, only for regular growth spread over the days (a one-off copy of large files does not trigger it); new alert event **Disk running out** (warning within the configurable days, 14 by default; alert under 3 days).
+- **Switch a server on with Wake-on-LAN**: **Switch on** in the server detail and in the *To check* item, Telegram `/accendi` (`/wake`); agents 4.4 report MAC and IP of the main network card, which can be overridden in the server settings.
+- **Fix, Windows agent**: with Docker installed but stopped, the agent stopped at every run (Windows PowerShell 5.1 treats a native command writing to stderr as a terminating error); external commands now never stop the agent, and any unexpected error is written to `agent.log` with line and message.
 - Database migration 0010 (`wol_mac`, `wol_broadcast` in `hosts`).
-- Guide: *Switching a server on (Wake-on-LAN)* in Connected servers, with the Windows settings to check (BIOS, network card, Fast Startup) (IT/EN).
-
-## 4.4.0.dev3 — disk full forecast, stage 2 of 3 (test build, not a Release)
-
-- **Disk full forecast** from the last 14 days of the system disk of each server (central and agents): under the disk gauge *full in about N days*, *stable usage* or *forecast after 3 days of data*; in the Overview cards *full in ~N d* when within 60 days.
-- Only for regular growth (least squares with R² ≥ 0.5, growth spread over the days: no single day may account for more than 60% of it), so a one-off copy of large files does not trigger it.
-- New alert event **Disk running out** (Settings → Notifications): warning when the disk fills up within the days set in *Disk full forecast* (14 by default), alert under 3 days; entry in *To check*.
-- Guide: *Disk full forecast* in Server (IT/EN).
-
-## 4.4.0.dev2 — Windows agent fix and mute state (test build, not a Release)
-
-- **Fix, Windows agent**: with Docker installed but its engine stopped, `docker info` wrote to stderr and Windows PowerShell 5.1 (with *ErrorActionPreference Stop*) stopped the agent at every run, before sending anything: the server looked unreachable and commands (including the update) never arrived. External commands now run through a wrapper that never stops the agent.
-- **Windows agent**: any unexpected error is written to `agent.log` with line and message before exiting, so an agent can no longer fail silently.
-- **Mute state shown**: the server detail shows *muted until …* with **Resume** instead of *Mute* while a mute is active (server or everything); the server card in the Overview shows a muted-bell icon.
-
-## 4.4.0.dev1 — mute for a while, stage 1 of 3 (test build, not a Release)
-
-- **Mute alerts for a while** (30 minutes, 1, 2, 4 hours, until the next morning) for a service, a server, an event type or everything: **Mute** on each *To check* item and in the server detail, *Active mutes* panel in Alerts and events with **Resume**, Telegram `/silenzia` (`/mute`), `/silenzi` (`/mutes`), `/riattiva` (`/unmute`).
-- During a mute everything is still recorded and the item shows grey *muted until …*; muted items do not count in the status sentence. When the mute ends, if the problem is still there, the alert is sent normally (respecting *Alert after*); if it cleared, nothing is sent.
-- Mutes are stored in `monitor_state`: no database migration.
-- Guide: *Mute for a while* in Notifications (IT/EN).
+- Guide (IT/EN): mute for a while, disk full forecast, switching a server on.
 
 ## 4.3.1 — agent update button always visible
 

@@ -15,7 +15,7 @@ param(
   [switch]$TestConnection
 )
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '4.4.0.dev4'
+$AgentVersion = '4.4.0'
 $Dir = Split-Path -Parent $ConfigPath
 $QueueDir = Join-Path $Dir 'queue'
 $StatePath = Join-Path $Dir 'state.json'
