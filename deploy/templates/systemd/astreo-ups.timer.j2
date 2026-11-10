@@ -1,0 +1,11 @@
+[Unit]
+Description=Astreo Monitor - pianificazione controllo degli UPS (ogni minuto)
+
+[Timer]
+OnCalendar=*-*-* *:*:35
+AccuracySec=2s
+Persistent=false
+Unit=astreo-ups.service
+
+[Install]
+WantedBy=timers.target

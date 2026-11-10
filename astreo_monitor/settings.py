@@ -36,6 +36,7 @@ SOURCES = {
     "cpu": "CPU",
     "memory": "Memoria",
     "diskfill": "Disco in esaurimento",
+    "ups": "UPS e alimentazione",
     "docker": "Container Docker",
     "pihole": "Pi-hole",
     "summary": "Riepilogo settimanale",
@@ -44,7 +45,7 @@ SOURCES = {
 
 # Monitoraggi con stato (OK/WARNING/ALERT...) a cui si applica una regola di avviso
 POLICY_SOURCES = ("connectivity", "speedtest", "temperature", "disk", "services", "backup", "expiry",
-                  "smart", "updates", "restoretest", "docker", "pihole", "checks", "hosts", "cpu", "memory", "diskfill")
+                  "smart", "updates", "restoretest", "docker", "pihole", "checks", "hosts", "cpu", "memory", "diskfill", "ups")
 GH_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 
 
@@ -191,7 +192,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "speedtest": s.notify, "temperature": cfg.metrics.notify, "disk": cfg.metrics.notify,
         "services": True, "backup": cfg.backup.notify if cfg.backup else True, "publicip": cfg.publicip.notify,
         "connectivity": True, "expiry": True, "smart": True, "updates": True, "restoretest": True, "summary": True,
-        "docker": True, "pihole": True, "checks": True, "hosts": True, "cpu": True, "memory": True, "diskfill": True,
+        "docker": True, "pihole": True, "checks": True, "hosts": True, "cpu": True, "memory": True, "diskfill": True, "ups": True,
     }
     # --- regole di avviso per monitoraggio
     backup_rem = cfg.backup.reminder_hours if cfg.backup else 24
@@ -206,6 +207,7 @@ def build_spec(cfg: Config) -> dict[str, Spec]:
         "cpu": ("escalation", True, 24.0),
         "memory": ("escalation", True, 24.0),
         "diskfill": ("escalation", True, 72.0),
+        "ups": ("change", True, 0.0),
         "pihole": ("change", True, 24.0),
         "expiry": ("escalation", True, 24.0),
         "speedtest": ("escalation", False, 36.0),

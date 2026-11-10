@@ -26,6 +26,7 @@ KINDS = {
     "pihole": "Pi-hole",
     "check": "Dispositivi e servizi",
     "host": "Server collegati",
+    "ups": "UPS e alimentazione",
     "speedtest": "Speedtest sotto soglia",
     "alert": "Avviso inviato",
 }

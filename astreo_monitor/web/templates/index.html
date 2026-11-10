@@ -57,6 +57,7 @@
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
   <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M6 16V11c0-1.2.3-2.3.9-3.3M9 4.5A6 6 0 0 1 18 11v5l1.5 2H8"/><path d="M10 20.5a2 2 0 0 0 4 0M3 3l18 18"/></symbol>
   <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></symbol>
+  <symbol id="i-ups" viewBox="0 0 24 24"><rect x="3" y="7" width="16" height="10" rx="2"/><path d="M21 10.5v3"/><path d="M11 9l-2.5 3.5h4L10 16"/></symbol>
   <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.4M12 17h.01"/></symbol>
 </svg>
 
@@ -74,6 +75,7 @@
     <a href="#dispositivi" data-view-link="dispositivi" class="more-item"><svg class="icon"><use href="#i-devices"/></svg><span>{{ _("Dispositivi") }}</span></a>
     <a href="#avvisi" data-view-link="avvisi"><svg class="icon"><use href="#i-bell"/></svg><span>{{ _("Avvisi ed eventi") }}</span></a>
     <a href="#backup" data-view-link="backup" class="more-item"><svg class="icon"><use href="#i-db"/></svg><span>{{ _("Backup") }}</span></a>
+    <a href="#alimentazione" data-view-link="alimentazione" class="more-item"><svg class="icon"><use href="#i-ups"/></svg><span>{{ _("Alimentazione") }}</span></a>
     <a href="#impostazioni" data-view-link="impostazioni" class="admin-only more-item"><svg class="icon"><use href="#i-settings"/></svg><span>{{ _("Impostazioni") }}</span></a>
     <a href="#log" data-view-link="log" class="admin-only more-item"><svg class="icon"><use href="#i-log"/></svg><span>{{ _("Log") }}</span></a>
     <a href="#terminale" data-view-link="terminale" class="admin-only more-item"><svg class="icon"><use href="#i-terminal"/></svg><span>{{ _("Terminale") }}</span></a>
@@ -153,6 +155,10 @@
     <article class="ov-card" id="ov-backup" data-card="backup">
       <div class="card-head"><h2>{{ _("Sicurezza dei dati") }}</h2><span class="pill wait" data-f="pill">–</span></div>
       <ul class="steps" data-f="steps"></ul>
+    </article>
+    <article class="ov-card" id="ov-ups" data-card="ups" hidden>
+      <div class="card-head"><h2>{{ _("Alimentazione") }}</h2><a href="#alimentazione" class="small">{{ _("Dettagli") }}</a></div>
+      <ul class="ups-mini" data-f="list"></ul>
     </article>
     <article class="ov-card" id="ov-events" data-card="events">
       <div class="card-head"><h2>{{ _("Ultimi eventi") }}</h2><a href="#avvisi" class="small">{{ _("Tutti") }}</a></div>
@@ -351,6 +357,31 @@
   </section>
 </div>
 
+<div class="view" data-view="alimentazione" hidden>
+  <div class="ups-list" id="ups-list"></div>
+  <section class="panel" id="ups-hist" aria-labelledby="h-ups-hist" hidden>
+    <div class="panel-head"><h2 id="h-ups-hist">{{ _("Andamento") }}</h2>
+      <div class="end seg" role="group" aria-label="{{ _("Periodo") }}">
+        <button type="button" class="active" data-range="24h">24 h</button><button type="button" data-range="7d">7 g</button><button type="button" data-range="30d">30 g</button></div></div>
+    <label class="ups-pick">{{ _("UPS") }} <select id="ups-hist-sel"></select></label>
+    <div class="chart-box"><canvas id="ch-ups" aria-label="{{ _("Carica e carico dell'UPS") }}" role="img"></canvas></div>
+  </section>
+  <section class="panel admin-only" aria-labelledby="h-ups-add">
+    <div class="panel-head"><h2 id="h-ups-add">{{ _("Aggiungi un UPS") }} <button type="button" class="help-btn" data-help="ups#aggiungere" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2></div>
+    <form id="ups-form" class="ups-form" autocomplete="off">
+      <label>{{ _("Nome") }}<input type="text" name="name" maxlength="100" required placeholder="{{ _("es. UPS studio") }}"></label>
+      <label>{{ _("Fonte") }}<select name="backend">
+        <option value="nut">NUT (Network UPS Tools)</option><option value="apcupsd">apcupsd (APC)</option><option value="snmp">SNMP</option></select></label>
+      <label>{{ _("Indirizzo") }}<input type="text" name="host" required placeholder="127.0.0.1"></label>
+      <label>{{ _("Porta") }}<input type="number" name="port" min="1" max="65535" placeholder="3493"></label>
+      <label class="nut-only">{{ _("UPS sul server NUT") }}<span class="with-btn"><input type="text" name="ups_name" placeholder="ups" list="ups-names"><button type="button" class="btn small" id="ups-find">{{ _("Cerca") }}</button></span>
+        <datalist id="ups-names"></datalist></label>
+      <label class="snmp-only" hidden>{{ _("Community SNMP") }}<input type="text" name="community" placeholder="public"></label>
+      <p class="ups-test-out" id="ups-test-out" aria-live="polite"></p>
+      <div class="form-actions"><button type="button" class="btn" id="ups-test">{{ _("Prova") }}</button><button type="submit" class="btn primary">{{ _("Aggiungi") }}</button></div>
+    </form>
+  </section>
+</div>
 <div class="view" data-view="backup" hidden>
   <section class="ov-card" id="bk-summary" aria-labelledby="h-bk-sum">
     <div class="card-head"><h2 id="h-bk-sum">{{ _("Sicurezza dei dati") }} <button type="button" class="help-btn" data-help="backup#come-funziona" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2><span class="pill wait" data-f="pill">–</span></div>
@@ -482,6 +513,7 @@
 <script src="{{ url_for('static', filename='js/connessione.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/impostazioni.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/terminale.js') }}?v={{ version }}"></script>
+<script src="{{ url_for('static', filename='js/ups.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/panoramica.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/avvisi.js') }}?v={{ version }}"></script>
 <script src="{{ url_for('static', filename='js/personalizza.js') }}?v={{ version }}"></script>

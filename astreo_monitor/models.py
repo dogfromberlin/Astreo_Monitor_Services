@@ -179,3 +179,27 @@ hosts = Table(
     Index("UX_hosts_token", "token_hash", unique=True, mssql_where=Column("token_hash").isnot(None),
           postgresql_where=Column("token_hash").isnot(None), sqlite_where=Column("token_hash").isnot(None)),
 )
+
+
+# 4.6: UPS
+ups_devices = Table(
+    "ups_devices", metadata, *_id("ups_devices"),
+    Column("name", Unicode(100), nullable=False),
+    Column("backend", String(16), nullable=False),          # nut | apcupsd | snmp
+    Column("host", Unicode(255), nullable=False), Column("port", Integer),
+    Column("ups_name", Unicode(100)),                        # nome dell'UPS sul server NUT
+    Column("community", Unicode(100)),                       # SNMP
+    Column("enabled", Boolean, nullable=False, server_default="1"),
+    Column("sort_order", Integer, nullable=False, server_default="0"),
+    Column("created_at", TS, nullable=False),
+)
+
+ups_samples = Table(
+    "ups_samples", metadata, *_id("ups_samples"),
+    Column("ups_id", Integer, nullable=False), Column("timestamp", TS, nullable=False),
+    Column("status", String(16)),
+    Column("charge", Float), Column("runtime_s", Float), Column("load", Float),
+    Column("input_v", Float), Column("output_v", Float),
+    Index("IX_ups_samples_ts", "timestamp", mssql_clustered=True),
+    Index("IX_ups_samples_ups", "ups_id", "timestamp"),
+)

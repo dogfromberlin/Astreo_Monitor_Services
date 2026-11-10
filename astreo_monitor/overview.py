@@ -223,6 +223,24 @@ def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.d
     elif backup.get("warning") == "pending":
         add("info", "nobackup", _("Backup configurato: in attesa del primo backup riuscito fuori dal server"), "",
             action={"kind": "nobackup"})
+    from .ups import store as _ups_store                         # 4.6: UPS
+    for u in _ups_store.listing(conn):
+        if not u["enabled"]:
+            continue
+        last = u["last"] or {}
+        r = last.get("reading") or {}
+        key = f"ups:{u['id']}"
+        if (last.get("fails") or 0) >= 3:
+            add("warn", key, _("UPS {p0} non raggiungibile", p0=u["name"]), last.get("error") or "", action={"kind": "view", "view": "alimentazione"})
+        elif r.get("status") in ("battery", "low"):
+            add("alert", key, _("Blackout: l'UPS {p0} è a batteria", p0=u["name"]) if r["status"] == "battery"
+                else _("Batteria scarica: l'UPS {p0} sta per esaurirsi", p0=u["name"]),
+                _("carica {p0}% · autonomia {p1} min", p0=r.get("charge", "–"), p1=round((r.get("runtime_s") or 0) / 60)),
+                action={"kind": "view", "view": "alimentazione"})
+        elif "replace" in (r.get("flags") or []):
+            add("warn", key, _("L'UPS {p0} segnala la batteria da sostituire", p0=u["name"]), "", action={"kind": "view", "view": "alimentazione"})
+        elif "overload" in (r.get("flags") or []):
+            add("warn", key, _("UPS {p0} in sovraccarico", p0=u["name"]), _("carico {p0}%", p0=r.get("load")), action={"kind": "view", "view": "alimentazione"})
     rt = backup.get("restore_test") or {}
     if rt.get("status") in ("ALERT", "DOWN"):
         add("alert", "restoretest", _("Prova di ripristino del backup non riuscita"), "", since=rt.get("time"),
@@ -266,7 +284,7 @@ def _todo(conn, cfg, hosts: list[dict], conn_info: dict, backup: dict, now: dt.d
     return items
 
 
-SOURCE_OF = {"connection": "connectivity", "backup": "backup", "restoretest": "restoretest", "updates": "updates",
+SOURCE_OF = {"ups": "ups", "connection": "connectivity", "backup": "backup", "restoretest": "restoretest", "updates": "updates",
              "reboot": "updates", "check": "checks", "expiry": "expiry", "nobackup": None}
 
 
@@ -312,6 +330,9 @@ def build(conn, cfg, lang: str, offline_minutes: int) -> dict:
     from . import forecast as forecast_mod                       # 4.4: previsione del disco pieno
     for h in hosts:
         h["disk_forecast"] = forecast_mod.get(conn, h["id"]) if h["status"] == "OK" else None
+    # 4.6: UPS
+    from .ups import store as ups_store
+    ups_list = [{"id": u["id"], "name": u["name"], "enabled": u["enabled"], "last": u["last"]} for u in ups_store.listing(conn)]
     todo = _todo(conn, cfg, hosts, conn_info, backup, now, lang, values)
     from . import silences as silences_mod                       # 4.4: server silenziati (tutto o quel server)
     _sil = silences_mod.active(conn)
@@ -347,6 +368,7 @@ def build(conn, cfg, lang: str, offline_minutes: int) -> dict:
                               for h in reachable for s in h["services"] if s.get("status", "down") == "down"]},
         "connection": conn_info,
         "backup": backup,
+        "ups": ups_list,
         "todo": todo,
         "events": _events(conn, active or hosts[:1], now, lang),
     }

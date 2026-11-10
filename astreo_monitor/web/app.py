@@ -910,6 +910,75 @@ def create_app(cfg: Config) -> Flask:
         key = commands_mod.key_path(cfg.path)
         return jsonify(commands_mod.windows_package(PROJECT_DIR, key, host["token_hash"][:24], __version__))
 
+    # ------------------------------------------------------ 4.6: UPS
+    from .. import ups as ups_mod
+    from ..ups import store as ups_store
+
+    def _ups_err(exc):
+        abort(400, description=i18n.translator(current_language())(str(exc)))
+
+    @app.get("/api/v1/ups")
+    def api_ups():
+        with db.connect(cfg.database) as conn:
+            return jsonify({"ups": ups_store.listing(conn), "backends": list(ups_mod.DEFAULT_PORTS),
+                            "ports": ups_mod.DEFAULT_PORTS})
+
+    @app.post("/api/v1/ups")
+    def api_ups_add():
+        try:
+            with db.connect(cfg.database) as conn:
+                uid = ups_store.create(conn, request.get_json(silent=True) or {})
+        except ups_mod.UpsError as exc:
+            _ups_err(exc)
+        return jsonify({"ok": True, "id": uid}), 201
+
+    @app.put("/api/v1/ups/<int:uid>")
+    def api_ups_update(uid: int):
+        try:
+            with db.connect(cfg.database) as conn:
+                if not ups_store.get(conn, uid):
+                    abort(404)
+                ups_store.modify(conn, uid, request.get_json(silent=True) or {})
+        except ups_mod.UpsError as exc:
+            _ups_err(exc)
+        return jsonify({"ok": True})
+
+    @app.delete("/api/v1/ups/<int:uid>")
+    def api_ups_delete(uid: int):
+        with db.connect(cfg.database) as conn:
+            ups_store.remove(conn, uid)
+        return jsonify({"ok": True})
+
+    @app.post("/api/v1/ups/discover")
+    def api_ups_discover():
+        """Elenca gli UPS esposti da un server NUT o apcupsd (per scegliere il nome senza scriverlo)."""
+        d = request.get_json(silent=True) or {}
+        try:
+            clean = ups_store.clean({"name": "x", "backend": d.get("backend"), "host": d.get("host"), "port": d.get("port")})
+            port = clean.get("port") or ups_mod.DEFAULT_PORTS[clean["backend"]]
+            return jsonify({"ups": ups_mod.backend(clean["backend"]).discover(clean["host"], port)})
+        except ups_mod.UpsError as exc:
+            _ups_err(exc)
+
+    @app.post("/api/v1/ups/test")
+    def api_ups_test():
+        """Lettura di prova con i dati del modulo, prima di salvare."""
+        d = request.get_json(silent=True) or {}
+        try:
+            dev = ups_store.clean({**d, "name": d.get("name") or "prova"})
+            dev.setdefault("port", ups_mod.DEFAULT_PORTS[dev["backend"]])
+            return jsonify({"ok": True, "reading": ups_mod.backend(dev["backend"]).read(dev).to_dict()})
+        except ups_mod.UpsError as exc:
+            _ups_err(exc)
+
+    @app.get("/api/v1/ups/<int:uid>/history")
+    def api_ups_history(uid: int):
+        hours = {"24h": 24, "7d": 168, "30d": 720}.get(request.args.get("range", "24h"), 24)
+        with db.connect(cfg.database) as conn:
+            rows = ups_store.history(conn, uid, dt.datetime.now() - dt.timedelta(hours=hours))
+        step = max(1, len(rows) // 600)                       # al massimo ~600 punti per il grafico
+        return jsonify({"samples": [{**r, "timestamp": db.as_datetime(r["timestamp"]).isoformat()} for r in rows[::step]]})
+
     # ------------------------------------------------------ 4.4: silenzia per un po'
     from .. import silences as silences_mod
 

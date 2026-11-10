@@ -121,6 +121,18 @@ def metrics(conn, cfg) -> str:
         upd = (h.get("health") or {}).get("updates") or {}
         metric("updates_security_pending", "", [({}, upd.get("security_count"))], host=name)
         metric("reboot_required", "", [({}, None if not upd else int(bool((upd.get("reboot") or {}).get("required"))))], host=name)
+    # 4.6: UPS (etichetta ups con il nome)
+    from .ups import store as ups_store
+    for u in ups_store.listing(conn):
+        r = ((u.get("last") or {}).get("reading")) or {}
+        if not u["enabled"] or not r:
+            continue
+        lbl = {"ups": u["name"]}
+        metric("ups_on_battery", "UPS a batteria (1) o dalla rete (0)", [(lbl, 1 if r.get("status") in ("battery", "low") else 0)])
+        metric("ups_battery_charge_percent", "Carica della batteria dell'UPS", [(lbl, r.get("charge"))])
+        metric("ups_runtime_seconds", "Autonomia residua dell'UPS", [(lbl, r.get("runtime_s"))])
+        metric("ups_load_percent", "Carico dell'UPS", [(lbl, r.get("load"))])
+        metric("ups_input_voltage", "Tensione in ingresso dell'UPS", [(lbl, r.get("input_v"))])
     con = db.state_get(conn, "connectivity:last") or {}
     metric("connectivity_status", "Connessione: 0 OK, 1 WARNING, 2 DOWN", [({}, LEVEL.get(con.get("status")))])
     for key, name, help_ in (("rtt_avg_ms", "connectivity_rtt_ms", "Latenza media del ping"),

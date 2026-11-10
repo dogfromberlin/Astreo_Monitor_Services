@@ -15,6 +15,7 @@ dashboard (icona **?** nelle sezioni).
 | [Server](server.md) | risorse, temperature, processi, servizi, eventi sui grafici |
 | [Connessione](connection.md) | controllo continuo, speedtest, IP pubblico |
 | [Server collegati](agents.md) | agenti Linux e Windows, panoramica, avvisi |
+| [UPS e alimentazione](ups.md) | UPS di tutte le marche via NUT, apcupsd e SNMP; blackout, batteria, prova senza UPS |
 | [Dispositivi e servizi](devices.md) | controlli ping, porta TCP e pagina web |
 | [Notifiche](notifications.md) | canali, regole di avviso, fascia di silenzio, heartbeat, bot Telegram, riepilogo |
 | [Salute del sistema](health.md) | dischi (SMART), aggiornamenti, scadenze |

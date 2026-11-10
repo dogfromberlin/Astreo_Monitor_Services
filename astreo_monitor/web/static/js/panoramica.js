@@ -141,7 +141,7 @@
     }
     if (a.kind === "view" && !(IS_VIEWER && a.view === "impostazioni")) {
       out.push(el("a", { class: "btn small", href: `#${a.view}` },
-                  a.view === "connessione" ? t("Apri Connessione") : t("Apri le impostazioni")));
+                  a.view === "connessione" ? t("Apri Connessione") : a.view === "alimentazione" ? t("Apri Alimentazione") : t("Apri le impostazioni")));
     }
     if (a.kind === "check") out.push(el("a", { class: "btn small", href: "#dispositivi" }, t("Apri Dispositivi")));
     if (a.kind === "nobackup") {
@@ -189,6 +189,23 @@
         }
       }
       li.append(sev, what, acts);
+      return li;
+    }));
+  }
+
+  // ------------------------------------------------------------------ 4.6: UPS
+  function renderUps(list) {
+    const card = $("#ov-ups");
+    const on = list.filter((u) => u.enabled);
+    card.hidden = !on.length;
+    if (!on.length || !window.AM.upsState) return;
+    $("[data-f=list]", card).replaceChildren(...on.map((u) => {
+      const [cls, label] = window.AM.upsState(u);
+      const r = (u.last || {}).reading || {};
+      const li = el("li");
+      li.append(el("strong", {}, u.name), el("span", { class: `pill ${cls}` }, label),
+                el("span", { class: "sub" }, r.charge != null ? t("carica {p0}% · autonomia {p1} · carico {p2}%",
+                  { p0: Math.round(r.charge), p1: window.AM.upsMins(r.runtime_s), p2: r.load != null ? Math.round(r.load) : "–" }) : ""));
       return li;
     }));
   }
@@ -437,6 +454,7 @@
     if (window.AM.applyLayout) window.AM.applyLayout("ov-hosts");
     renderConnection(d.connection);
     renderNoBackup(d.backup);
+    renderUps(d.ups || []);
     renderBackup(d.backup, $("#ov-backup"));
     renderBackup(d.backup, $("#bk-summary"));
     renderServerList();

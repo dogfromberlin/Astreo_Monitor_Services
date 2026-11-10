@@ -996,6 +996,30 @@ fieldset { min-width: 0; }          /* i fieldset di serie si allargano al conte
 .sil-list li span { font-size: .85rem; color: var(--muted); margin-right: auto; }
 .sil-list li.hint { background: transparent; padding: 0; }
 
+/* 4.6: UPS */
+.ups-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.ups-card { display: grid; gap: .9rem; padding: 1.1rem 1.2rem; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.ups-card .card-head { display: flex; align-items: center; gap: .8rem; }
+.ups-card .who { display: grid; gap: .1rem; margin-right: auto; min-width: 0; }
+.ups-card .who strong { font-family: var(--font-title); font-size: 1.05rem; color: var(--strong); }
+.ups-card .who span { font-size: .82rem; color: var(--muted); }
+.ups-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+.ups-card .acts { display: flex; gap: .4rem; justify-content: flex-end; }
+.ups-empty { padding: 1rem 0; }
+.ups-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); gap: .9rem 1.2rem; align-items: end; }
+.ups-form label { display: grid; gap: .3rem; font-size: .9rem; }
+.ups-form .with-btn { display: flex; gap: .4rem; }
+.ups-form .with-btn input { flex: 1 1 auto; min-width: 0; }
+.ups-form .form-actions, .ups-form .ups-test-out { grid-column: 1 / -1; }
+.ups-form .form-actions { display: flex; gap: .5rem; justify-content: flex-end; }
+.ups-test-out { margin: 0; font-size: .88rem; min-height: 1.2em; }
+.ups-pick { display: inline-flex; align-items: center; gap: .5rem; font-size: .88rem; margin-bottom: .6rem; }
+.ups-mini { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.ups-mini li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .15rem .6rem; align-items: center; }
+.ups-mini li .sub { grid-column: 1 / -1; font-size: .8rem; color: var(--muted); }
+#ups-hist .chart-box { height: 16rem; position: relative; }
+@media (max-width: 600px) { .ups-grid { grid-template-columns: 1fr 1fr; } }
+
 /* piè di pagina compatto sul telefono (sul computer le stesse voci sono nel menu laterale) */
 .mobile-foot { display: none; }
 

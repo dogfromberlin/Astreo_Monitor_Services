@@ -133,6 +133,13 @@ def build(conn, now: dt.datetime, values: dict | None = None) -> tuple[str, str]
         if it.get("days") is not None:
             lines.append(tr("- {nome}: scade tra {giorni} giorni", nome=i18n.translate_stored(it["name"], lang), giorni=int(it["days"])))
 
+    # --- 4.6: blackout della settimana (dagli eventi UPS)
+    E = models.events
+    bos = db.rows(conn, select(E.c.timestamp, E.c.title).where(E.c.kind == "ups", E.c.timestamp >= start, E.c.timestamp < now,
+                                                                 E.c.title.like("Corrente tornata%")).order_by(E.c.timestamp))
+    if bos:
+        lines += ["", tr("UPS: {n} blackout", n=len(bos))] + [f"- {db.as_datetime(b['timestamp']):%d/%m %H:%M} {b['title']}" for b in bos[:10]]
+
     # --- 4.2: una sezione per ogni server collegato
     lines += per_host(conn, start, now, tr)
 
