@@ -119,6 +119,29 @@
         toast(r.ups.length ? t("Trovati: {p0}", { p0: r.ups.map((u) => u.name).join(", ") }) : t("Nessun UPS su questo server"));
       } catch (e) { toast(e.message, "error"); }
     });
+    // 4.6: ricerca automatica sulla rete di casa (NUT, apcupsd, SNMP)
+    $("#ups-scan").addEventListener("click", async () => {
+      const b = $("#ups-scan"), box = $("#ups-found");
+      b.disabled = true; b.textContent = t("Ricerca in corso… (circa 10 secondi)");
+      try {
+        const r = await api("/api/v1/ups/scan", { method: "POST", json: { community: $("#ups-form").community.value.trim() } });
+        box.hidden = false;
+        box.replaceChildren(...(r.found.length ? r.found.map((f) => {
+          const li = el("li");
+          const use = el("button", { type: "button", class: "btn small" }, t("Usa"));
+          use.addEventListener("click", () => {
+            const fm = $("#ups-form");
+            fm.backend.value = f.backend; syncForm();
+            fm.host.value = f.host; fm.port.value = f.port; fm.ups_name.value = f.ups_name || "";
+            if (!fm.name.value) fm.name.value = f.description || f.ups_name || f.host;
+            fm.name.focus();
+          });
+          li.append(el("strong", {}, `${f.backend.toUpperCase()} · ${f.host}`), el("span", {}, [f.ups_name, f.description, f.error].filter(Boolean).join(" · ")), use);
+          return li;
+        }) : [el("li", { class: "hint" }, t("Nessun UPS trovato in {p0}. Controlla che il server NUT accetti connessioni dalla rete o che l'SNMP dell'UPS sia attivo.", { p0: r.network || "rete" }))]));
+      } catch (e) { toast(e.message, "error"); }
+      b.disabled = false; b.textContent = t("Cerca in rete");
+    });
     $("#ups-test").addEventListener("click", async () => {
       const out = $("#ups-test-out");
       out.textContent = t("Prova in corso…"); out.className = "ups-test-out";

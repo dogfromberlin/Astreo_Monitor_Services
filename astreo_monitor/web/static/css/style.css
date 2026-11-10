@@ -1014,6 +1014,10 @@ fieldset { min-width: 0; }          /* i fieldset di serie si allargano al conte
 .ups-form .form-actions { display: flex; gap: .5rem; justify-content: flex-end; }
 .ups-test-out { margin: 0; font-size: .88rem; min-height: 1.2em; }
 .ups-pick { display: inline-flex; align-items: center; gap: .5rem; font-size: .88rem; margin-bottom: .6rem; }
+.ups-found { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .4rem; }
+.ups-found li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .9rem; padding: .5rem .8rem; border-radius: 10px; background: var(--raised); }
+.ups-found li span { margin-right: auto; font-size: .85rem; color: var(--muted); }
+.ups-found li.hint { background: transparent; padding: 0; }
 .ups-mini { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
 .ups-mini li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .15rem .6rem; align-items: center; }
 .ups-mini li .sub { grid-column: 1 / -1; font-size: .8rem; color: var(--muted); }

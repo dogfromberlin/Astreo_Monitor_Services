@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.6.0.dev2 — UPS via SNMP and network search, stage 2 of 2 (test build, not a Release)
+
+- **SNMP v2c source** for UPS units with a network card: standard UPS-MIB (RFC 1628: Eaton, Riello, Vertiv and others) with fallback to APC PowerNet-MIB. Minimal SNMP client in pure Python (GET only), no extra library.
+- **Search the network** in *Add a UPS*: probes astreo's /24 and the server itself for NUT (3493), apcupsd (3551) and SNMP UPS units in 5-10 seconds, lists them with model and UPS names; **Use** fills in the form.
+
 ## 4.6.0.dev1 — UPS and power, stage 1 of 2 (test build, not a Release)
 
 - **UPS of every major brand** through standard sources with a single data model (status, charge, runtime, load, voltages, temperature, model): **NUT** (Network UPS Tools: APC, Eaton, CyberPower, Riello, Vertiv, Tripp Lite, Salicru… connected to astreo, to a Synology/QNAP NAS or to any PC with NUT) and **apcupsd**. Sources are small interchangeable modules (`astreo_monitor/ups/`); SNMP comes in the next stage.

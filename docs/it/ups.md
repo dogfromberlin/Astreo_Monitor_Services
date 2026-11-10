@@ -10,14 +10,16 @@ queste fonti, e traduce i dati in un modello unico (stato, carica, autonomia, ca
 |---|---|---|
 | **NUT** (Network UPS Tools) | quasi tutte le marche: APC, Eaton, CyberPower, Riello, Vertiv, Tripp Lite, Salicru… L'UPS può essere collegato via USB ad astreo, a un NAS Synology o QNAP (che hanno già un server NUT) o a qualsiasi PC con NUT | 3493 |
 | **apcupsd** | UPS APC gestiti con il programma storico di APC | 3551 |
-| **SNMP** | UPS con scheda di rete (da una prossima versione) | 161 |
+| **SNMP** v2c | UPS con scheda di rete: UPS-MIB standard (Eaton, Riello, Vertiv e altri) e PowerNet di APC | 161 |
 
 <a id="aggiungere"></a>
 ## Aggiungere un UPS
 
 In **Alimentazione → Aggiungi un UPS**: nome, fonte, indirizzo del server NUT o apcupsd (127.0.0.1 se l'UPS è
 collegato ad astreo) e, per NUT, il nome dell'UPS su quel server: **Cerca** lo elenca da solo. **Prova** fa una
-lettura prima di salvare. Su un NAS Synology il server NUT si attiva in *Pannello di controllo → Hardware e
+lettura prima di salvare. **Cerca in rete** prova tutta la rete di casa (la /24 di astreo) in 5-10 secondi e
+propone i server NUT, apcupsd e gli UPS SNMP trovati (con la community scritta nel modulo, `public` se vuota):
+**Usa** compila il modulo. Su un NAS Synology il server NUT si attiva in *Pannello di controllo → Hardware e
 alimentazione → UPS → Abilita server di rete UPS*, aggiungendo l'IP di astreo ai dispositivi autorizzati; il nome
 dell'UPS è `ups`.
 

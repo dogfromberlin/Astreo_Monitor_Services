@@ -107,3 +107,19 @@ def test_api_aggiunta_e_prova(env, nut_server):
         assert lst[0]["name"] == "Studio"
         assert c.get(f"/api/v1/ups/{lst[0]['id']}/history?range=7d", headers=auth).status_code == 200
         assert c.delete(f"/api/v1/ups/{lst[0]['id']}", json={}, headers=auth).status_code == 200
+
+
+def test_snmp_ups_mib_e_ricerca(nut_server):
+    """4.6: lettura SNMP (UPS-MIB) con un finto UPS e ricerca automatica su NUT e SNMP."""
+    import ipaddress
+    import fake_snmp
+    from astreo_monitor.ups import scan, snmp
+    fake_snmp.serve(16163)
+    r = snmp.read({"host": "127.0.0.1", "port": 16163})
+    assert r.status == "battery" and r.charge == 76 and r.runtime_s == 840 and r.model == "5PX 1500"
+    with pytest.raises(ups.UpsError):
+        snmp.get("127.0.0.1", "public", ["1.3.6.1.2.1.1.1.0"], 16164, timeout=0.3)
+    with mock.patch.object(scan, "PORTS", (("nut", 34931),)), mock.patch.object(scan, "SNMP_PORT", 16163):
+        res = scan.scan(network=ipaddress.IPv4Network("127.0.9.0/30"))
+    kinds = {(f["backend"], f["host"], f.get("ups_name")) for f in res["found"]}
+    assert ("nut", "127.0.0.1", "eaton") in kinds and ("snmp", "127.0.0.1", None) in kinds

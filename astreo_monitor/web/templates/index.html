@@ -367,7 +367,9 @@
     <div class="chart-box"><canvas id="ch-ups" aria-label="{{ _("Carica e carico dell'UPS") }}" role="img"></canvas></div>
   </section>
   <section class="panel admin-only" aria-labelledby="h-ups-add">
-    <div class="panel-head"><h2 id="h-ups-add">{{ _("Aggiungi un UPS") }} <button type="button" class="help-btn" data-help="ups#aggiungere" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2></div>
+    <div class="panel-head"><h2 id="h-ups-add">{{ _("Aggiungi un UPS") }} <button type="button" class="help-btn" data-help="ups#aggiungere" aria-label="{{ _("Aiuto") }}" title="{{ _("Aiuto") }}">?</button></h2>
+      <button type="button" class="btn small end" id="ups-scan">{{ _("Cerca in rete") }}</button></div>
+    <ul class="ups-found" id="ups-found" hidden></ul>
     <form id="ups-form" class="ups-form" autocomplete="off">
       <label>{{ _("Nome") }}<input type="text" name="name" maxlength="100" required placeholder="{{ _("es. UPS studio") }}"></label>
       <label>{{ _("Fonte") }}<select name="backend">

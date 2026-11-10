@@ -960,6 +960,14 @@ def create_app(cfg: Config) -> Flask:
         except ups_mod.UpsError as exc:
             _ups_err(exc)
 
+    @app.post("/api/v1/ups/scan")
+    def api_ups_scan():
+        """4.6: cerca server NUT, apcupsd e UPS SNMP sulla rete del centrale (5-10 secondi)."""
+        from ..ups import scan as ups_scan
+        d = request.get_json(silent=True) or {}
+        community = str(d.get("community") or "public")[:100]
+        return jsonify(ups_scan.scan(community))
+
     @app.post("/api/v1/ups/test")
     def api_ups_test():
         """Lettura di prova con i dati del modulo, prima di salvare."""
