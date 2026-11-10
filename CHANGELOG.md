@@ -1,19 +1,14 @@
 # Changelog
 
-## 4.6.0.dev2 — UPS via SNMP and network search, stage 2 of 2 (test build, not a Release)
+## 4.6.0 — UPS and power
 
-- **SNMP v2c source** for UPS units with a network card: standard UPS-MIB (RFC 1628: Eaton, Riello, Vertiv and others) with fallback to APC PowerNet-MIB. Minimal SNMP client in pure Python (GET only), no extra library.
-- **Search the network** in *Add a UPS*: probes astreo's /24 and the server itself for NUT (3493), apcupsd (3551) and SNMP UPS units in 5-10 seconds, lists them with model and UPS names; **Use** fills in the form.
-
-## 4.6.0.dev1 — UPS and power, stage 1 of 2 (test build, not a Release)
-
-- **UPS of every major brand** through standard sources with a single data model (status, charge, runtime, load, voltages, temperature, model): **NUT** (Network UPS Tools: APC, Eaton, CyberPower, Riello, Vertiv, Tripp Lite, Salicru… connected to astreo, to a Synology/QNAP NAS or to any PC with NUT) and **apcupsd**. Sources are small interchangeable modules (`astreo_monitor/ups/`); SNMP comes in the next stage.
-- New **Power** view: one card per UPS with charge, load, runtime, voltages, last blackout; charge and load trend (24 h, 7 d, 30 d); **Add a UPS** with **Find** (lists the UPS on a NUT server) and **Test**. Power card in the Overview.
+- **UPS of every major brand** through standard sources with a single data model (status, charge, runtime, load, voltages, temperature, model): **NUT** (Network UPS Tools: APC, Eaton, CyberPower, Riello, Vertiv, Tripp Lite, Salicru… connected to astreo, to a Synology/QNAP NAS or to any PC with NUT), **apcupsd** and **SNMP v2c** (standard UPS-MIB with fallback to APC PowerNet-MIB; minimal client in pure Python, no extra library). Sources are small interchangeable modules (`astreo_monitor/ups/`).
+- New **Power** view: one card per UPS with charge, load, runtime, voltages, last blackout; charge and load trend (24 h, 7 d, 30 d); **Add a UPS** with **Find** (UPS names on a NUT server), **Test** and **Search the network** (NUT, apcupsd and SNMP UPS units on astreo's /24 in 5-10 seconds, **Use** fills in the form). Power card in the Overview.
 - New alert event **UPS and power**: blackout (on battery) at once, low battery, power back with the blackout duration, battery to replace, overload, UPS unreachable (after 3 failed reads); blackout and power back also in the events, entries in *To check*, Telegram buttons and mutes as for every alert.
 - Prometheus metrics `astreo_ups_*` with the `ups` label; blackouts of the week in the weekly summary.
 - **No automatic shutdown**: Astreo only watches and alerts.
 - New job `astreo-ups` (every minute); database migration 0012 (tables `ups_devices`, `ups_samples`, 90 days of history).
-- Guide: new page *UPS and power*, with how to try everything without a UPS using NUT's `dummy-ups` driver (IT/EN).
+- Guide: new page *UPS and power*, including how to try everything without a UPS with NUT's `dummy-ups` driver (IT/EN).
 
 ## 4.5.0 — buttons under the Telegram alerts
 
